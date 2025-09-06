@@ -37,9 +37,17 @@ class RapatController extends Controller
 
     foreach ($daftar_rapat as $rapat) {
         $rapat->status_label = $this->getStatusRapat($rapat);
+
+        $rapat->peserta_terpilih = DB::table('undangan')
+        ->where('id_rapat', $rapat->id)
+        ->pluck('id_user')
+        ->toArray();
     }
 
-    return view('rapat.index', compact('daftar_rapat', 'daftar_kategori'));
+        $daftar_pimpinan = DB::table('pimpinan_rapat')->get();
+        $daftar_peserta = DB::table('users')->where('role', 'peserta')->get();
+
+        return view('rapat.index', compact('daftar_rapat', 'daftar_kategori', 'daftar_pimpinan', 'daftar_peserta'));
     }
 
     // Form tambah rapat

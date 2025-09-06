@@ -5,7 +5,7 @@
     <div class="d-flex justify-content-between mb-3">
         <h3>Daftar Rapat</h3>
         @if(Auth::user()->role == 'admin')
-            <!-- Tombol Modal, bukan link -->
+            <!-- Tombol Modal Tambah -->
             <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#modalTambahRapat">
                 + Tambah Rapat
             </button>
@@ -81,7 +81,10 @@
                         <td>
                             <a href="{{ route('rapat.show', $rapat->id) }}" class="btn btn-info btn-sm">Detail</a>
                             @if(Auth::user()->role == 'admin')
-                            <a href="{{ route('rapat.edit', $rapat->id) }}" class="btn btn-warning btn-sm">Edit</a>
+                            <!-- Tombol Modal Edit -->
+                            <button type="button" class="btn btn-warning btn-sm" data-toggle="modal" data-target="#modalEditRapat-{{ $rapat->id }}">
+                                Edit
+                            </button>
                             <form action="{{ route('rapat.destroy', $rapat->id) }}" method="POST" class="d-inline"
                                 onsubmit="return confirm('Hapus rapat ini?')">
                                 @csrf @method('DELETE')
@@ -123,7 +126,13 @@
                 </ul>
             </div>
           @endif
-          @include('rapat._form')
+          @include('rapat._form', [
+              'rapat' => null,
+              'peserta_terpilih' => [],
+              'daftar_kategori' => $daftar_kategori,
+              'daftar_pimpinan' => $daftar_pimpinan,
+              'daftar_peserta' => $daftar_peserta
+          ])
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-dismiss="modal">Batal</button>
@@ -133,6 +142,39 @@
     </div>
   </div>
 </div>
+
+<!-- Modal Edit untuk Setiap Rapat -->
+@foreach($daftar_rapat as $rapat)
+<div class="modal fade" id="modalEditRapat-{{ $rapat->id }}" tabindex="-1" role="dialog" aria-labelledby="editRapatLabel-{{ $rapat->id }}" aria-hidden="true">
+  <div class="modal-dialog modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="editRapatLabel-{{ $rapat->id }}">Edit Rapat: {{ $rapat->judul }}</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <form action="{{ route('rapat.update', $rapat->id) }}" method="POST" autocomplete="off">
+        @csrf
+        @method('PUT')
+        <div class="modal-body">
+          @include('rapat._form', [
+              'rapat' => $rapat,
+              'peserta_terpilih' => $rapat->peserta_terpilih ?? [],
+              'daftar_kategori' => $daftar_kategori,
+              'daftar_pimpinan' => $daftar_pimpinan,
+              'daftar_peserta' => $daftar_peserta
+          ])
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">Batal</button>
+          <button type="submit" class="btn btn-primary">Update</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+@endforeach
 
 @if ($errors->any() && session('from_modal') == 'tambah_rapat')
 @push('scripts')
