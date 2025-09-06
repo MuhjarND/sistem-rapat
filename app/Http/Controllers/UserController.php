@@ -29,6 +29,7 @@ class UserController extends Controller
             'name' => 'required|string|max:100',
             'jabatan' => 'nullable|string|max:100',
             'email' => 'required|email|unique:users,email',
+            'no_hp' => 'nullable|regex:/^0[0-9]{9,13}$/',
             'role' => 'required|in:admin,notulis,peserta',
             'password' => 'required|min:6|confirmed'
         ]);

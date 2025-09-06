@@ -10,6 +10,8 @@ use Illuminate\Support\Facades\Auth;
 use App\Mail\UndanganRapatMail;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
+use App\Helpers\FonnteWa;
+
 use iio\libmergepdf\Merger;
 
 class RapatController extends Controller
@@ -85,18 +87,36 @@ public function store(Request $request)
     $rapat = DB::table('rapat')->where('id', $id_rapat)->first();
     $pimpinan = DB::table('pimpinan_rapat')->where('id', $rapat->id_pimpinan)->first();
 
-    foreach ($request->peserta as $id_peserta) {
-        // Simpan undangan
-        DB::table('undangan')->insert([
-            'id_rapat' => $id_rapat,
-            'id_user' => $id_peserta,
-            'status' => 'terkirim',
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
+foreach ($request->peserta as $id_peserta) {
+    // Simpan undangan
+    DB::table('undangan')->insert([
+        'id_rapat' => $id_rapat,
+        'id_user' => $id_peserta,
+        'status' => 'terkirim',
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
 
-        $peserta = DB::table('users')->where('id', $id_peserta)->first();
+    $peserta = DB::table('users')->where('id', $id_peserta)->first();
 
+    // --- Kirim WA via Fonnte ---
+    if ($peserta && $peserta->no_hp) {
+        // Pastikan format nomor HP: 628xxxxxx
+        $wa = preg_replace('/^0/', '62', $peserta->no_hp); // dari 0812xxx ke 62812xxx
+
+        $message = "Assalamualaikum wr. wb.\n\n"
+            . "*[Undangan Rapat]*\n"
+            . "Halo $peserta->name,\n"
+            . "Anda diundang pada rapat: _{$rapat->judul}_\n"
+            . "Tanggal: {$rapat->tanggal} {$rapat->waktu_mulai}\n"
+            . "Tempat: {$rapat->tempat}\n\n"
+            . "Silakan login ke aplikasi *Sistem Rapat* untuk melihat detail rapat dan download file undangan PDF Anda.\n"
+            . "Terima kasih atas perhatian Bapak/Ibu.\n"
+            . "Wassalamualaikum wr. wb.";
+
+
+        FonnteWa::send($wa, $message);
+    }
         // Generate PDF langsung ke memory
         $pdf = Pdf::loadView('rapat.undangan_pdf', [
             'rapat' => $rapat,
@@ -107,12 +127,12 @@ public function store(Request $request)
         $pdfData = $pdf->output();
 
         // Kirim email (lampiran PDF dari memory, tanpa file disimpan)
-        Mail::to($peserta->email)->send(
-            new UndanganRapatMail($rapat, $peserta, $pdfData)
-        );
+        // Mail::to($peserta->email)->queue(
+        //     new UndanganRapatMail($rapat->id, $peserta->id)
+        // );
     }
 
-    return redirect()->route('rapat.index')->with('success', 'Rapat & undangan berhasil dibuat dan email sudah dikirim!');
+    return redirect()->route('rapat.index')->with('success', 'Rapat & Undangan berhasil dibuat. Notifikasi WA sudah dikirim!');
 }
 
 

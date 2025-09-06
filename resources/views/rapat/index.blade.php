@@ -5,7 +5,10 @@
     <div class="d-flex justify-content-between mb-3">
         <h3>Daftar Rapat</h3>
         @if(Auth::user()->role == 'admin')
-            <a href="{{ route('rapat.create') }}" class="btn btn-primary">+ Tambah Rapat</a>
+            <!-- Tombol Modal, bukan link -->
+            <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#modalTambahRapat">
+                + Tambah Rapat
+            </button>
         @endif
     </div>
 
@@ -54,8 +57,8 @@
                         <td>{{ $no + 1 }}</td>
                         <td>{{ $rapat->nomor_undangan }}</td>
                         <td>{{ $rapat->judul }}</td>
-                        <td>{{ \Carbon\Carbon::parse($rapat->tanggal)->format('d M Y') }}</td>
                         <td>{{ $rapat->nama_kategori ?? '-' }}</td>
+                        <td>{{ \Carbon\Carbon::parse($rapat->tanggal)->format('d M Y') }}</td>
                         <td>{{ $rapat->waktu_mulai }}</td>
                         <td>{{ $rapat->tempat }}</td>
                         <td>{{ $rapat->nama_pimpinan }}<br><small>{{ $rapat->jabatan_pimpinan }}</small></td>
@@ -89,7 +92,7 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="9" class="text-center">Belum ada data rapat.</td>
+                        <td colspan="10" class="text-center">Belum ada data rapat.</td>
                     </tr>
                     @endforelse
                 </tbody>
@@ -97,4 +100,54 @@
         </div>
     </div>
 </div>
+
+<!-- Modal Tambah Rapat -->
+<div class="modal fade" id="modalTambahRapat" tabindex="-1" role="dialog" aria-labelledby="tambahRapatLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="tambahRapatLabel">Tambah Rapat Baru</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <form action="{{ route('rapat.store') }}" method="POST" autocomplete="off">
+        @csrf
+        <div class="modal-body">
+          @if ($errors->any() && session('from_modal') == 'tambah_rapat')
+            <div class="alert alert-danger">
+                <ul class="mb-0">
+                    @foreach ($errors->all() as $error)
+                        <li>{{ $error }}</li>
+                    @endforeach
+                </ul>
+            </div>
+          @endif
+          @include('rapat._form')
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">Batal</button>
+          <button type="submit" class="btn btn-primary">Simpan</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+@if ($errors->any() && session('from_modal') == 'tambah_rapat')
+@push('scripts')
+<script>
+$(document).ready(function(){
+    $('#modalTambahRapat').modal('show');
+});
+</script>
+@endpush
+@endif
+
 @endsection
+
+@push('scripts')
+<!-- Bootstrap JS & jQuery -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.bundle.min.js"></script>
+@endpush
