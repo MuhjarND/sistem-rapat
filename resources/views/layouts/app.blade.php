@@ -9,13 +9,15 @@
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
     <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <!-- Select2 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.0.13/dist/css/select2.min.css" rel="stylesheet" />
 
     <style>
         body { background: #f7f7f7; }
         .sidebar {  
             min-height: 100vh;
-            background: #152046;   /* NAVY */
-            color: #e1ba96;        /* GOLD/TAN */
+            background: #152046;
+            color: #e1ba96;
             padding-top: 30px;
         }
         .sidebar .nav-link {
@@ -47,11 +49,9 @@
         .navbar { background: #152046; color: #e1ba96; }
         .navbar-brand { color: #e1ba96 !important; font-weight:bold; }
 
-        /* submenu style */
         .submenu { margin-left: 28px; }
         .submenu .nav-link { margin-bottom: 4px; font-weight: 500; }
 
-        /* badge notifikasi ala contoh */
         .badge-ping {
             background: #ff2d55;
             color: #fff;
@@ -59,6 +59,10 @@
             font-size: 12px;
             padding: 3px 8px;
             line-height: 1;
+        }
+
+        .select2-container {
+            z-index: 9999 !important;
         }
     </style>
     @yield('style')
@@ -83,18 +87,10 @@
             <!-- Sidebar -->
             <div class="col-md-2 sidebar d-none d-md-block">
                 @php
-                    // buka-tutup "Kelola Data"
                     $openKelola  = request()->is('user*') || request()->is('pimpinan*') || request()->is('kategori*');
-
-                    // buka-tutup "Laporan" (dropdown)
                     $openLaporan = request()->routeIs('laporan.baru') || request()->routeIs('laporan.arsip') || request()->is('laporan/*');
-
-                    // hitung badge cepat (bulan berjalan vs arsip)
                     $nowY = date('Y'); $nowM = date('m');
-                    $badgeBaru = \DB::table('laporan_files')
-                                    ->whereYear('created_at',$nowY)
-                                    ->whereMonth('created_at',$nowM)
-                                    ->count();
+                    $badgeBaru = \DB::table('laporan_files')->whereYear('created_at',$nowY)->whereMonth('created_at',$nowM)->count();
                     $badgeArsip = \DB::table('laporan_files')
                                     ->where(function($q) use($nowY,$nowM){
                                         $q->whereYear('created_at','<',$nowY)
@@ -118,8 +114,6 @@
                     <a class="nav-link {{ request()->is('notulensi*') ? 'active' : '' }}" href="{{ route('notulensi.index') }}">
                         <i class="fas fa-book-open"></i> Notulensi
                     </a>
-
-                    {{-- ================== Laporan (DROPDOWN) ================== --}}
                     <a class="nav-link d-flex align-items-center {{ $openLaporan ? '' : 'collapsed' }}"
                        data-toggle="collapse" href="#menuLaporan" role="button"
                        aria-expanded="{{ $openLaporan ? 'true' : 'false' }}" aria-controls="menuLaporan">
@@ -144,9 +138,6 @@
                             </a>
                         </div>
                     </div>
-                    {{-- ======================================================== --}}
-
-                    {{-- Kelola Data (dropdown) --}}
                     <a class="nav-link d-flex align-items-center {{ $openKelola ? '' : 'collapsed' }}"
                        data-toggle="collapse" href="#menuKelolaData" role="button"
                        aria-expanded="{{ $openKelola ? 'true' : 'false' }}" aria-controls="menuKelolaData">
@@ -176,9 +167,42 @@
         </div>
     </div>
 
+    <!-- JQUERY FULL! -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <!-- Bootstrap JS -->
-    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.2/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Select2 JS -->
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.0.13/dist/js/select2.min.js"></script>
+
+<script>
+$(document).ready(function() {
+    // Untuk Tambah Rapat (modal)
+    $('#modalTambahRapat').on('shown.bs.modal', function () {
+        var $select = $(this).find('.js-example-basic-multiple');
+        if ($select.data('select2')) $select.select2('destroy');
+        $select.select2({
+            dropdownParent: $('#modalTambahRapat'),
+            width: '100%',
+            placeholder: 'Pilih peserta rapat',
+            allowClear: true
+        });
+    });
+
+    // Untuk setiap Modal Edit Rapat
+    $('[id^="modalEditRapat-"]').on('shown.bs.modal', function () {
+        var $select = $(this).find('.js-example-basic-multiple');
+        if ($select.data('select2')) $select.select2('destroy');
+        $select.select2({
+            dropdownParent: $(this),
+            width: '100%',
+            placeholder: 'Pilih peserta rapat',
+            allowClear: true
+        });
+    });
+});
+</script>
+
     @yield('script')
+    @stack('scripts')
 </body>
 </html>

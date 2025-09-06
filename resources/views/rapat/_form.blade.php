@@ -58,11 +58,11 @@
 </div>
 <div class="form-group">
     <label>Peserta</label>
-    <select name="peserta[]" class="form-control" multiple required>
+    <select class="js-example-basic-multiple" name="peserta[]" multiple="multiple" style="width: 100%;" required>
         @foreach($daftar_peserta as $peserta)
             <option value="{{ $peserta->id }}"
                 {{ in_array($peserta->id, old('peserta', $peserta_terpilih ?? [])) ? 'selected' : '' }}>
-                {{ $peserta->name }} ({{ $peserta->email }})
+                {{ $peserta->name }}
             </option>
         @endforeach
     </select>
