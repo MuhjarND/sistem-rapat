@@ -32,8 +32,8 @@
                 <div class="mt-2">
                     <small>Link langsung: <a href="{{ route('absensi.scan', $rapat->token_qr) }}" target="_blank">{{ route('absensi.scan', $rapat->token_qr) }}</a></small>
                 </div>
-                <a href="{{ route('absensi.export.pdf', $rapat->id) }}" class="btn btn-outline-primary mt-3">Export Laporan Absensi (PDF)</a>
-                <a href="{{ route('rapat.undangan.pdf', $rapat->id) }}" class="btn btn-outline-primary mb-3">Export Undangan PDF </a>
+                <a href="{{ route('absensi.export.pdf', $rapat->id) }}" class="btn btn-success mt-3">Laporan Absensi (PDF)</a>
+                <a href="{{ route('rapat.undangan.pdf', $rapat->id) }}" class="btn btn-success mt-3">Undangan (PDF) </a>
             @endif
             @endauth
             <a href="{{ route('rapat.index') }}" class="btn btn-secondary mt-3">Kembali</a>
