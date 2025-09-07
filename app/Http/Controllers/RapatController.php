@@ -45,7 +45,7 @@ class RapatController extends Controller
 
             $daftar_rapat = $query
                 ->orderBy('tanggal', 'desc')
-                ->paginate(7)
+                ->paginate(6)
                 ->appends($request->all());  
 
         foreach ($daftar_rapat as $rapat) {
