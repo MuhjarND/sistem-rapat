@@ -19,35 +19,48 @@ class RapatController extends Controller
     // Tampilkan daftar rapat
     public function index(Request $request)
     {
-    // Ambil semua kategori untuk filter
-    $daftar_kategori = DB::table('kategori_rapat')->orderBy('nama')->get();
+        $daftar_kategori = DB::table('kategori_rapat')->orderBy('nama')->get();
 
-    // Query join kategori
-    $query = DB::table('rapat')
-        ->leftJoin('kategori_rapat', 'rapat.id_kategori', '=', 'kategori_rapat.id')
-        ->leftJoin('pimpinan_rapat', 'rapat.id_pimpinan', '=', 'pimpinan_rapat.id')
-        ->select('rapat.*', 'kategori_rapat.nama as nama_kategori', 'pimpinan_rapat.nama as nama_pimpinan', 'pimpinan_rapat.jabatan as jabatan_pimpinan');
+        $query = DB::table('rapat')
+            ->leftJoin('kategori_rapat', 'rapat.id_kategori', '=', 'kategori_rapat.id')
+            ->leftJoin('users', 'rapat.dibuat_oleh', '=', 'users.id')
+            ->select(
+                'rapat.*',
+                'kategori_rapat.nama as nama_kategori',
+                'users.name as nama_pembuat'
+            );
 
-    // Jika filter kategori aktif
-    if ($request->kategori) {
-        $query->where('rapat.id_kategori', $request->kategori);
-    }
+        if ($request->kategori) {
+            $query->where('rapat.id_kategori', $request->kategori);
+        }
+        if ($request->tanggal) {
+            $query->where('rapat.tanggal', $request->tanggal);
+        }
+        if ($request->keyword) {
+            $query->where(function($q) use ($request) {
+                $q->where('rapat.judul', 'like', '%' . $request->keyword . '%')
+                ->orWhere('rapat.nomor_undangan', 'like', '%' . $request->keyword . '%');
+            });
+        }
 
-    $daftar_rapat = $query->orderBy('tanggal', 'desc')->get();
+            $daftar_rapat = $query
+                ->orderBy('tanggal', 'desc')
+                ->paginate(7)
+                ->appends($request->all());  
 
-    foreach ($daftar_rapat as $rapat) {
-        $rapat->status_label = $this->getStatusRapat($rapat);
-
-        $rapat->peserta_terpilih = DB::table('undangan')
-        ->where('id_rapat', $rapat->id)
-        ->pluck('id_user')
-        ->toArray();
-    }
+        foreach ($daftar_rapat as $rapat) {
+            $rapat->status_label = $this->getStatusRapat($rapat);
+        }
 
         $daftar_pimpinan = DB::table('pimpinan_rapat')->get();
-        $daftar_peserta = DB::table('users')->where('role', 'peserta')->get();
+        $daftar_peserta  = DB::table('users')->where('role', 'peserta')->get();
 
-        return view('rapat.index', compact('daftar_rapat', 'daftar_kategori', 'daftar_pimpinan', 'daftar_peserta'));
+        return view('rapat.index', compact(
+            'daftar_rapat',
+            'daftar_kategori',
+            'daftar_pimpinan',
+            'daftar_peserta'
+        ));
     }
 
     // Form tambah rapat

@@ -46,7 +46,7 @@
   {{-- Rekap per-rapat (tanpa kolom diundang/hadir/tidak/izin) --}}
   <div class="card">
     <div class="card-body p-0">
-      <table class="table table-striped table-bordered mb-0">
+      <table class="table table-striped table-hover table-sm">
         <thead class="text-center">
           <tr>
             <th style="width:40px;">#</th>

@@ -8,7 +8,7 @@
     @endif
     <div class="card mt-3">
         <div class="card-body p-0">
-            <table class="table table-bordered table-striped m-0">
+            <table class="table table-striped table-hover table-sm">
                 <thead>
                     <tr class="text-center">
                         <th width="5%">#</th>

@@ -2,93 +2,126 @@
 
 @section('title','Dashboard')
 
-@section('style')
+@push('style')
 <style>
-  :root{
-    --primary: #082C38;
-    --accent:  #C19976;
-    --soft:    #FCD8B4;
-  }
-  .dash-card{
-    border: 0;
-    border-radius: 10px;
-    box-shadow: 0 8px 20px rgba(0,0,0,.06);
+  /* ====== METRIC CARDS ====== */
+  .metric-card{
+    border: 1px solid var(--border);
+    background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.02));
+    box-shadow: var(--shadow);
+    color: var(--text);
+    border-radius: 14px;
     overflow: hidden;
   }
-  .dash-card .card-body{
-    display:flex; align-items:center; gap:14px;
+  .metric-card .card-body{
+    display:flex; align-items:center; gap:14px; padding:18px 18px;
   }
-  .dash-icon{
-    width:48px;height:48px;border-radius:10px;
+  .metric-icon{
+    width:52px;height:52px;border-radius:12px;
     display:flex;align-items:center;justify-content:center;
-    background: var(--soft); color: var(--primary); font-size:22px;
+    background: linear-gradient(180deg, rgba(79,70,229,.25), rgba(14,165,233,.18));
+    border:1px solid rgba(99,102,241,.25);
+    color:#fff; font-size:22px; box-shadow: var(--shadow);
   }
-  .dash-val{font-size:26px; font-weight:700; margin:0; color:#222;}
-  .dash-sub{margin:0; color:#777; font-size:13px;}
-  .section-title{color:#333; font-weight:700;}
+  .metric-val{font-size:28px; font-weight:800; margin:0; color:#fff;}
+  .metric-sub{margin:0; color:var(--muted); font-size:13px; font-weight:600; letter-spacing:.2px;}
 
-  /* — memastikan tinggi area chart sama — */
-  .chart-wrap{height: 340px;}   /* ubah angka ini kalau mau lebih kecil/besar */
-  .table-mini td, .table-mini th{padding:.5rem .75rem;}
+  /* ====== SECTION TITLE ====== */
+  .section-title{color:#fff; font-weight:800; letter-spacing:.3px; margin:0;}
+
+  /* ====== CARD GENERIC (chart/list) ====== */
+  .dash-card{
+    background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.02));
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    box-shadow: var(--shadow);
+    color: var(--text);
+  }
+  .dash-card .card-header{
+    background: transparent; border-bottom:1px solid var(--border);
+  }
+  .chart-wrap{height: 340px;}  /* samakan tinggi antar chart */
+
+  /* ====== TABLE & LIST ====== */
+  .table-mini{ color: var(--text); }
+  .table-mini thead th{
+    text-align:center; vertical-align:middle;
+    background: rgba(79,70,229,.12);
+    border-top:none; border-bottom:1px solid var(--border);
+    text-transform: uppercase; letter-spacing:.3px; font-size:.75rem;
+  }
+  .table-mini td{ vertical-align: middle; font-size:.9rem; }
+  .table-mini tbody tr:hover{ background: rgba(14,165,233,.06); }
+
+  .list-group-item{
+    background: transparent; color: var(--text);
+    border-color: var(--border);
+  }
+  .list-group-item small{ color: var(--muted); }
+
+  /* kecilkan gutter antar kolom di row tertentu jika perlu */
+  @media (min-width: 992px){
+    .gutter-tight > [class^="col-"]{ padding-right:10px; padding-left:10px; }
+  }
 </style>
-@endsection
+@endpush
 
 @section('content')
 <div class="container-fluid">
 
-  {{-- Cards Statistik --}}
-  <div class="row">
+  {{-- ====== METRIC CARDS ====== --}}
+  <div class="row gutter-tight">
     <div class="col-md-3 mb-3">
-      <div class="card dash-card">
+      <div class="card metric-card">
         <div class="card-body">
-          <div class="dash-icon"><i class="fas fa-calendar-alt"></i></div>
+          <div class="metric-icon"><i class="fas fa-calendar-alt"></i></div>
           <div>
-            <p class="dash-val">{{ number_format($total_rapat) }}</p>
-            <p class="dash-sub">Total Rapat</p>
+            <p class="metric-val">{{ number_format($total_rapat) }}</p>
+            <p class="metric-sub">Total Rapat</p>
           </div>
         </div>
       </div>
     </div>
     <div class="col-md-3 mb-3">
-      <div class="card dash-card">
+      <div class="card metric-card">
         <div class="card-body">
-          <div class="dash-icon"><i class="fas fa-calendar-check"></i></div>
+          <div class="metric-icon"><i class="fas fa-calendar-check"></i></div>
           <div>
-            <p class="dash-val">{{ number_format($rapat_bulan_ini) }}</p>
-            <p class="dash-sub">Rapat Bulan Ini</p>
+            <p class="metric-val">{{ number_format($rapat_bulan_ini) }}</p>
+            <p class="metric-sub">Rapat Bulan Ini</p>
           </div>
         </div>
       </div>
     </div>
     <div class="col-md-3 mb-3">
-      <div class="card dash-card">
+      <div class="card metric-card">
         <div class="card-body">
-          <div class="dash-icon"><i class="fas fa-file-alt"></i></div>
+          <div class="metric-icon"><i class="fas fa-file-alt"></i></div>
           <div>
-            <p class="dash-val">{{ number_format($notulensi_sudah) }}</p>
-            <p class="dash-sub">Notulensi Sudah</p>
+            <p class="metric-val">{{ number_format($notulensi_sudah) }}</p>
+            <p class="metric-sub">Notulensi Sudah</p>
           </div>
         </div>
       </div>
     </div>
     <div class="col-md-3 mb-3">
-      <div class="card dash-card">
+      <div class="card metric-card">
         <div class="card-body">
-          <div class="dash-icon"><i class="fas fa-folder-open"></i></div>
+          <div class="metric-icon"><i class="fas fa-folder-open"></i></div>
           <div>
-            <p class="dash-val">{{ number_format($total_laporan) }}</p>
-            <p class="dash-sub">Total Laporan</p>
+            <p class="metric-val">{{ number_format($total_laporan) }}</p>
+            <p class="metric-sub">Total Laporan</p>
           </div>
         </div>
       </div>
     </div>
   </div>
 
-  {{-- Charts — ukuran sama (6-6) & tinggi seragam --}}
-  <div class="row">
+  {{-- ====== CHARTS ====== --}}
+  <div class="row gutter-tight">
     <div class="col-lg-6 mb-3">
       <div class="card dash-card">
-        <div class="card-header bg-white">
+        <div class="card-header d-flex justify-content-between align-items-center">
           <strong class="section-title">Rapat per Bulan ({{ date('Y') }})</strong>
         </div>
         <div class="card-body chart-wrap">
@@ -98,7 +131,7 @@
     </div>
     <div class="col-lg-6 mb-3">
       <div class="card dash-card">
-        <div class="card-header bg-white">
+        <div class="card-header d-flex justify-content-between align-items-center">
           <strong class="section-title">Top Kategori Rapat</strong>
         </div>
         <div class="card-body chart-wrap">
@@ -108,15 +141,15 @@
     </div>
   </div>
 
-  {{-- Lists --}}
-  <div class="row">
+  {{-- ====== LIST & TABLE ====== --}}
+  <div class="row gutter-tight">
     <div class="col-lg-6 mb-3">
       <div class="card dash-card">
-        <div class="card-header bg-white">
+        <div class="card-header">
           <strong class="section-title">Rapat Akan Datang (7 hari)</strong>
         </div>
         <div class="card-body p-0">
-          <table class="table table-mini mb-0">
+          <table class="table table-mini table-hover table-sm mb-0">
             <thead>
               <tr>
                 <th>Judul</th><th>Tanggal</th><th>Waktu</th><th>Tempat</th>
@@ -141,7 +174,7 @@
 
     <div class="col-lg-3 mb-3">
       <div class="card dash-card">
-        <div class="card-header bg-white">
+        <div class="card-header">
           <strong class="section-title">Rapat Terbaru</strong>
         </div>
         <div class="card-body p-0">
@@ -149,10 +182,10 @@
             @forelse($rapat_terbaru as $r)
               <li class="list-group-item d-flex justify-content-between align-items-center">
                 <span>{{ $r->judul }}</span>
-                <small class="text-muted">{{ \Carbon\Carbon::parse($r->tanggal)->format('d/m') }}</small>
+                <small>{{ \Carbon\Carbon::parse($r->tanggal)->format('d/m') }}</small>
               </li>
             @empty
-              <li class="list-group-item text-muted text-center">Belum ada</li>
+              <li class="list-group-item text-center text-muted">Belum ada</li>
             @endforelse
           </ul>
         </div>
@@ -161,7 +194,7 @@
 
     <div class="col-lg-3 mb-3">
       <div class="card dash-card">
-        <div class="card-header bg-white">
+        <div class="card-header">
           <strong class="section-title">Laporan Terbaru</strong>
         </div>
         <div class="card-body p-0">
@@ -169,10 +202,10 @@
             @forelse($laporan_terbaru as $f)
               <li class="list-group-item d-flex justify-content-between align-items-center">
                 <span>{{ $f->judul }}</span>
-                <small class="text-muted">{{ \Carbon\Carbon::parse($f->created_at)->format('d/m') }}</small>
+                <small>{{ \Carbon\Carbon::parse($f->created_at)->format('d/m') }}</small>
               </li>
             @empty
-              <li class="list-group-item text-muted text-center">Belum ada</li>
+              <li class="list-group-item text-center text-muted">Belum ada</li>
             @endforelse
           </ul>
         </div>
@@ -183,7 +216,8 @@
 </div>
 @endsection
 
-@section('script')
+@push('scripts')
+{{-- Chart.js 3.x --}}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
 <script>
   // Data dari controller
@@ -192,7 +226,13 @@
   const labelKat   = @json($label_kategori);
   const dataKat    = @json($data_kategori);
 
-  // Chart Rapat per Bulan (bar vertikal)
+  // Palet warna selaras tema (fallback, biar konsisten)
+  const cPrimary = '#4f46e5';
+  const cPrimary700 = '#4338ca';
+  const cBorder = 'rgba(31,42,77,.6)';
+  const cGrid   = 'rgba(148,163,184,.15)';
+
+  // ====== Chart Rapat per Bulan ======
   new Chart(document.getElementById('chartRapatBulan'), {
     type: 'bar',
     data: {
@@ -200,21 +240,41 @@
       datasets: [{
         label: 'Jumlah Rapat',
         data: dataBulan,
-        backgroundColor: '#C19976',
-        borderColor: '#082C38',
-        borderWidth: 1,
-        borderRadius: 6,
+        backgroundColor: 'rgba(79,70,229,0.55)',
+        borderColor: cPrimary700,
+        borderWidth: 1.2,
+        borderRadius: 8,
+        hoverBackgroundColor: 'rgba(79,70,229,0.75)'
       }]
     },
     options: {
       responsive: true,
-      maintainAspectRatio: false,   // mengikuti .chart-wrap
-      scales: { y: { beginAtZero: true, ticks: { precision:0 } } },
-      plugins: { legend: { display: false } }
+      maintainAspectRatio: false,
+      scales: {
+        x: {
+          grid: { color: cGrid, borderColor: cBorder, drawBorder: true },
+          ticks: { color: '#dbe7ff' }
+        },
+        y: {
+          beginAtZero: true,
+          ticks: { precision:0, color: '#dbe7ff' },
+          grid: { color: cGrid, borderColor: cBorder, drawBorder: true }
+        }
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: 'rgba(15,21,51,.95)',
+          borderColor: cBorder,
+          borderWidth: 1,
+          titleColor: '#fff',
+          bodyColor: '#cdd9ff'
+        }
+      }
     }
   });
 
-  // Chart Top Kategori (bar horizontal) — ukuran sama dengan chart pertama
+  // ====== Chart Top Kategori (Horizontal) ======
   new Chart(document.getElementById('chartKategori'), {
     type: 'bar',
     data: {
@@ -222,28 +282,42 @@
       datasets: [{
         label: 'Jumlah Rapat',
         data: dataKat,
-        backgroundColor: '#C19976',
-        borderColor: '#082C38',
-        borderWidth: 1,
-        borderRadius: 6,
+        backgroundColor: 'rgba(14,165,233,0.55)',
+        borderColor: '#0ea5e9',
+        borderWidth: 1.2,
+        borderRadius: 8,
+        hoverBackgroundColor: 'rgba(14,165,233,0.75)',
         barThickness: 'flex',
-        maxBarThickness: 28
+        maxBarThickness: 30
       }]
     },
     options: {
-      indexAxis: 'y',               // horizontal
+      indexAxis: 'y',
       responsive: true,
-      maintainAspectRatio: false,   // mengikuti .chart-wrap
+      maintainAspectRatio: false,
       scales: {
-        x: { beginAtZero: true, ticks: { precision: 0 } },
-        y: { ticks: { autoSkip: false } }
+        x: {
+          beginAtZero: true,
+          ticks: { precision: 0, color: '#dbe7ff' },
+          grid: { color: cGrid, borderColor: cBorder, drawBorder: true }
+        },
+        y: {
+          ticks: { autoSkip: false, color: '#dbe7ff' },
+          grid: { color: cGrid, borderColor: cBorder, drawBorder: true }
+        }
       },
       plugins: {
         legend: { display: false },
-        tooltip: { mode: 'nearest', intersect: false }
+        tooltip: {
+          backgroundColor: 'rgba(15,21,51,.95)',
+          borderColor: cBorder,
+          borderWidth: 1,
+          titleColor: '#fff',
+          bodyColor: '#cdd9ff'
+        }
       },
       layout: { padding: { right: 8 } }
     }
   });
 </script>
-@endsection
+@endpush

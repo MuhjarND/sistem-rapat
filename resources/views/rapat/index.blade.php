@@ -16,11 +16,13 @@
         <div class="alert alert-success">{{ session('success') }}</div>
     @endif
 
+    {{-- FILTER --}}
     <form method="GET" action="{{ route('rapat.index') }}" class="mb-3">
-        <div class="row">
-            <div class="col-md-4">
-                <select name="kategori" class="form-control">
-                    <option value="">-- Semua Kategori --</option>
+        <div class="row align-items-end">
+            <div class="col-md-3">
+                <label class="mb-1">Kategori Rapat</label>
+                <select name="kategori" class="form-control form-control-sm">
+                    <option value="">Semua Kategori</option>
                     @foreach($daftar_kategori as $kategori)
                         <option value="{{ $kategori->id }}" {{ request('kategori') == $kategori->id ? 'selected' : '' }}>
                             {{ $kategori->nama }}
@@ -29,24 +31,31 @@
                 </select>
             </div>
             <div class="col-md-2">
-                <button class="btn btn-info">Filter</button>
+                <label class="mb-1">Tanggal</label>
+                <input type="date" name="tanggal" value="{{ request('tanggal') }}" class="form-control form-control-sm">
+            </div>
+            <div class="col-md-3">
+                <label class="mb-1">Cari Judul/Nomor</label>
+                <input type="text" name="keyword" value="{{ request('keyword') }}" class="form-control form-control-sm" placeholder="Cari...">
+            </div>
+            <div class="col-md-2">
+                <button class="btn btn-info btn-block btn-sm">Filter</button>
             </div>
         </div>
     </form>
 
     <div class="card">
         <div class="card-body p-0">
-            <table class="table table-striped m-0">
+            <table class="table table-striped table-sm m-0">
                 <thead>
                     <tr>
                         <th>#</th>
                         <th>Nomor Undangan</th>
                         <th>Judul</th>
                         <th>Kategori</th>
-                        <th>Tanggal</th>
-                        <th>Waktu</th>
+                        <th>Tgl & Waktu</th>
                         <th>Tempat</th>
-                        <th>Pimpinan</th>
+                        <th>Dibuat Oleh</th>
                         <th>Status</th>
                         <th>Aksi</th>
                     </tr>
@@ -54,14 +63,16 @@
                 <tbody>
                     @forelse($daftar_rapat as $no => $rapat)
                     <tr>
-                        <td>{{ $no + 1 }}</td>
+                        <td>{{ $daftar_rapat->firstItem() + $no }}</td>
                         <td>{{ $rapat->nomor_undangan }}</td>
                         <td>{{ $rapat->judul }}</td>
                         <td>{{ $rapat->nama_kategori ?? '-' }}</td>
-                        <td>{{ \Carbon\Carbon::parse($rapat->tanggal)->format('d M Y') }}</td>
-                        <td>{{ $rapat->waktu_mulai }}</td>
+                        <td>
+                            {{ \Carbon\Carbon::parse($rapat->tanggal)->format('d M Y') }}
+                            <span class="text-muted">{{ $rapat->waktu_mulai }}</span>
+                        </td>
                         <td>{{ $rapat->tempat }}</td>
-                        <td>{{ $rapat->nama_pimpinan }}<br><small>{{ $rapat->jabatan_pimpinan }}</small></td>
+                        <td>{{ $rapat->nama_pembuat ?? '-' }}</td>
                         <td>
                             <span class="badge
                                 @if($rapat->status_label == 'Akan Datang') badge-info
@@ -71,43 +82,56 @@
                                 @endif">
                                 {{ $rapat->status_label }}
                             </span>
-                            @if($rapat->status !== 'dibatalkan' && $rapat->status_label == 'Akan Datang' && Auth::user()->role == 'admin')
-                                <form action="{{ route('rapat.batal', $rapat->id) }}" method="POST" style="display:inline;">
-                                    @csrf
-                                    <button class="btn btn-danger btn-sm" onclick="return confirm('Batalkan rapat?')">Batalkan</button>
-                                </form>
-                            @endif
                         </td>
-                        <td>
-                            <a href="{{ route('rapat.show', $rapat->id) }}" class="btn btn-info btn-sm">Detail</a>
-                            @if(Auth::user()->role == 'admin')
-                            <!-- Tombol Modal Edit -->
-                            <button type="button" class="btn btn-warning btn-sm" data-toggle="modal" data-target="#modalEditRapat-{{ $rapat->id }}">
-                                Edit
-                            </button>
-                            <form action="{{ route('rapat.destroy', $rapat->id) }}" method="POST" class="d-inline"
-                                onsubmit="return confirm('Hapus rapat ini?')">
-                                @csrf @method('DELETE')
-                                <button class="btn btn-danger btn-sm">Hapus</button>
-                            </form>
-                            @endif
+                        <td class="text-center">
+                            <div class="d-flex justify-content-center">
+                                <a href="{{ route('rapat.show', $rapat->id) }}" 
+                                   class="btn btn-info btn-sm mr-1" 
+                                   title="Detail">
+                                    <i class="fa fa-eye"></i>
+                                </a>
+
+                                @if(Auth::user()->role == 'admin')
+                                    <!-- Tombol Modal Edit -->
+                                    <button type="button" 
+                                            class="btn btn-warning btn-sm mr-1" 
+                                            data-toggle="modal" 
+                                            data-target="#modalEditRapat-{{ $rapat->id }}" 
+                                            title="Edit">
+                                        <i class="fa fa-edit"></i>
+                                    </button>
+
+                                    <form action="{{ route('rapat.destroy', $rapat->id) }}" method="POST" class="d-inline"
+                                        onsubmit="return confirm('Hapus rapat ini?')">
+                                        @csrf @method('DELETE')
+                                        <button class="btn btn-danger btn-sm" title="Hapus">
+                                            <i class="fa fa-trash"></i>
+                                        </button>
+                                    </form>
+                                @endif
+                            </div>
                         </td>
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="10" class="text-center">Belum ada data rapat.</td>
+                        <td colspan="9" class="text-center">Belum ada data rapat.</td>
                     </tr>
                     @endforelse
                 </tbody>
             </table>
         </div>
     </div>
+
+    {{-- Pagination --}}
+    <div class="mt-3">
+        {{ $daftar_rapat->links() }}
+    </div>
 </div>
 
 <!-- Modal Tambah Rapat -->
 <div class="modal fade" id="modalTambahRapat" tabindex="-1" role="dialog" aria-labelledby="tambahRapatLabel" aria-hidden="true">
   <div class="modal-dialog modal-lg" role="document">
-    <div class="modal-content">
+    <div class="modal-content modal-solid">
       <div class="modal-header">
         <h5 class="modal-title" id="tambahRapatLabel">Tambah Rapat Baru</h5>
         <button type="button" class="close" data-dismiss="modal" aria-label="Close">
@@ -133,7 +157,7 @@
               'daftar_pimpinan' => $daftar_pimpinan,
               'daftar_peserta' => $daftar_peserta,
               'dropdownParentId' => '#modalTambahRapat',
-                  'pesertaWrapperId' => 'peserta-wrapper-tambah'
+              'pesertaWrapperId' => 'peserta-wrapper-tambah'
           ])
         </div>
         <div class="modal-footer">
@@ -149,7 +173,7 @@
 @foreach($daftar_rapat as $rapat)
 <div class="modal fade" id="modalEditRapat-{{ $rapat->id }}" tabindex="-1" role="dialog" aria-labelledby="editRapatLabel-{{ $rapat->id }}" aria-hidden="true">
   <div class="modal-dialog modal-lg" role="document">
-    <div class="modal-content">
+    <div class="modal-content modal-solid">
       <div class="modal-header">
         <h5 class="modal-title" id="editRapatLabel-{{ $rapat->id }}">Edit Rapat: {{ $rapat->judul }}</h5>
         <button type="button" class="close" data-dismiss="modal" aria-label="Close">
@@ -191,24 +215,3 @@ $(document).ready(function(){
 @endif
 
 @endsection
-
-@push('scripts')
-<script>
-$(document).ready(function() {
-    $('.peserta-select').select2({
-        width: '100%',
-        placeholder: 'Pilih peserta rapat',
-        allowClear: true
-    });
-    // Untuk modal
-    $('#modalTambahRapat, [id^="modalEditRapat-"]').on('shown.bs.modal', function () {
-        $(this).find('.peserta-select').select2({
-            width: '100%',
-            dropdownParent: $(this),
-            placeholder: 'Pilih peserta rapat',
-            allowClear: true
-        });
-    });
-});
-</script>
-@endpush
