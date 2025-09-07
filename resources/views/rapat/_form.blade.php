@@ -56,9 +56,18 @@
         @endforeach
     </select>
 </div>
-<div class="form-group">
+
+<div class="form-group" id="{{ $pesertaWrapperId ?? 'peserta-wrapper' }}">
     <label>Peserta</label>
-    <select class="js-example-basic-multiple" name="peserta[]" multiple="multiple" style="width: 100%;" required>
+    <select
+        class="js-example-basic-multiple"
+        name="peserta[]"
+        multiple="multiple"
+        style="width: 100%;"
+        required
+        {{-- kunci parent dropdown ke wrapper ini --}}
+        data-dropdown-parent="#{{ $pesertaWrapperId ?? 'peserta-wrapper' }}"
+    >
         @foreach($daftar_peserta as $peserta)
             <option value="{{ $peserta->id }}"
                 {{ in_array($peserta->id, old('peserta', $peserta_terpilih ?? [])) ? 'selected' : '' }}>

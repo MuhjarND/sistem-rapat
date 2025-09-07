@@ -131,7 +131,9 @@
               'peserta_terpilih' => [],
               'daftar_kategori' => $daftar_kategori,
               'daftar_pimpinan' => $daftar_pimpinan,
-              'daftar_peserta' => $daftar_peserta
+              'daftar_peserta' => $daftar_peserta,
+              'dropdownParentId' => '#modalTambahRapat',
+                  'pesertaWrapperId' => 'peserta-wrapper-tambah'
           ])
         </div>
         <div class="modal-footer">
@@ -163,7 +165,9 @@
               'peserta_terpilih' => $rapat->peserta_terpilih ?? [],
               'daftar_kategori' => $daftar_kategori,
               'daftar_pimpinan' => $daftar_pimpinan,
-              'daftar_peserta' => $daftar_peserta
+              'daftar_peserta' => $daftar_peserta,
+              'dropdownParentId' => '#modalEditRapat-' . $rapat->id,
+              'pesertaWrapperId' => 'peserta-wrapper-edit-' . $rapat->id
           ])
         </div>
         <div class="modal-footer">

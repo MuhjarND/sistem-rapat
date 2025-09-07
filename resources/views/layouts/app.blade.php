@@ -60,10 +60,6 @@
             padding: 3px 8px;
             line-height: 1;
         }
-
-        .select2-container {
-            z-index: 9999 !important;
-        }
     </style>
     @yield('style')
 </head>
@@ -175,32 +171,59 @@
     <script src="https://cdn.jsdelivr.net/npm/select2@4.0.13/dist/js/select2.min.js"></script>
 
 <script>
-$(document).ready(function() {
-    // Untuk Tambah Rapat (modal)
-    $('#modalTambahRapat').on('shown.bs.modal', function () {
-        var $select = $(this).find('.js-example-basic-multiple');
-        if ($select.data('select2')) $select.select2('destroy');
-        $select.select2({
-            dropdownParent: $('#modalTambahRapat'),
-            width: '100%',
-            placeholder: 'Pilih peserta rapat',
-            allowClear: true
-        });
+$(function() {
+
+  function initSelect2InModal($modal) {
+      var $selects = $modal.find('.js-example-basic-multiple');
+
+      $selects.each(function(){
+          var $select = $(this);
+
+          // destroy instance lama (kalau ada)
+          if ($select.data('select2')) {
+              $select.select2('destroy');
+          }
+
+          // ambil target parent dari data attribute; fallback ke modal; terakhir ke body
+          var parentSelector = $select.attr('data-dropdown-parent');
+          var $parent = parentSelector ? $(parentSelector) : $modal;
+          if (!$parent.length) { $parent = $('body'); }
+
+          $select.select2({
+              width: '100%',
+              dropdownParent: $parent,
+              placeholder: 'Pilih peserta rapat',
+              allowClear: true
+          });
+      });
+  }
+
+  // Tampilkan & init di MODAL TAMBAH
+  $('#modalTambahRapat')
+    .on('shown.bs.modal', function(){ initSelect2InModal($(this)); })
+    .on('hidden.bs.modal', function(){
+        var $sel = $(this).find('.js-example-basic-multiple');
+        if ($sel.data('select2')) $sel.select2('destroy');
     });
 
-    // Untuk setiap Modal Edit Rapat
-    $('[id^="modalEditRapat-"]').on('shown.bs.modal', function () {
-        var $select = $(this).find('.js-example-basic-multiple');
-        if ($select.data('select2')) $select.select2('destroy');
-        $select.select2({
-            dropdownParent: $(this),
-            width: '100%',
-            placeholder: 'Pilih peserta rapat',
-            allowClear: true
-        });
+  // Tampilkan & init di SEMUA MODAL EDIT
+  $('[id^="modalEditRapat-"]')
+    .on('shown.bs.modal', function(){ initSelect2InModal($(this)); })
+    .on('hidden.bs.modal', function(){
+        var $sel = $(this).find('.js-example-basic-multiple');
+        if ($sel.data('select2')) $sel.select2('destroy');
     });
+
 });
 </script>
+
+<style>
+  /* pastikan dropdown selalu di atas modal backdrop */
+  .select2-container .select2-dropdown { z-index: 2000 !important; }
+  .select2-container { width: 100% !important; } /* jaga lebar */
+</style>
+
+
 
     @yield('script')
     @stack('scripts')
