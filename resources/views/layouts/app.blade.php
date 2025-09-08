@@ -37,7 +37,7 @@
 
         /* ===== FIX: tidak ada pengulangan background saat scroll ===== */
         body{
-            background: var(--bg);           /* warna dasar solid */
+            background: var(--bg);
             color: var(--text);
             font-family: "Inter", system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans";
             -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
@@ -46,17 +46,16 @@
         }
         body::before{
             content:"";
-            position: fixed;  /* menempel pada viewport */
+            position: fixed;
             inset: 0;
-            z-index: -1;      /* di belakang semua konten */
+            z-index: -1;
             background:
               radial-gradient(1200px 600px at -10% -10%, rgba(99,102,241,.25), transparent 55%),
               radial-gradient(1000px 500px at 110% 10%, rgba(14,165,233,.25), transparent 55%),
               linear-gradient(180deg, var(--bg) 0%, #0b1026 100%);
-            background-repeat: no-repeat; /* KUNCI: jangan ulang */
+            background-repeat: no-repeat;
             pointer-events: none;
         }
-        /* ============================================================ */
 
         /* NAVBAR */
         .navbar{
@@ -187,7 +186,7 @@
 
         /* ===== Modal SOLID (anti tembus) ===== */
         .modal-content.modal-solid{
-            background: #0f1533 !important;            /* solid navy gelap */
+            background: #0f1533 !important;
             border: 1px solid var(--border);
             border-radius: calc(var(--radius) - 6px);
             color: var(--text);
@@ -222,7 +221,7 @@
             color:#fff;
             border:1px solid var(--border);
         }
-        .modal-backdrop.show{ opacity: .6; } /* sedikit gelapkan backdrop */
+        .modal-backdrop.show{ opacity: .6; }
 
         /* UTILITIES */
         .text-muted{ color: var(--muted)!important; }
@@ -256,6 +255,46 @@
             color: #fff;
         }
         .page-item.disabled .page-link{ color: var(--muted); }
+
+        .form-control[readonly], 
+        .form-control:disabled {
+        background: rgba(255,255,255,.06) !important;
+        border: 1px solid rgba(226,232,240,.15) !important;
+        color: var(--text) !important;
+        opacity: 1; /* jangan terlalu redup */
+    }
+
+      /* CKEditor editable area supaya cocok tema */
+    .ck-editor__editable {
+        background: rgba(255,255,255,.06) !important;
+        color: var(--text) !important;
+        border: 1px solid rgba(226,232,240,.2) !important;
+        border-radius: 8px !important;
+        padding: 10px !important;
+        min-height: 140px;
+    }
+
+    /* Fokus lebih tegas */
+    .ck-editor__editable:focus {
+        border-color: rgba(99,102,241,.6) !important; /* indigo glow */
+        box-shadow: 0 0 0 2px rgba(99,102,241,.3) !important;
+    }
+
+    /* Toolbar CKEditor */
+    .ck.ck-toolbar {
+        background: #1e293b !important; /* slate gelap */
+        border: 1px solid rgba(226,232,240,.2) !important;
+        border-radius: 8px 8px 0 0 !important;
+    }
+
+    .ck.ck-toolbar .ck-button .ck-icon,
+    .ck.ck-toolbar .ck-button .ck-label {
+        color: var(--text) !important;
+    }
+
+    .ck.ck-toolbar .ck-button:hover {
+        background: rgba(99,102,241,.2) !important;
+    }
     </style>
 
     @yield('style')
@@ -285,8 +324,13 @@
             <!-- Sidebar -->
             <div class="col-md-2 sidebar d-none d-md-block">
                 @php
+                    // buka-tutup "Kelola Data"
                     $openKelola  = request()->is('user*') || request()->is('pimpinan*') || request()->is('kategori*');
+
+                    // buka-tutup "Laporan" (dropdown)
                     $openLaporan = request()->routeIs('laporan.baru') || request()->routeIs('laporan.arsip') || request()->is('laporan/*');
+
+                    // badge laporan
                     $nowY = date('Y'); $nowM = date('m');
                     $badgeBaru = \DB::table('laporan_files')->whereYear('created_at',$nowY)->whereMonth('created_at',$nowM)->count();
                     $badgeArsip = \DB::table('laporan_files')
@@ -297,6 +341,17 @@
                                                  ->whereMonth('created_at','<',$nowM);
                                           });
                                     })->count();
+
+                    // ===== Notulensi dropdown + badge =====
+                    $openNotulensi = request()->routeIs('notulensi.*') || request()->is('notulensi*');
+                    // hitung cepat
+                    $countBelum = \DB::table('rapat')
+                                    ->leftJoin('notulensi','notulensi.id_rapat','=','rapat.id')
+                                    ->whereNull('notulensi.id')
+                                    ->count();
+                    $countSudah = \DB::table('rapat')
+                                    ->join('notulensi','notulensi.id_rapat','=','rapat.id')
+                                    ->count();
                 @endphp
 
                 <nav class="nav flex-column">
@@ -309,9 +364,33 @@
                     <a class="nav-link {{ request()->is('absensi*') ? 'active' : '' }}" href="{{ route('absensi.index') }}">
                         <i class="fas fa-clipboard-list"></i> Absensi
                     </a>
-                    <a class="nav-link {{ request()->is('notulensi*') ? 'active' : '' }}" href="{{ route('notulensi.index') }}">
+
+                    {{-- ================== Notulensi (DROPDOWN) ================== --}}
+                    <a class="nav-link d-flex align-items-center {{ $openNotulensi ? '' : 'collapsed' }}"
+                       data-toggle="collapse" href="#menuNotulensi" role="button"
+                       aria-expanded="{{ $openNotulensi ? 'true' : 'false' }}" aria-controls="menuNotulensi">
                         <i class="fas fa-book-open"></i> Notulensi
+                        <i class="ml-auto fas fa-angle-down"></i>
                     </a>
+                    <div class="collapse {{ $openNotulensi ? 'show' : '' }}" id="menuNotulensi">
+                        <div class="nav flex-column submenu">
+                            <a class="nav-link d-flex justify-content-between align-items-center {{ request()->routeIs('notulensi.belum') ? 'active' : '' }}"
+                               href="{{ route('notulensi.belum') }}">
+                                <span><i class="fas fa-circle mr-2" style="font-size:8px;"></i> Belum Ada</span>
+                                @if($countBelum>0)
+                                    <span class="badge-ping">{{ $countBelum }}</span>
+                                @endif
+                            </a>
+                            <a class="nav-link d-flex justify-content-between align-items-center {{ request()->routeIs('notulensi.sudah') ? 'active' : '' }}"
+                               href="{{ route('notulensi.sudah') }}">
+                                <span><i class="fas fa-circle mr-2" style="font-size:8px;"></i> Sudah Ada</span>
+                                @if($countSudah>0)
+                                    <span class="badge-ping">{{ $countSudah }}</span>
+                                @endif
+                            </a>
+                        </div>
+                    </div>
+                    {{-- ========================================================== --}}
 
                     {{-- ================== Laporan (DROPDOWN) ================== --}}
                     <a class="nav-link d-flex align-items-center {{ $openLaporan ? '' : 'collapsed' }}"

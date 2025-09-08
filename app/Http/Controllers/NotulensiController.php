@@ -12,10 +12,20 @@ use Illuminate\Support\Str;
 
 class NotulensiController extends Controller
 {
-    // ===== INDEX: daftar rapat yang belum/sudah punya notulensi =====
+    /**
+     * Opsional: arahkan index ke daftar "belum" (atau bisa ke "sudah" sesuai preferensi)
+     */
     public function index()
     {
-        $rapat = DB::table('rapat')
+        return redirect()->route('notulensi.belum');
+    }
+
+    /**
+     * Helper: base query rapat + join (dipakai oleh belum() & sudah()).
+     */
+    protected function baseRapatQuery()
+    {
+        return DB::table('rapat')
             ->leftJoin('notulensi', 'notulensi.id_rapat', '=', 'rapat.id')
             ->leftJoin('pimpinan_rapat', 'rapat.id_pimpinan', '=', 'pimpinan_rapat.id')
             ->leftJoin('kategori_rapat', 'rapat.id_kategori', '=', 'kategori_rapat.id')
@@ -25,17 +35,70 @@ class NotulensiController extends Controller
                 'pimpinan_rapat.nama as nama_pimpinan',
                 'pimpinan_rapat.jabatan as jabatan_pimpinan',
                 'kategori_rapat.nama as nama_kategori'
-            )
-            ->orderBy('rapat.tanggal','desc')
-            ->get();
+            );
+    }
 
-        $rapat_belum = $rapat->whereNull('id_notulensi')->values();
-        $rapat_sudah = $rapat->whereNotNull('id_notulensi')->values();
+    /**
+     * Helper: terapkan filter (kategori, tanggal, keyword)
+     */
+    protected function applyFilters($query, Request $request)
+    {
+        if ($request->filled('kategori')) {
+            $query->where('rapat.id_kategori', $request->kategori);
+        }
 
-        return view('notulensi.index', [
-            'rapat_belum_notulen' => $rapat_belum,
-            'rapat_sudah_notulen' => $rapat_sudah,
-        ]);
+        if ($request->filled('tanggal')) {
+            $query->whereDate('rapat.tanggal', $request->tanggal);
+        }
+
+        if ($request->filled('keyword')) {
+            $keyword = $request->keyword;
+            $query->where(function ($q) use ($keyword) {
+                $q->where('rapat.judul', 'like', "%{$keyword}%")
+                  ->orWhere('rapat.nomor_undangan', 'like', "%{$keyword}%")
+                  ->orWhere('rapat.tempat', 'like', "%{$keyword}%");
+            });
+        }
+
+        return $query;
+    }
+
+    /**
+     * Rapat yang BELUM memiliki notulensi.
+     */
+    public function belum(Request $request)
+    {
+        $query = $this->baseRapatQuery()->whereNull('notulensi.id');
+        $this->applyFilters($query, $request);
+
+        $rapat_belum = $query->orderBy('rapat.tanggal', 'desc')
+            ->paginate(6);
+
+        // Laravel 7: pakai appends agar query filter ikut di pagination
+        $rapat_belum->appends($request->query());
+
+        $daftar_kategori = DB::table('kategori_rapat')->orderBy('nama')->get();
+
+        return view('notulensi.belum', compact('rapat_belum', 'daftar_kategori'));
+    }
+
+    /**
+     * Rapat yang SUDAH memiliki notulensi.
+     */
+    public function sudah(Request $request)
+    {
+        $query = $this->baseRapatQuery()->whereNotNull('notulensi.id');
+        $this->applyFilters($query, $request);
+
+        $rapat_sudah = $query->orderBy('rapat.tanggal', 'desc')
+            ->paginate(6);
+
+        // Laravel 7: pakai appends agar query filter ikut di pagination
+        $rapat_sudah->appends($request->query());
+
+        $daftar_kategori = DB::table('kategori_rapat')->orderBy('nama')->get();
+
+        return view('notulensi.sudah', compact('rapat_sudah', 'daftar_kategori'));
     }
 
     // ===== CREATE: form create notulensi untuk rapat tertentu =====
@@ -57,7 +120,7 @@ class NotulensiController extends Controller
 
         // Cegah duplikasi
         if (DB::table('notulensi')->where('id_rapat', $id_rapat)->exists()) {
-            return redirect()->route('notulensi.index')->with('success', 'Notulensi untuk rapat ini sudah dibuat.');
+            return redirect()->route('notulensi.sudah')->with('success', 'Notulensi untuk rapat ini sudah dibuat.');
         }
 
         $jumlah_peserta = DB::table('undangan')->where('id_rapat', $id_rapat)->count();
@@ -91,21 +154,20 @@ class NotulensiController extends Controller
 
         // Satu notulensi per rapat
         if (DB::table('notulensi')->where('id_rapat', $request->id_rapat)->exists()) {
-            return redirect()->route('notulensi.index')->with('success', 'Notulensi untuk rapat ini sudah ada.');
+            return redirect()->route('notulensi.sudah')->with('success', 'Notulensi untuk rapat ini sudah ada.');
         }
 
-        // ——— simpan header notulensi (pakai id_user) ———
+        // simpan header notulensi (pakai id_user pembuat)
         $id_notulensi = DB::table('notulensi')->insertGetId([
             'id_rapat'   => $request->id_rapat,
-            'id_user'    => Auth::id(),       // << gunakan kolom id_user
+            'id_user'    => Auth::id(),
             'created_at' => now(),
             'updated_at' => now(),
         ]);
 
-        // ——— simpan detail baris ———
+        // simpan detail baris
         $urut = 1; $rows = [];
         foreach ($request->baris as $r) {
-            // (CKEditor kirim HTML string; kita simpan apa adanya)
             $rows[] = [
                 'id_notulensi'     => $id_notulensi,
                 'urut'             => $urut++,
@@ -121,7 +183,7 @@ class NotulensiController extends Controller
             DB::table('notulensi_detail')->insert($rows);
         }
 
-        // ——— simpan dokumentasi (multiple files) ———
+        // simpan dokumentasi (multiple files)
         if ($request->hasFile('dokumentasi')) {
             $dest = public_path('uploads/notulensi');
             if (!is_dir($dest)) {
@@ -136,10 +198,7 @@ class NotulensiController extends Controller
                 $slugBase = preg_replace('/[^a-z0-9\-]+/i', '-', $basename);
                 $name     = $slugBase.'-'.uniqid().'.'.$ext;
 
-                // pindahkan ke public/uploads/notulensi
                 $file->move($dest, $name);
-
-                // simpan path relatif (biar gampang dipanggil asset())
                 $relPath = 'uploads/notulensi/'.$name;
 
                 DB::table('notulensi_dokumentasi')->insert([
@@ -155,7 +214,7 @@ class NotulensiController extends Controller
         return redirect()->route('notulensi.show', $id_notulensi)->with('success', 'Notulensi berhasil dibuat.');
     }
 
-    // ===== SHOW: detail notulensi (header + detail + dokumentasi) =====
+    // ===== SHOW: detail notulensi =====
     public function show($id)
     {
         $notulensi = DB::table('notulensi')->where('id', $id)->first();
@@ -219,23 +278,19 @@ class NotulensiController extends Controller
     public function update(Request $request, $id)
     {
         $request->validate([
-            // detail
             'baris'                         => 'nullable|array',
             'baris.*.hasil_pembahasan'      => 'required_with:baris|string',
             'baris.*.rekomendasi'           => 'nullable|string',
             'baris.*.penanggung_jawab'      => 'nullable|string|max:150',
             'baris.*.tgl_penyelesaian'      => 'nullable|date',
 
-            // dokumentasi
             'hapus_dok'                     => 'nullable|array',
             'hapus_dok.*'                   => 'integer',
             'dokumentasi_baru.*'            => 'nullable|image|max:10240',
         ]);
 
-        // update header timestamp
         DB::table('notulensi')->where('id', $id)->update(['updated_at' => now()]);
 
-        // replace detail (strategi sederhana)
         if ($request->filled('baris')) {
             DB::table('notulensi_detail')->where('id_notulensi', $id)->delete();
 
@@ -256,7 +311,6 @@ class NotulensiController extends Controller
             if ($rows) DB::table('notulensi_detail')->insert($rows);
         }
 
-        // HAPUS dokumentasi yang dicentang
         if ($request->filled('hapus_dok')) {
             $hapusIds = $request->hapus_dok;
             $lama = DB::table('notulensi_dokumentasi')->whereIn('id', $hapusIds)->get();
@@ -268,7 +322,6 @@ class NotulensiController extends Controller
             DB::table('notulensi_dokumentasi')->whereIn('id', $hapusIds)->delete();
         }
 
-        // TAMBAH dokumentasi baru (langsung ke public/uploads/notulensi)
         if ($request->hasFile('dokumentasi_baru')) {
             $dest = public_path('uploads/notulensi');
             if (!is_dir($dest)) mkdir($dest, 0775, true);
@@ -297,9 +350,11 @@ class NotulensiController extends Controller
         return redirect()->route('notulensi.show', $id)->with('success', 'Notulensi berhasil diperbarui.');
     }
 
+    /**
+     * Cetak gabungan (Header P, Pembahasan L, Dokumentasi P)
+     */
     public function cetakGabung($id)
     {
-        // 1) Ambil data
         $notulensi = DB::table('notulensi')->where('id', $id)->first() ?? abort(404);
 
         $rapat = DB::table('rapat')
@@ -324,12 +379,10 @@ class NotulensiController extends Controller
 
         $creator = DB::table('users')->where('id',$notulensi->id_user)->first();
 
-        // jumlah peserta (optional di header)
         $jumlah_peserta = DB::table('undangan')->where('id_rapat', $notulensi->id_rapat)->count();
 
         $data = compact('notulensi','rapat','detail','dokumentasi','creator','jumlah_peserta');
 
-        // 2) Render tiga PDF sementara (P–L–P)
         $tmpDir = storage_path('app');
         $f1 = $tmpDir.'/header-'.Str::random(8).'.pdf';
         $f2 = $tmpDir.'/pembahasan-'.Str::random(8).'.pdf';
@@ -344,17 +397,14 @@ class NotulensiController extends Controller
         Pdf::loadView('notulensi.cetak_p3', $data)
             ->setPaper('a4','portrait')->save($f3);
 
-        // 3) Merge pakai libmergepdf
         $merger = new Merger();
         $merger->addFile($f1);
         $merger->addFile($f2);
         $merger->addFile($f3);
         $mergedPdf = $merger->merge();
 
-        // 4) Bersihkan file temp
         @unlink($f1); @unlink($f2); @unlink($f3);
 
-        // 5) Kirim
         $filename = 'Notulensi-'.Str::slug($rapat->judul).'-'.date('d-m-Y', strtotime($notulensi->created_at)).'.pdf';
         return response($mergedPdf)
             ->header('Content-Type', 'application/pdf')

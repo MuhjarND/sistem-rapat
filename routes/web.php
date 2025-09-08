@@ -53,6 +53,8 @@ Route::middleware(['auth', 'cekrole:admin,notulis'])->group(function () {
     Route::get('absensi/laporan/{id_rapat}', 'AbsensiController@exportPdf')->name('absensi.export.pdf');
     //NOTULENSI
     Route::get('notulensi',                 'NotulensiController@index')->name('notulensi.index');
+    Route::get('/notulensi/belum',          'NotulensiController@belum')->name('notulensi.belum');  
+    Route::get('/notulensi/sudah',          'NotulensiController@sudah')->name('notulensi.sudah');
     Route::get('notulensi/buat/{id_rapat}', 'NotulensiController@create')->name('notulensi.create');
     Route::post('notulensi',                'NotulensiController@store')->name('notulensi.store');
     Route::get('notulensi/{id}',            'NotulensiController@show')->name('notulensi.show');
