@@ -324,7 +324,7 @@ class LaporanController extends Controller
             })
             ->orderBy('laporan_files.archived_at','desc');
 
-        $uploads = $uploadsQ->paginate(20)->appends($r->query());
+        $uploads = $uploadsQ->paginate(7)->appends($r->query());
 
         // Badge: di halaman arsip, jadikan badge arsip = total paginator arsip,
         // dan badge aktif dihitung cepat (agar sidebar tetap tampil informatif).
@@ -409,8 +409,8 @@ class LaporanController extends Controller
                 $path     = 'laporan/'.$diskName;
                 Storage::put($path, $binary);
 
-                $judulFile  = 'Gabungan Rapat: '.$rapat->judul.' ('.Carbon::parse($rapat->tanggal)->translatedFormat('d M Y').')';
-                $fileName   = Str::slug($rapat->judul).'-gabungan.pdf';
+                $judulFile  = $rapat->judul;
+                $fileName   = Str::slug($rapat->judul).'.pdf';
                 $fileSize   = strlen($binary);
 
                 DB::table('laporan_files')->insert([
@@ -418,7 +418,7 @@ class LaporanController extends Controller
                     'id_kategori'     => $rapat->id_kategori ?: null,
                     'judul'           => $judulFile,
                     'tanggal_laporan' => $rapat->tanggal,
-                    'keterangan'      => 'PDF gabungan otomatis (Undangan + Absensi'.(DB::table('notulensi')->where('id_rapat',$rapat->id)->exists() ? ' + Notulensi' : '').')',
+                    'keterangan'      => '(Undangan + Absensi'.(DB::table('notulensi')->where('id_rapat',$rapat->id)->exists() ? ' + Notulensi' : '').')',
                     'file_name'       => $fileName,
                     'file_path'       => $path,
                     'mime'            => 'application/pdf',

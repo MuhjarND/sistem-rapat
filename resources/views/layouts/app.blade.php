@@ -22,11 +22,18 @@
             --primary:#4f46e5;--primary-700:#4338ca;--accent:#22c55e;
             --danger:#ef4444;--warning:#f59e0b;--info:#0ea5e9;--border:#1f2a4d;
             --shadow:0 10px 30px rgba(2,6,23,.35);--radius:14px;
+            /* tinggi navbar (Bootstrap 4 default = 56px) */
+            --nav-h: 56px;
+            /* lebar sidebar fixed (desktop) */
+            --sidebar-w: 260px;
         }
+
         html,body{height:100%}
         body{
             background:var(--bg);color:var(--text);font-family:"Inter",system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial,"Noto Sans";
             -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;position:relative;min-height:100vh;
+            /* beri ruang di atas untuk navbar fixed */
+            padding-top: var(--nav-h);
         }
         body::before{
             content:"";position:fixed;inset:0;z-index:-1;
@@ -37,29 +44,66 @@
             background-repeat:no-repeat;pointer-events:none;
         }
 
-        /* NAVBAR */
-        .navbar{background:linear-gradient(180deg, rgba(17,24,39,.75) 0%, rgba(17,24,39,.35) 100%);backdrop-filter:saturate(180%) blur(10px);border-bottom:1px solid rgba(99,102,241,.2)}
+        /* NAVBAR (fixed) */
+        .navbar{
+            position: fixed;           /* <— fixed */
+            top: 0; left: 0; right: 0;
+            z-index: 1030;             /* di atas sidebar & konten */
+            height: var(--nav-h);
+            background:linear-gradient(180deg, rgba(17,24,39,.75) 0%, rgba(17,24,39,.35) 100%);
+            backdrop-filter:saturate(180%) blur(10px);
+            border-bottom:1px solid rgba(99,102,241,.2)
+        }
         .navbar-brand{color:#fff!important;font-weight:800;letter-spacing:.2px}
         .navbar .btn-danger{border-radius:999px;padding:.35rem .75rem}
 
-        /* LAYOUT */
+        /* WRAPPER */
         .container-fluid{padding-left:0;padding-right:0}
-        .content-area{padding:28px}
 
-        /* SIDEBAR */
+        /* SIDEBAR (fixed di desktop) */
         .sidebar{
-            min-height:calc(100vh - 56px);
+            position:fixed;
+            top: var(--nav-h);                /* tepat di bawah navbar */
+            left:0;
+            width: var(--sidebar-w);
+            height: calc(100vh - var(--nav-h));
+            overflow-y:auto;
             background:
                 linear-gradient(180deg, rgba(99,102,241,.12), rgba(14,165,233,.08)),
                 linear-gradient(180deg, rgba(17,24,39,.85), rgba(17,24,39,.60));
-            border-right:1px solid rgba(99,102,241,.18);box-shadow:var(--shadow);padding:24px 16px
+            border-right:1px solid rgba(99,102,241,.18);
+            box-shadow:var(--shadow);
+            padding:24px 16px;
+            z-index: 1020;
         }
+        .sidebar::-webkit-scrollbar{width:6px}
+        .sidebar::-webkit-scrollbar-thumb{background:rgba(255,255,255,.15);border-radius:10px}
+        .sidebar::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.25)}
+
         .sidebar .nav-link{color:var(--muted);font-weight:600;border-radius:12px;padding:.55rem .7rem;transition:all .18s ease}
         .sidebar .nav-link i{width:22px;text-align:center;margin-right:8px}
         .sidebar .nav-link:hover{color:#fff;background:rgba(79,70,229,.18)}
         .sidebar .nav-link.active{color:#fff;background:linear-gradient(90deg, rgba(79,70,229,.35), rgba(14,165,233,.25));box-shadow:inset 0 0 0 1px rgba(79,70,229,.25)}
         .submenu{margin-left:6px;padding-left:10px;border-left:1px dashed rgba(99,102,241,.25)}
         .badge-ping{background:var(--danger);color:#fff;border-radius:999px;padding:.25rem .5rem;font-size:.75rem;box-shadow:var(--shadow)}
+
+        /* CONTENT (geser kanan supaya tidak ketimpa sidebar) */
+        .content-area{
+            margin-left: var(--sidebar-w);
+            padding:32px 28px;
+        }
+
+        /* Responsive (≤992px): sidebar kembali normal (non-fixed) */
+        @media (max-width: 991.98px){
+            body{ padding-top: var(--nav-h); } /* tetap sisakan ruang utk navbar fixed */
+            .sidebar{
+                position: static;
+                width:auto;height:auto;overflow:visible;
+                border-right:none; box-shadow:none;
+                padding: 16px;
+            }
+            .content-area{ margin-left: 0; padding:24px 16px; }
+        }
 
         /* CARD */
         .card{background:linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.02));border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);color:var(--text)}
@@ -112,7 +156,6 @@
 
         /* UTILITIES */
         .text-muted{color:var(--muted)!important}
-        .content-area{padding:32px 28px}
         .data-card{display:flex;flex-direction:column;height:calc(100vh - 240px)}
         .data-card .data-scroll{overflow:auto;flex:1 1 auto}
         .data-card .data-scroll thead th{position:sticky;top:0;z-index:2;background:rgba(79,70,229,.12)}
@@ -134,7 +177,7 @@
     @stack('style')
 </head>
 <body>
-    <!-- Navbar -->
+    <!-- Navbar (fixed) -->
     <nav class="navbar navbar-expand-lg navbar-dark shadow-sm">
         <a class="navbar-brand d-flex align-items-center" href="{{ url('/') }}">
             <span class="mr-2 d-inline-flex align-items-center justify-content-center"
@@ -153,14 +196,12 @@
     </nav>
 
     <div class="container-fluid">
-        <div class="row">
+        <div class="row no-gutters">
             <!-- Sidebar -->
-            <div class="col-md-2 sidebar d-none d-md-block">
+            <div class="sidebar d-none d-md-block">
                 @php
-                    // buka-tutup "Kelola Data"
                     $openKelola  = request()->is('user*') || request()->is('pimpinan*') || request()->is('kategori*');
 
-                    // ===== Notulensi dropdown + badge =====
                     $openNotulensi = request()->routeIs('notulensi.*') || request()->is('notulensi*');
                     $countBelum = \DB::table('rapat')
                                     ->leftJoin('notulensi','notulensi.id_rapat','=','rapat.id')
@@ -169,27 +210,20 @@
                                     ->join('notulensi','notulensi.id_rapat','=','rapat.id')
                                     ->count();
 
-                    // ===== Laporan dropdown + badge (baru) =====
                     $openLaporan = request()->routeIs('laporan.index') || request()->routeIs('laporan.arsip') || request()->is('laporan/*');
 
-                    // total REKAP RAPAT AKTIF = rapat yang BELUM ada pada tabel penanda archive
                     $countRapatAktif = \DB::table('rapat')
                         ->leftJoin('laporan_archived_meetings as lam','lam.rapat_id','=','rapat.id')
                         ->whereNull('lam.id')
                         ->count();
 
-                    // total UNGGAHAN AKTIF
                     $countUploadsAktif = \DB::table('laporan_files')
                         ->where('is_archived',0)
                         ->count();
 
-                    // badge "Laporan" = rekap aktif + upload aktif
                     $badgeLaporan = $countRapatAktif + $countUploadsAktif;
 
-                    // badge "Arsip Laporan" = semua file terarsip
-                    $badgeArsip = \DB::table('laporan_files')
-                        ->where('is_archived',1)
-                        ->count();
+                    $badgeArsip = \DB::table('laporan_files')->where('is_archived',1)->count();
                 @endphp
 
                 <nav class="nav flex-column">
@@ -239,7 +273,6 @@
                     </a>
                     <div class="collapse {{ $openLaporan ? 'show' : '' }}" id="menuLaporan">
                         <div class="nav flex-column submenu">
-                            {{-- Halaman Laporan (utama) --}}
                             <a class="nav-link d-flex justify-content-between align-items-center {{ request()->routeIs('laporan.index') ? 'active' : '' }}"
                                href="{{ route('laporan.index') }}">
                                 <span><i class="fas fa-circle mr-2" style="font-size:8px;"></i> Laporan</span>
@@ -247,7 +280,6 @@
                                   <span class="badge-ping">{{ $badgeLaporan }}</span>
                                 @endif
                             </a>
-                            {{-- Arsip Laporan --}}
                             <a class="nav-link d-flex justify-content-between align-items-center {{ request()->routeIs('laporan.arsip') ? 'active' : '' }}"
                                href="{{ route('laporan.arsip') }}">
                                 <span><i class="fas fa-circle mr-2" style="font-size:8px;"></i> Arsip Laporan</span>
@@ -283,7 +315,7 @@
             </div>
 
             <!-- Content Area -->
-            <div class="col-md-10 content-area">
+            <div class="content-area">
                 @yield('content')
             </div>
         </div>
