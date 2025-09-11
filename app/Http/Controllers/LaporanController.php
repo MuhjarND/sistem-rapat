@@ -14,172 +14,169 @@ use iio\libmergepdf\Merger;
 class LaporanController extends Controller
 {
     /** =========================
-     *  LIST + FILTER + UPLOADS  (Laporan Baru/Aktif)  => route('laporan.index')
+     *  LIST + FILTER + UPLOADS (Laporan Baru/Aktif)
      *  ========================= */
-// app/Http/Controllers/LaporanController.php
+    public function index(Request $request)
+    {
+        // ===== Filter dari form =====
+        $dari       = $request->get('dari');
+        $sampai     = $request->get('sampai');
+        $id_kat_in  = $request->get('id_kat', $request->get('id_kategori'));
+        $id_rapat   = $request->get('id_rapat');
+        $qsearch    = $request->get('qsearch');
+        $status_n   = $request->get('status_notulensi');
 
-// app/Http/Controllers/LaporanController.php
+        // ===== Rekap Rapat (EXCLUDE yang sudah diarsip) =====
+        $q = DB::table('rapat')
+            ->leftJoin('kategori_rapat', 'kategori_rapat.id', '=', 'rapat.id_kategori')
+            ->leftJoin('notulensi', 'notulensi.id_rapat', '=', 'rapat.id')
+            ->leftJoin('undangan',  'undangan.id_rapat',  '=', 'rapat.id')
+            ->leftJoin('absensi',   'absensi.id_rapat',   '=', 'rapat.id')
+            ->leftJoin('laporan_archived_meetings as lam', 'lam.rapat_id', '=', 'rapat.id')
+            ->leftJoin('laporan_files', function ($j) {
+                $j->on('laporan_files.id_rapat', '=', 'rapat.id')
+                  ->where('laporan_files.is_archived', 0);
+            })
+            ->select(
+                'rapat.id',
+                'rapat.judul',
+                'rapat.tanggal',
+                'rapat.waktu_mulai',
+                'rapat.tempat',
+                'kategori_rapat.nama as nama_kategori',
+                DB::raw('COUNT(DISTINCT undangan.id) as jml_diundang'),
+                DB::raw("SUM(CASE WHEN absensi.status='hadir' THEN 1 ELSE 0 END) as jml_hadir"),
+                DB::raw('CASE WHEN MIN(notulensi.id) IS NULL THEN 0 ELSE 1 END as ada_notulensi'),
+                DB::raw('COUNT(DISTINCT laporan_files.id) as jml_files_aktif')
+            )
+            ->whereNull('lam.id')
+            ->when($dari,       fn ($qq) => $qq->whereDate('rapat.tanggal', '>=', $dari))
+            ->when($sampai,     fn ($qq) => $qq->whereDate('rapat.tanggal', '<=', $sampai))
+            ->when($id_kat_in,  fn ($qq) => $qq->where('rapat.id_kategori', $id_kat_in))
+            ->groupBy('rapat.id', 'rapat.judul', 'rapat.tanggal', 'rapat.waktu_mulai', 'rapat.tempat', 'kategori_rapat.nama');
 
-public function index(Request $request)
-{
-    // ===== Filter dari form =====
-    $dari       = $request->get('dari');
-    $sampai     = $request->get('sampai');
-    $id_kat_in  = $request->get('id_kat', $request->get('id_kategori'));
-    $id_rapat   = $request->get('id_rapat');
-    $qsearch    = $request->get('qsearch');
-    $status_n   = $request->get('status_notulensi');
+        if ($status_n === 'sudah') {
+            $q->having('ada_notulensi', '=', 1);
+        } elseif ($status_n === 'belum') {
+            $q->having('ada_notulensi', '=', 0);
+        }
 
-    // ===== Rekap Rapat (EXCLUDE yang sudah diarsip) =====
-    $q = DB::table('rapat')
-        ->leftJoin('kategori_rapat', 'kategori_rapat.id', '=', 'rapat.id_kategori')
-        ->leftJoin('notulensi', 'notulensi.id_rapat', '=', 'rapat.id')
-        ->leftJoin('undangan',  'undangan.id_rapat',  '=', 'rapat.id')
-        ->leftJoin('absensi',   'absensi.id_rapat',   '=', 'rapat.id')
+        $rekap = $q->orderBy('rapat.tanggal', 'desc')
+                   ->paginate(10, ['*'], 'rekap_page')
+                   ->appends($request->query());
 
-        // Penting: JOIN ke tabel penanda arsip + whereNull
-        ->leftJoin('laporan_archived_meetings as lam', 'lam.rapat_id', '=', 'rapat.id')
+        // ===== Dropdown =====
+        $kategori  = DB::table('kategori_rapat')->select('id', 'nama')->orderBy('nama')->get();
+        $rapatList = DB::table('rapat')->select('id', 'judul', 'tanggal')->orderBy('tanggal', 'desc')->get();
 
-        // (opsional) hitung jumlah file aktif yang terkait rapat
-        ->leftJoin('laporan_files', function ($j) {
-            $j->on('laporan_files.id_rapat', '=', 'rapat.id')
-              ->where('laporan_files.is_archived', 0);
-        })
+        // ===== Daftar Upload (aktif / belum diarsip) =====
+        $dateExpr = DB::raw('COALESCE(laporan_files.tanggal_laporan, laporan_files.created_at)');
 
-        ->select(
-            'rapat.id',
-            'rapat.judul',
-            'rapat.tanggal',
-            'rapat.waktu_mulai',
-            'rapat.tempat',
-            'kategori_rapat.nama as nama_kategori',
-            DB::raw('COUNT(DISTINCT undangan.id) as jml_diundang'),
-            DB::raw("SUM(CASE WHEN absensi.status='hadir' THEN 1 ELSE 0 END) as jml_hadir"),
-            DB::raw('CASE WHEN MIN(notulensi.id) IS NULL THEN 0 ELSE 1 END as ada_notulensi'),
-            DB::raw('COUNT(DISTINCT laporan_files.id) as jml_files_aktif')
-        )
+        $uploadsQ = DB::table('laporan_files')
+            ->leftJoin('rapat', 'rapat.id', '=', 'laporan_files.id_rapat')
+            ->leftJoin('kategori_rapat', 'kategori_rapat.id', '=', 'laporan_files.id_kategori')
+            ->select(
+                'laporan_files.*',
+                'rapat.judul as judul_rapat',
+                'rapat.tanggal as tgl_rapat',
+                'kategori_rapat.nama as nama_kategori'
+            )
+            ->where('laporan_files.is_archived', 0)
+            ->when($dari,      fn ($qq) => $qq->whereDate($dateExpr, '>=', $dari))
+            ->when($sampai,    fn ($qq) => $qq->whereDate($dateExpr, '<=', $sampai))
+            ->when($id_kat_in, fn ($qq) => $qq->where('laporan_files.id_kategori', $id_kat_in))
+            ->when($id_rapat,  fn ($qq) => $qq->where('laporan_files.id_rapat', $id_rapat))
+            ->when($qsearch, function ($qq) use ($qsearch) {
+                $qq->where(function ($w) use ($qsearch) {
+                    $w->where('laporan_files.judul', 'like', "%$qsearch%")
+                      ->orWhere('laporan_files.keterangan', 'like', "%$qsearch%")
+                      ->orWhere('laporan_files.file_name', 'like', "%$qsearch%");
+                });
+            })
+            ->orderBy('laporan_files.created_at', 'desc');
 
-        // >>> inilah filter yang membuat rapat terarsip HILANG dari rekap <<<
-        ->whereNull('lam.id')
+        $uploads = $uploadsQ->paginate(10, ['*'], 'file_page')
+                            ->appends($request->query());
 
-        ->when($dari,       fn ($qq) => $qq->whereDate('rapat.tanggal', '>=', $dari))
-        ->when($sampai,     fn ($qq) => $qq->whereDate('rapat.tanggal', '<=', $sampai))
-        ->when($id_kat_in,  fn ($qq) => $qq->where('rapat.id_kategori', $id_kat_in))
-        ->groupBy('rapat.id', 'rapat.judul', 'rapat.tanggal', 'rapat.waktu_mulai', 'rapat.tempat', 'kategori_rapat.nama');
+        /* =========================
+         * BADGE untuk sidebar/menu
+         * =========================
+         * Sesuai permintaan: jumlah di badge "Laporan" = total baris tabel Rekap + total baris tabel Unggahan (aktif)
+         */
+        $badgeActive  = $rekap->total() + $uploads->total();
+        // (Opsional) jika ingin menampilkan badge arsip juga di sidebar saat berada di halaman index:
+        $badgeArchive = DB::table('laporan_files')->where('is_archived', 1)->count();
 
-    if ($status_n === 'sudah') {
-        $q->having('ada_notulensi', '=', 1);
-    } elseif ($status_n === 'belum') {
-        $q->having('ada_notulensi', '=', 0);
+        return view('laporan.index', [
+            'rekap'     => $rekap,
+            'kategori'  => $kategori,
+            'filter'    => [
+                'dari'      => $dari,
+                'sampai'    => $sampai,
+                'id_kat'    => $id_kat_in,
+                'id_rapat'  => $id_rapat,
+                'qsearch'   => $qsearch,
+                'status_n'  => $status_n,
+            ],
+            'uploads'   => $uploads,
+            'rapatList' => $rapatList,
+            'badge'     => [
+                'active'  => $badgeActive,
+                'archive' => $badgeArchive,
+            ],
+        ]);
     }
 
-    $rekap = $q->orderBy('rapat.tanggal', 'desc')
-               ->paginate(10, ['*'], 'rekap_page')
-               ->appends($request->query());
-
-    // ===== Dropdown =====
-    $kategori  = DB::table('kategori_rapat')->select('id', 'nama')->orderBy('nama')->get();
-    $rapatList = DB::table('rapat')->select('id', 'judul', 'tanggal')->orderBy('tanggal', 'desc')->get();
-
-    // ===== Daftar Upload (aktif / belum diarsip) =====
-    $dateExpr = DB::raw('COALESCE(laporan_files.tanggal_laporan, laporan_files.created_at)');
-
-    $uploadsQ = DB::table('laporan_files')
-        ->leftJoin('rapat', 'rapat.id', '=', 'laporan_files.id_rapat')
-        ->leftJoin('kategori_rapat', 'kategori_rapat.id', '=', 'laporan_files.id_kategori')
-        ->select(
-            'laporan_files.*',
-            'rapat.judul as judul_rapat',
-            'rapat.tanggal as tgl_rapat',
-            'kategori_rapat.nama as nama_kategori'
-        )
-        ->where('laporan_files.is_archived', 0)
-        ->when($dari,      fn ($qq) => $qq->whereDate($dateExpr, '>=', $dari))
-        ->when($sampai,    fn ($qq) => $qq->whereDate($dateExpr, '<=', $sampai))
-        ->when($id_kat_in, fn ($qq) => $qq->where('laporan_files.id_kategori', $id_kat_in))
-        ->when($id_rapat,  fn ($qq) => $qq->where('laporan_files.id_rapat', $id_rapat))
-        ->when($qsearch, function ($qq) use ($qsearch) {
-            $qq->where(function ($w) use ($qsearch) {
-                $w->where('laporan_files.judul', 'like', "%$qsearch%")
-                  ->orWhere('laporan_files.keterangan', 'like', "%$qsearch%")
-                  ->orWhere('laporan_files.file_name', 'like', "%$qsearch%");
-            });
-        })
-        ->orderBy('laporan_files.created_at', 'desc');
-
-    $uploads = $uploadsQ->paginate(10, ['*'], 'file_page')
-                        ->appends($request->query());
-
-    return view('laporan.index', [
-        'rekap'     => $rekap,
-        'kategori'  => $kategori,
-        'filter'    => [
-            'dari'      => $dari,
-            'sampai'    => $sampai,
-            'id_kat'    => $id_kat_in,
-            'id_rapat'  => $id_rapat,
-            'qsearch'   => $qsearch,
-            'status_n'  => $status_n,
-        ],
-        'uploads'   => $uploads,
-        'rapatList' => $rapatList,
-    ]);
-}
-
-
     /** ============= CETAK REKAP ============= */
-// (opsional tapi disarankan) Exclude juga pada cetak biar konsisten
-public function cetak(Request $request)
-{
-    $dari     = $request->get('dari');
-    $sampai   = $request->get('sampai');
-    $id_kat   = $request->get('id_kategori', $request->get('id_kat'));
-    $status_n = $request->get('status_notulensi');
+    public function cetak(Request $request)
+    {
+        $dari     = $request->get('dari');
+        $sampai   = $request->get('sampai');
+        $id_kat   = $request->get('id_kategori', $request->get('id_kat'));
+        $status_n = $request->get('status_notulensi');
 
-    $q = DB::table('rapat')
-        ->leftJoin('kategori_rapat', 'kategori_rapat.id', '=', 'rapat.id_kategori')
-        ->leftJoin('notulensi', 'notulensi.id_rapat', '=', 'rapat.id')
-        ->leftJoin('undangan', fn($j) => $j->on('undangan.id_rapat', '=', 'rapat.id'))
-        ->leftJoin('absensi',  fn($j) => $j->on('absensi.id_rapat',  '=', 'rapat.id'))
-        ->leftJoin('laporan_archived_meetings as lam', fn($j) => $j->on('lam.rapat_id', '=', 'rapat.id'))
-        ->select(
-            'rapat.id',
-            'rapat.judul',
-            'rapat.tanggal',
-            'rapat.waktu_mulai',
-            'rapat.tempat',
-            'kategori_rapat.nama as nama_kategori',
-            DB::raw('COUNT(DISTINCT undangan.id) as jml_diundang'),
-            DB::raw("SUM(CASE WHEN absensi.status='hadir' THEN 1 ELSE 0 END) as jml_hadir"),
-            DB::raw("SUM(CASE WHEN absensi.status='tidak_hadir' THEN 1 ELSE 0 END) as jml_tidak_hadir"),
-            DB::raw("SUM(CASE WHEN absensi.status='izin' THEN 1 ELSE 0 END) as jml_izin"),
-            DB::raw('CASE WHEN MIN(notulensi.id) IS NULL THEN 0 ELSE 1 END as ada_notulensi')
-        )
-        ->when($dari,   fn($qq)=>$qq->whereDate('rapat.tanggal','>=',$dari))
-        ->when($sampai, fn($qq)=>$qq->whereDate('rapat.tanggal','<=',$sampai))
-        ->when($id_kat, fn($qq)=>$qq->where('rapat.id_kategori',$id_kat))
-        // exclude rapat yang sudah diarsip
-        ->whereNull('lam.id')
-        ->groupBy('rapat.id','rapat.judul','rapat.tanggal','rapat.waktu_mulai','rapat.tempat','kategori_rapat.nama');
+        $q = DB::table('rapat')
+            ->leftJoin('kategori_rapat', 'kategori_rapat.id', '=', 'rapat.id_kategori')
+            ->leftJoin('notulensi', 'notulensi.id_rapat', '=', 'rapat.id')
+            ->leftJoin('undangan', fn($j) => $j->on('undangan.id_rapat', '=', 'rapat.id'))
+            ->leftJoin('absensi',  fn($j) => $j->on('absensi.id_rapat',  '=', 'rapat.id'))
+            ->leftJoin('laporan_archived_meetings as lam', fn($j) => $j->on('lam.rapat_id', '=', 'rapat.id'))
+            ->select(
+                'rapat.id',
+                'rapat.judul',
+                'rapat.tanggal',
+                'rapat.waktu_mulai',
+                'rapat.tempat',
+                'kategori_rapat.nama as nama_kategori',
+                DB::raw('COUNT(DISTINCT undangan.id) as jml_diundang'),
+                DB::raw("SUM(CASE WHEN absensi.status='hadir' THEN 1 ELSE 0 END) as jml_hadir"),
+                DB::raw("SUM(CASE WHEN absensi.status='tidak_hadir' THEN 1 ELSE 0 END) as jml_tidak_hadir"),
+                DB::raw("SUM(CASE WHEN absensi.status='izin' THEN 1 ELSE 0 END) as jml_izin"),
+                DB::raw('CASE WHEN MIN(notulensi.id) IS NULL THEN 0 ELSE 1 END as ada_notulensi')
+            )
+            ->when($dari,   fn($qq)=>$qq->whereDate('rapat.tanggal','>=',$dari))
+            ->when($sampai, fn($qq)=>$qq->whereDate('rapat.tanggal','<=',$sampai))
+            ->when($id_kat, fn($qq)=>$qq->where('rapat.id_kategori',$id_kat))
+            ->whereNull('lam.id')
+            ->groupBy('rapat.id','rapat.judul','rapat.tanggal','rapat.waktu_mulai','rapat.tempat','kategori_rapat.nama');
 
-    if ($status_n === 'sudah')      $q->having('ada_notulensi','=',1);
-    elseif ($status_n === 'belum')  $q->having('ada_notulensi','=',0);
+        if ($status_n === 'sudah')      $q->having('ada_notulensi','=',1);
+        elseif ($status_n === 'belum')  $q->having('ada_notulensi','=',0);
 
-    $data = $q->orderBy('rapat.tanggal','desc')->get();
+        $data = $q->orderBy('rapat.tanggal','desc')->get();
 
-    $pdf = Pdf::loadView('laporan.cetak', [
-        'data'   => $data,
-        'filter' => compact('dari','sampai'),
-    ])->setPaper('a4','portrait');
+        $pdf = Pdf::loadView('laporan.cetak', [
+            'data'   => $data,
+            'filter' => compact('dari','sampai'),
+        ])->setPaper('a4','portrait');
 
-    return $pdf->stream('Laporan-Rapat-'.date('Ymd_His').'.pdf');
-}
-
+        return $pdf->stream('Laporan-Rapat-'.date('Ymd_His').'.pdf');
+    }
 
     /** ===== CETAK PDF GABUNGAN (UNDANGAN+ABSENSI+NOTULENSI) ===== */
     public function cetakGabunganRapat($id)
     {
-        $binary = $this->renderGabunganPdfBinary($id); // <- gunakan helper
+        $binary = $this->renderGabunganPdfBinary($id);
         $filename = 'Gabungan-Rapat-'.Str::slug(optional(DB::table('rapat')->find($id))->judul ?? 'rapat').'-'.date('Ymd_His').'.pdf';
 
         return response($binary, 200, [
@@ -329,6 +326,15 @@ public function cetak(Request $request)
 
         $uploads = $uploadsQ->paginate(20)->appends($r->query());
 
+        // Badge: di halaman arsip, jadikan badge arsip = total paginator arsip,
+        // dan badge aktif dihitung cepat (agar sidebar tetap tampil informatif).
+        $badgeArchive = $uploads->total();
+        $badgeActive  = DB::table('rapat')
+                            ->leftJoin('laporan_archived_meetings as lam','lam.rapat_id','=','rapat.id')
+                            ->whereNull('lam.id')
+                            ->count()
+                        + DB::table('laporan_files')->where('is_archived',0)->count();
+
         $kategori = DB::table('kategori_rapat')->select('id','nama')->orderBy('nama')->get();
         $rapatList = DB::table('rapat')->select('id','judul','tanggal')->orderBy('tanggal','desc')->get();
 
@@ -337,6 +343,10 @@ public function cetak(Request $request)
             'kategori'  => $kategori,
             'rapatList' => $rapatList,
             'filter'    => compact('dari','sampai','id_kat','id_rapat','qsearch'),
+            'badge'     => [
+                'active'  => $badgeActive,
+                'archive' => $badgeArchive,
+            ],
         ]);
     }
 
@@ -371,7 +381,7 @@ public function cetak(Request $request)
         DB::beginTransaction();
 
         try {
-            // 1) Arsipkan semua file aktif yang terkait rapat
+            // 1) Arsipkan file aktif yang terkait rapat
             $affected = DB::table('laporan_files')
                 ->where('id_rapat', $id)
                 ->where('is_archived', 0)
@@ -381,7 +391,7 @@ public function cetak(Request $request)
                     'updated_at'  => now(),
                 ]);
 
-            // 2) Jika TIDAK ada file aktif: buat PDF gabungan dan masukkan ke arsip
+            // 2) Jika tidak ada file aktif: buat PDF gabungan dan masukkan ke arsip
             if ($affected == 0) {
                 $rapat = DB::table('rapat')
                     ->leftJoin('kategori_rapat','kategori_rapat.id','=','rapat.id_kategori')
@@ -394,10 +404,7 @@ public function cetak(Request $request)
                     return back()->with('error','Rapat tidak ditemukan.');
                 }
 
-                // PDF gabungan (binary string)
-                $binary = $this->renderGabunganPdfBinary($id);
-
-                // simpan ke storage/app/laporan/*.pdf
+                $binary   = $this->renderGabunganPdfBinary($id);
                 $diskName = (string) Str::uuid().'.pdf';
                 $path     = 'laporan/'.$diskName;
                 Storage::put($path, $binary);
@@ -424,7 +431,7 @@ public function cetak(Request $request)
                 ]);
             }
 
-            // 3) Tandai rapat sudah diarsip (untuk menyembunyikan dari Rekap)
+            // 3) Tandai rapat sudah diarsip agar tersembunyi dari rekap
             DB::table('laporan_archived_meetings')->updateOrInsert(
                 ['rapat_id' => $id],
                 ['archived_at' => now(), 'created_at' => now(), 'updated_at' => now()]
@@ -432,7 +439,6 @@ public function cetak(Request $request)
 
             DB::commit();
 
-            // pesan berbeda bila tadi tidak ada file aktif
             if ($affected == 0) {
                 return back()->with('ok','Tidak ada file aktif. PDF gabungan dibuat dan dimasukkan ke Arsip.');
             }
@@ -444,14 +450,12 @@ public function cetak(Request $request)
         }
     }
 
-
     /* ==========================================================
      * Helper: render PDF gabungan (binary string) agar reusable
      * Dipakai oleh cetakGabunganRapat() dan archiveRapat()
      * ========================================================== */
     private function renderGabunganPdfBinary(int $rapatId): string
     {
-        // 1) Data rapat & relasi
         $rapat = DB::table('rapat')
             ->leftJoin('pimpinan_rapat','rapat.id_pimpinan','=','pimpinan_rapat.id')
             ->leftJoin('kategori_rapat','rapat.id_kategori','=','kategori_rapat.id')
@@ -500,8 +504,7 @@ public function cetak(Request $request)
             $creator = DB::table('users')->where('id',$notulensi->id_user)->first();
         }
 
-        $tmpDir = storage_path('app');
-        $files = [];
+        $tmpDir = storage_path('app'); $files = [];
 
         // Undangan
         $fUnd = $tmpDir.'/und-'.Str::random(8).'.pdf';
@@ -544,9 +547,8 @@ public function cetak(Request $request)
 
         $merger = new Merger();
         foreach ($files as $f) $merger->addFile($f);
-        $merged = $merger->merge(); // binary string
+        $merged = $merger->merge();
 
-        // cleanup
         foreach ($files as $f) @unlink($f);
 
         return $merged;

@@ -185,7 +185,7 @@
                           onsubmit="return confirm('Arsipkan rapat ini? Jika belum ada lampiran aktif, sistem akan membuat file gabungan PDF dan memindahkannya ke Arsip.')">
                       @csrf
                       <button class="btn-icon btn-lime" title="Arsipkan Rapat">
-                        <i class="fas fa-box-archive"></i>
+                        <i class="fas fa-archive"></i>
                       </button>
                     </form>
                   </div>
@@ -281,7 +281,7 @@
                           onsubmit="return confirm('Pindahkan ke Arsip? Item ini akan hilang dari halaman Laporan dan muncul di Arsip.')">
                       @csrf
                       <button class="btn-icon btn-lime mr-1" title="Arsipkan">
-                        <i class="fas fa-box-archive"></i>
+                        <i class="fas fa-archive"></i>
                       </button>
                     </form>
 
