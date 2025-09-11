@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\LaporanController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
@@ -42,10 +43,11 @@ Route::middleware(['auth', 'cekrole:admin'])->group(function () {
     Route::put('/laporan/update/{id}', 'LaporanController@updateFile')->name('laporan.updateFile');
     Route::get('laporan/file/{id}/download', 'LaporanController@downloadFile')->name('laporan.file.download');
     Route::delete('laporan/file/{id}', 'LaporanController@destroyFile')->name('laporan.file.destroy');
-    Route::get('/laporan/baru',  'LaporanController@baru')->name('laporan.baru');
     Route::get('/laporan/arsip', 'LaporanController@arsip')->name('laporan.arsip');
+    Route::post('/laporan/file/{id}/archive', 'LaporanController@archiveFile')->name('laporan.file.archive');
+    Route::post('/laporan/file/{id}/unarchive', 'LaporanController@unarchiveFile')->name('laporan.file.unarchive');
+    Route::post('/laporan/rapat/{id}/archive', 'LaporanController@archiveRapat')->name('laporan.rapat.archive');
     
-
 });
 
 //NOTULENSI
@@ -68,8 +70,8 @@ Route::middleware(['auth', 'cekrole:peserta'])->group(function () {
     Route::get('undangan-saya', 'UndanganController@undanganSaya')->name('undangan.saya');
     Route::get('absensi-saya', 'AbsensiController@absensiSaya')->name('absensi.saya');
     Route::post('absensi/isi', 'AbsensiController@isiAbsensi')->name('absensi.isi');
-    Route::get('absensi/scan/{token}', 'AbsensiController@scan')->name('absensi.scan');           // halaman scan/konfirmasi
-    Route::post('absensi/scan/{token}', 'AbsensiController@simpanScan')->name('absensi.scan.save'); // commit absen hadir
+    Route::get('absensi/scan/{token}', 'AbsensiController@scan')->name('absensi.scan');        
+    Route::post('absensi/scan/{token}', 'AbsensiController@simpanScan')->name('absensi.scan.save'); 
 });
 
 

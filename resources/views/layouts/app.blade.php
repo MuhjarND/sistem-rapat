@@ -256,45 +256,40 @@
         }
         .page-item.disabled .page-link{ color: var(--muted); }
 
+        /* Readonly inputs tetap gelap */
         .form-control[readonly], 
         .form-control:disabled {
-        background: rgba(255,255,255,.06) !important;
-        border: 1px solid rgba(226,232,240,.15) !important;
-        color: var(--text) !important;
-        opacity: 1; /* jangan terlalu redup */
-    }
+            background: rgba(255,255,255,.06) !important;
+            border: 1px solid rgba(226,232,240,.15) !important;
+            color: var(--text) !important;
+            opacity: 1;
+        }
 
-      /* CKEditor editable area supaya cocok tema */
-    .ck-editor__editable {
-        background: rgba(255,255,255,.06) !important;
-        color: var(--text) !important;
-        border: 1px solid rgba(226,232,240,.2) !important;
-        border-radius: 8px !important;
-        padding: 10px !important;
-        min-height: 140px;
-    }
-
-    /* Fokus lebih tegas */
-    .ck-editor__editable:focus {
-        border-color: rgba(99,102,241,.6) !important; /* indigo glow */
-        box-shadow: 0 0 0 2px rgba(99,102,241,.3) !important;
-    }
-
-    /* Toolbar CKEditor */
-    .ck.ck-toolbar {
-        background: #1e293b !important; /* slate gelap */
-        border: 1px solid rgba(226,232,240,.2) !important;
-        border-radius: 8px 8px 0 0 !important;
-    }
-
-    .ck.ck-toolbar .ck-button .ck-icon,
-    .ck.ck-toolbar .ck-button .ck-label {
-        color: var(--text) !important;
-    }
-
-    .ck.ck-toolbar .ck-button:hover {
-        background: rgba(99,102,241,.2) !important;
-    }
+        /* CKEditor editable agar match tema (fallback jika halaman belum override) */
+        .ck-editor__editable {
+            background: rgba(255,255,255,.06) !important;
+            color: var(--text) !important;
+            border: 1px solid rgba(226,232,240,.2) !important;
+            border-radius: 8px !important;
+            padding: 10px !important;
+            min-height: 140px;
+        }
+        .ck-editor__editable:focus {
+            border-color: rgba(99,102,241,.6) !important;
+            box-shadow: 0 0 0 2px rgba(99,102,241,.3) !important;
+        }
+        .ck.ck-toolbar {
+            background: #1e293b !important;
+            border: 1px solid rgba(226,232,240,.2) !important;
+            border-radius: 8px 8px 0 0 !important;
+        }
+        .ck.ck-toolbar .ck-button .ck-icon,
+        .ck.ck-toolbar .ck-button .ck-label {
+            color: var(--text) !important;
+        }
+        .ck.ck-toolbar .ck-button:hover {
+            background: rgba(99,102,241,.2) !important;
+        }
     </style>
 
     @yield('style')
@@ -327,12 +322,23 @@
                     // buka-tutup "Kelola Data"
                     $openKelola  = request()->is('user*') || request()->is('pimpinan*') || request()->is('kategori*');
 
-                    // buka-tutup "Laporan" (dropdown)
-                    $openLaporan = request()->routeIs('laporan.baru') || request()->routeIs('laporan.arsip') || request()->is('laporan/*');
+                    // ===== Notulensi dropdown + badge =====
+                    $openNotulensi = request()->routeIs('notulensi.*') || request()->is('notulensi*');
+                    $countBelum = \DB::table('rapat')
+                                    ->leftJoin('notulensi','notulensi.id_rapat','=','rapat.id')
+                                    ->whereNull('notulensi.id')->count();
+                    $countSudah = \DB::table('rapat')
+                                    ->join('notulensi','notulensi.id_rapat','=','rapat.id')
+                                    ->count();
 
-                    // badge laporan
+                    // ===== Laporan dropdown + badge =====
+                    // anggap "Laporan" = route('laporan.index') dan "Arsip" = route('laporan.arsip')
+                    $openLaporan = request()->routeIs('laporan.index') || request()->routeIs('laporan.arsip') || request()->is('laporan/*');
+
                     $nowY = date('Y'); $nowM = date('m');
+                    // jumlah laporan bulan berjalan
                     $badgeBaru = \DB::table('laporan_files')->whereYear('created_at',$nowY)->whereMonth('created_at',$nowM)->count();
+                    // jumlah arsip (sebelum bulan ini)
                     $badgeArsip = \DB::table('laporan_files')
                                     ->where(function($q) use($nowY,$nowM){
                                         $q->whereYear('created_at','<',$nowY)
@@ -341,17 +347,6 @@
                                                  ->whereMonth('created_at','<',$nowM);
                                           });
                                     })->count();
-
-                    // ===== Notulensi dropdown + badge =====
-                    $openNotulensi = request()->routeIs('notulensi.*') || request()->is('notulensi*');
-                    // hitung cepat
-                    $countBelum = \DB::table('rapat')
-                                    ->leftJoin('notulensi','notulensi.id_rapat','=','rapat.id')
-                                    ->whereNull('notulensi.id')
-                                    ->count();
-                    $countSudah = \DB::table('rapat')
-                                    ->join('notulensi','notulensi.id_rapat','=','rapat.id')
-                                    ->count();
                 @endphp
 
                 <nav class="nav flex-column">
@@ -401,13 +396,15 @@
                     </a>
                     <div class="collapse {{ $openLaporan ? 'show' : '' }}" id="menuLaporan">
                         <div class="nav flex-column submenu">
-                            <a class="nav-link d-flex justify-content-between align-items-center {{ request()->routeIs('laporan.baru') ? 'active' : '' }}"
-                               href="{{ route('laporan.baru') }}">
-                                <span><i class="fas fa-circle mr-2" style="font-size:8px;"></i> Laporan Baru</span>
+                            {{-- Halaman Laporan (utama) --}}
+                            <a class="nav-link d-flex justify-content-between align-items-center {{ request()->routeIs('laporan.index') ? 'active' : '' }}"
+                               href="{{ route('laporan.index') }}">
+                                <span><i class="fas fa-circle mr-2" style="font-size:8px;"></i> Laporan</span>
                                 @if($badgeBaru>0)
                                   <span class="badge-ping">{{ $badgeBaru }}</span>
                                 @endif
                             </a>
+                            {{-- Arsip Laporan --}}
                             <a class="nav-link d-flex justify-content-between align-items-center {{ request()->routeIs('laporan.arsip') ? 'active' : '' }}"
                                href="{{ route('laporan.arsip') }}">
                                 <span><i class="fas fa-circle mr-2" style="font-size:8px;"></i> Arsip Laporan</span>
