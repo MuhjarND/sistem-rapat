@@ -172,13 +172,14 @@
             </div>
           @endif
           @include('rapat._form', [
-              'rapat' => null,
-              'peserta_terpilih' => [],
-              'daftar_kategori' => $daftar_kategori,
-              'daftar_pimpinan' => $daftar_pimpinan,
-              'daftar_peserta' => $daftar_peserta,
-              'dropdownParentId' => '#modalTambahRapat',
-              'pesertaWrapperId' => 'peserta-wrapper-tambah'
+            'rapat' => null,
+            'peserta_terpilih' => [],
+            'daftar_kategori' => $daftar_kategori,
+            'approval1_list' => $approval1_list,       {{-- ganti dari daftar_pimpinan --}}
+            'approval2_list' => $approval2_list,       {{-- baru --}}
+            'daftar_peserta' => $daftar_peserta,
+            'dropdownParentId' => '#modalTambahRapat',
+            'pesertaWrapperId' => 'peserta-wrapper-tambah'
           ])
         </div>
         <div class="modal-footer">
@@ -204,13 +205,14 @@
         @method('PUT')
         <div class="modal-body">
           @include('rapat._form', [
-              'rapat' => $rapat,
-              'peserta_terpilih' => $rapat->peserta_terpilih ?? [],
-              'daftar_kategori' => $daftar_kategori,
-              'daftar_pimpinan' => $daftar_pimpinan,
-              'daftar_peserta' => $daftar_peserta,
-              'dropdownParentId' => '#modalEditRapat-' . $rapat->id,
-              'pesertaWrapperId' => 'peserta-wrapper-edit-' . $rapat->id
+            'rapat' => $rapat,
+            'peserta_terpilih' => $rapat->peserta_terpilih ?? [],
+            'daftar_kategori' => $daftar_kategori,
+            'approval1_list' => $approval1_list,       {{-- ganti dari daftar_pimpinan --}}
+            'approval2_list' => $approval2_list,       {{-- baru --}}
+            'daftar_peserta' => $daftar_peserta,
+            'dropdownParentId' => '#modalEditRapat-' . $rapat->id,
+            'pesertaWrapperId' => 'peserta-wrapper-edit-' . $rapat->id
           ])
         </div>
         <div class="modal-footer">

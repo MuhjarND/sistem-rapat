@@ -24,6 +24,7 @@
                         <th>Unit</th>       {{-- baru --}}
                         <th>Role</th>
                         <th>Aksi</th>
+                        <th>Tingkatan</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -35,6 +36,7 @@
                         <td>{{ $user->email }}</td>
                         <td>{{ $user->no_hp ?? '-' }}</td> {{-- tampilkan no_hp --}}
                         <td class="text-capitalize">{{ $user->unit ?? '-' }}</td> {{-- tampilkan unit --}}
+                        <td>{{ $user->tingkatan ? 'T'.$user->tingkatan : '-' }}</td>
                         <td>{{ ucfirst($user->role) }}</td>
                         <td>
                             <a href="{{ route('user.edit', $user->id) }}" class="btn btn-warning btn-sm">Edit</a>

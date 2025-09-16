@@ -63,6 +63,19 @@
                     @error('unit') <div class="invalid-feedback">{{ $message }}</div> @enderror
                 </div>
 
+                {{-- Tingkatan (opsional) --}}
+                <div class="form-group mb-3">
+                <label for="tingkatan">Tingkatan (opsional)</label>
+                <select name="tingkatan" id="tingkatan" class="form-control @error('tingkatan') is-invalid @enderror">
+                    <option value="">-- Tanpa tingkatan --</option>
+                    @foreach($daftar_tingkatan as $t)
+                        <option value="{{ $t }}" {{ old('tingkatan') == $t ? 'selected' : '' }}>Tingkatan {{ $t }}</option>
+                    @endforeach
+                </select>
+                @error('tingkatan') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                <small class="form-text text-muted">Jika diisi, user otomatis menjadi role <b>approval</b>.</small>
+                </div>
+
                 {{-- Role --}}
                 <div class="form-group mb-3">
                     <label for="role">Role <span class="text-danger">*</span></label>

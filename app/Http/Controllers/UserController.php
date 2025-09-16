@@ -7,30 +7,30 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Hash;
 
+// ... namespace & use sama seperti sebelumnya
+
 class UserController extends Controller
 {
-    // Daftar user
     public function index()
     {
-        // Tetap konsisten: Query Builder, urut nama
         $daftar_user = DB::table('users')
-            ->select('id','name','jabatan','email','no_hp','unit','role','created_at')
+            ->select('id','name','jabatan','email','no_hp','unit','tingkatan','role','created_at')
             ->orderBy('name')
             ->get();
 
         return view('user.index', compact('daftar_user'));
     }
 
-    // Form tambah user
     public function create()
     {
+        // role tetap tampil admin/notulis/peserta; role 'approval' diatur otomatis ketika tingkatan diisi
         $daftar_role = ['admin', 'notulis', 'peserta'];
         $daftar_unit = ['kepaniteraan', 'kesekretariatan'];
+        $daftar_tingkatan = [1,2];
 
-        return view('user.create', compact('daftar_role','daftar_unit'));
+        return view('user.create', compact('daftar_role','daftar_unit','daftar_tingkatan'));
     }
 
-    // Simpan user baru
     public function store(Request $request)
     {
         $request->validate([
@@ -39,17 +39,22 @@ class UserController extends Controller
             'email'    => 'required|email|unique:users,email',
             'no_hp'    => 'nullable|regex:/^0[0-9]{9,13}$/',
             'unit'     => 'required|in:kepaniteraan,kesekretariatan',
-            'role'     => 'required|in:admin,notulis,peserta',
+            'tingkatan'=> 'nullable|in:1,2',
+            'role'     => 'required|in:admin,notulis,peserta', // input awal
             'password' => 'required|min:6|confirmed'
         ]);
+
+        // Jika tingkatan diisi, override role jadi 'approval'
+        $role = $request->filled('tingkatan') ? 'approval' : $request->role;
 
         DB::table('users')->insert([
             'name'       => $request->name,
             'jabatan'    => $request->jabatan,
             'email'      => $request->email,
-            'no_hp'      => $request->no_hp,          // <— simpan no_hp
-            'unit'       => $request->unit,           // <— simpan unit
-            'role'       => $request->role,
+            'no_hp'      => $request->no_hp,
+            'unit'       => $request->unit,
+            'tingkatan'  => $request->tingkatan, // 1/2/null
+            'role'       => $role,
             'password'   => Hash::make($request->password),
             'created_at' => now(),
             'updated_at' => now(),
@@ -58,19 +63,18 @@ class UserController extends Controller
         return redirect()->route('user.index')->with('success', 'User berhasil ditambah!');
     }
 
-    // Form edit user
     public function edit($id)
     {
         $user = DB::table('users')->where('id', $id)->first();
         if (!$user) abort(404);
 
-        $daftar_role = ['admin', 'notulis', 'peserta'];
+        $daftar_role = ['admin', 'notulis', 'peserta']; // approval tidak dipilih manual
         $daftar_unit = ['kepaniteraan', 'kesekretariatan'];
+        $daftar_tingkatan = [1,2];
 
-        return view('user.edit', compact('user', 'daftar_role','daftar_unit'));
+        return view('user.edit', compact('user','daftar_role','daftar_unit','daftar_tingkatan'));
     }
 
-    // Update user
     public function update(Request $request, $id)
     {
         $user = DB::table('users')->where('id', $id)->first();
@@ -82,20 +86,24 @@ class UserController extends Controller
             'email'    => 'required|email|unique:users,email,'.$id,
             'no_hp'    => 'nullable|regex:/^0[0-9]{9,13}$/',
             'unit'     => 'required|in:kepaniteraan,kesekretariatan',
+            'tingkatan'=> 'nullable|in:1,2',
             'role'     => 'required|in:admin,notulis,peserta',
             'password' => 'nullable|min:6|confirmed'
         ]);
+
+        // Override role jika tingkatan diisi
+        $role = $request->filled('tingkatan') ? 'approval' : $request->role;
 
         $data = [
             'name'       => $request->name,
             'jabatan'    => $request->jabatan,
             'email'      => $request->email,
-            'no_hp'      => $request->no_hp,     // <— update no_hp
-            'unit'       => $request->unit,      // <— update unit
-            'role'       => $request->role,
+            'no_hp'      => $request->no_hp,
+            'unit'       => $request->unit,
+            'tingkatan'  => $request->tingkatan,
+            'role'       => $role,
             'updated_at' => now(),
         ];
-
         if ($request->filled('password')) {
             $data['password'] = Hash::make($request->password);
         }
@@ -105,7 +113,6 @@ class UserController extends Controller
         return redirect()->route('user.index')->with('success', 'User berhasil diupdate!');
     }
 
-    // Hapus user
     public function destroy($id)
     {
         DB::table('users')->where('id', $id)->delete();
