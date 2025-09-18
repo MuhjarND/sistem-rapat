@@ -74,4 +74,15 @@ Route::middleware(['auth', 'cekrole:peserta'])->group(function () {
     Route::post('absensi/scan/{token}', 'AbsensiController@simpanScan')->name('absensi.scan.save'); 
 });
 
+Route::middleware(['auth', 'cekrole:approval'])->group(function () {
+    Route::get('/approval/pending', 'ApprovalController@pending')->name('approval.pending');
+    Route::get('/approval/sign/{token}', 'ApprovalController@signForm')->name('approval.sign');
+    Route::post('/approval/sign/{token}', 'ApprovalController@signSubmit')->name('approval.sign.submit');
+    Route::get('/approval/done/{token}', 'ApprovalController@done')->name('approval.done');
+
+// (opsional) endpoint verifikasi payload QR
+Route::post('/approval/verify', 'ApprovalController@verify')->name('approval.verify');
+});
+
+
 

@@ -8,7 +8,7 @@
         @if(Auth::user()->role == 'admin')
             <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#modalTambahRapat">
                 + Tambah Rapat
-            </button>
+            </button>   
         @endif
     </div>
 

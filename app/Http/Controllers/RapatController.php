@@ -139,7 +139,7 @@ class RapatController extends Controller
         $approval1 = DB::table('users')->where('id', $rapat->approval1_user_id)->first();
         $approval2 = $rapat->approval2_user_id ? DB::table('users')->where('id', $rapat->approval2_user_id)->first() : null;
 
-        // Insert undangan + kirim notifikasi
+        // Insert undangan + kirim notifikasi ke peserta
         foreach ($request->peserta as $id_peserta) {
             DB::table('undangan')->insert([
                 'id_rapat'   => $id_rapat,
@@ -151,7 +151,6 @@ class RapatController extends Controller
 
             $peserta = DB::table('users')->where('id', $id_peserta)->first();
 
-            // WA via Fonnte (jika ada no_hp)
             if ($peserta && $peserta->no_hp) {
                 $wa = preg_replace('/^0/', '62', $peserta->no_hp);
 
@@ -171,30 +170,46 @@ class RapatController extends Controller
             }
         }
 
-        // === Generate PDF Undangan ===
-        // Ambil seluruh peserta rapat untuk ditampilkan (atau lampiran)
+        // === Buat antrean approval untuk UNDANGAN (A2 -> A1 bila ada A2 / hanya A1 jika tidak) ===
+        $this->createApprovalChainForDoc($id_rapat, 'undangan');
+
+        // === Kirim link WA ke approver tahap pertama ===
+        $this->notifyFirstApprover($id_rapat, 'undangan', $rapat->judul);
+
+        // === (Opsional) generate PDF pratinjau; final PDF bisa diunduh setelah approve ===
         $daftar_peserta = DB::table('undangan')
             ->join('users','undangan.id_user','=','users.id')
             ->where('undangan.id_rapat', $id_rapat)
             ->select('users.name','users.email','users.jabatan')
             ->get();
 
-        // Aturan tampilan lampiran/daftar
         $tampilkan_lampiran = $daftar_peserta->count() > 5;     // lampiran hanya jika > 5
         $tampilkan_daftar_di_surat = !$tampilkan_lampiran;      // daftar di badan surat jika ≤ 5
 
-        // (Jika kamu perlu menyimpan/attach PDF, di sini variabel $pdfData sudah siap)
-        $pdf = Pdf::loadView('rapat.undangan_pdf', [
-            'rapat'                      => $rapat,
-            'daftar_peserta'             => $daftar_peserta,
-            'approval1'                  => $approval1,
-            'approval2'                  => $approval2,
-            'kop_path'                   => public_path('Screenshot 2025-08-23 121254.jpeg'),
-            'tampilkan_lampiran'         => $tampilkan_lampiran,
-            'tampilkan_daftar_di_surat'  => $tampilkan_daftar_di_surat,
-        ])->setPaper('A4', 'portrait');
-        $pdfData = $pdf->output();
-        // Mail::to(...)->queue(new UndanganRapatMail(...)) // jika ingin email
+        // QR mungkin belum ada (belum approved) — tidak masalah
+        $qrA1 = DB::table('approval_requests')
+            ->where('rapat_id', $id_rapat)
+            ->where('doc_type','undangan')
+            ->where('approver_user_id', $rapat->approval1_user_id)
+            ->where('status','approved')
+            ->orderBy('order_index')
+            ->value('signature_qr_path');
+
+        $qrA2 = null;
+        if (!empty($rapat->approval2_user_id)) {
+            $qrA2 = DB::table('approval_requests')
+                ->where('rapat_id', $id_rapat)
+                ->where('doc_type','undangan')
+                ->where('approver_user_id', $rapat->approval2_user_id)
+                ->where('status','approved')
+                ->orderBy('order_index')
+                ->value('signature_qr_path');
+        }
+
+        // Catatan: biasanya undangan final diunduh setelah approval selesai.
+        // Jika ingin langsung preview:
+        // $pdf = Pdf::loadView('rapat.undangan_pdf', [..., 'qrA1'=>$qrA1, 'qrA2'=>$qrA2])->setPaper('A4','portrait');
+        // $pdfData = $pdf->output();
 
         return redirect()->route('rapat.index')->with('success', 'Rapat & Undangan berhasil dibuat. Notifikasi WA sudah dikirim!');
     }
@@ -296,6 +311,12 @@ class RapatController extends Controller
             ]);
         }
 
+        // (Opsional tapi direkomendasikan) reset antrean approval undangan bila approver berubah
+        DB::table('approval_requests')->where('rapat_id', $id)->where('doc_type', 'undangan')->delete();
+        $this->createApprovalChainForDoc($id, 'undangan');
+        $judul = DB::table('rapat')->where('id', $id)->value('judul');
+        $this->notifyFirstApprover($id, 'undangan', $judul);
+
         return redirect()->route('rapat.index')->with('success', 'Rapat dan undangan berhasil diupdate!');
     }
 
@@ -303,11 +324,12 @@ class RapatController extends Controller
     public function destroy($id)
     {
         DB::table('undangan')->where('id_rapat', $id)->delete();
+        DB::table('approval_requests')->where('rapat_id', $id)->delete(); // bersihkan antrean approval
         DB::table('rapat')->where('id', $id)->delete();
         return redirect()->route('rapat.index')->with('success', 'Rapat berhasil dihapus!');
     }
 
-    // Export undangan PDF (pakai approval)
+    // Export undangan PDF (pakai approval + QR)
     public function undanganPdf($id)
     {
         $rapat = DB::table('rapat')->where('id', $id)->first();
@@ -328,6 +350,26 @@ class RapatController extends Controller
         $tampilkan_lampiran = $daftar_peserta->count() > 5;    // lampiran hanya jika > 5
         $tampilkan_daftar_di_surat = !$tampilkan_lampiran;     // daftar di badan surat jika ≤ 5
 
+        // Ambil QR signature (jika sudah disetujui). Path disimpan relatif dr public/ (contoh: 'qr/xxx.png')
+        $qrA1 = DB::table('approval_requests')
+            ->where('rapat_id', $rapat->id)
+            ->where('doc_type','undangan')
+            ->where('approver_user_id', $rapat->approval1_user_id)
+            ->where('status','approved')
+            ->orderBy('order_index')
+            ->value('signature_qr_path');
+
+        $qrA2 = null;
+        if (!empty($rapat->approval2_user_id)) {
+            $qrA2 = DB::table('approval_requests')
+                ->where('rapat_id', $rapat->id)
+                ->where('doc_type','undangan')
+                ->where('approver_user_id', $rapat->approval2_user_id)
+                ->where('status','approved')
+                ->orderBy('order_index')
+                ->value('signature_qr_path');
+        }
+
         $pdf = Pdf::loadView('rapat.undangan_pdf', [
             'rapat'                      => $rapat,
             'daftar_peserta'             => $daftar_peserta,
@@ -336,6 +378,8 @@ class RapatController extends Controller
             'kop_path'                   => $kop_path,
             'tampilkan_lampiran'         => $tampilkan_lampiran,
             'tampilkan_daftar_di_surat'  => $tampilkan_daftar_di_surat,
+            'qrA1'                       => $qrA1,
+            'qrA2'                       => $qrA2,
         ])->setPaper('A4', 'portrait');
 
         $filename = 'Undangan-Rapat-' . str_replace(' ', '-', $rapat->judul) . '.pdf';
@@ -366,5 +410,57 @@ class RapatController extends Controller
     {
         DB::table('rapat')->where('id', $id)->update(['status' => 'dibatalkan', 'updated_at' => now()]);
         return redirect()->route('rapat.index')->with('success', 'Rapat berhasil dibatalkan!');
+    }
+
+    /**
+     * Buat antrean approval untuk dokumen (undangan|absensi|notulensi)
+     * Rantai: jika ada A2 => A2 (order 1) -> A1 (order 2); jika tidak, hanya A1 (order 1)
+     */
+    private function createApprovalChainForDoc($rapatId, $docType)
+    {
+        $rapat = DB::table('rapat')->where('id',$rapatId)->first();
+        if (!$rapat) return;
+
+        $chain = [];
+        if (!empty($rapat->approval2_user_id)) {
+            $chain[] = ['user_id' => $rapat->approval2_user_id, 'order' => 1];
+            $chain[] = ['user_id' => $rapat->approval1_user_id, 'order' => 2];
+        } else {
+            $chain[] = ['user_id' => $rapat->approval1_user_id, 'order' => 1];
+        }
+
+        foreach ($chain as $c) {
+            DB::table('approval_requests')->insert([
+                'rapat_id'         => $rapatId,
+                'doc_type'         => $docType,
+                'approver_user_id' => $c['user_id'],
+                'order_index'      => $c['order'],
+                'status'           => 'pending',
+                'sign_token'       => Str::random(48),
+                'created_at'       => now(),
+                'updated_at'       => now(),
+            ]);
+        }
+    }
+
+    /**
+     * Kirim WA ke approver tahap pertama untuk dokumen tertentu
+     */
+    private function notifyFirstApprover($rapatId, $docType, $judulRapat)
+    {
+        $firstReq = DB::table('approval_requests')
+            ->where('rapat_id',$rapatId)
+            ->where('doc_type',$docType)
+            ->orderBy('order_index')
+            ->first();
+
+        if ($firstReq) {
+            $approver = DB::table('users')->where('id',$firstReq->approver_user_id)->first();
+            if ($approver && $approver->no_hp) {
+                $wa = preg_replace('/^0/', '62', $approver->no_hp);
+                $signUrl = url('/approval/sign/'.$firstReq->sign_token); // route ke ApprovalController
+                \App\Helpers\FonnteWa::send($wa, "Mohon approval {$docType} rapat: {$judulRapat}\nLink: {$signUrl}");
+            }
+        }
     }
 }

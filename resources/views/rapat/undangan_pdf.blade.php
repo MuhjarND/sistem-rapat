@@ -20,6 +20,10 @@
         table { width: 100%; }
         ol { margin: 6px 0 8px 18px; padding: 0; }
         .clearfix::after { content: ""; display: table; clear: both; }
+        /* tambahan untuk QR */
+        .qr { height: 90px; }
+        .qr-caption { font-size: 10pt; color:#333; }
+        .qr-placeholder { height: 90px; }
     </style>
 </head>
 <body>
@@ -102,18 +106,17 @@
     <div class="clearfix">
         {{-- Tanda tangan Approval 1 (wajib) --}}
         <div class="ttd">
-            {{ $approval1->jabatan ?? 'Approval 1' }},<br><br><br><br>
+            {{ $approval1->jabatan ?? 'Approval 1' }},<br>
+            @if(!empty($qrA1))
+                {{-- qrA1 adalah path relatif dari folder public/, contoh: "qr/xxx.png" --}}
+                <img class="qr" src="{{ public_path($qrA1) }}"><br>
+                <span class="qr-caption">Terverifikasi digital (QR)</span><br>
+            @else
+                {{-- jaga jarak jika belum approved --}}
+                <div class="qr-placeholder"></div><br>
+            @endif
             <b>{{ $approval1->name ?? '-' }}</b>
         </div>
-
-        {{-- Tanda tangan Approval 2 (opsional) --}}
-        @if(!empty($approval2))
-        <div class="ttd2">
-            {{ $approval2->jabatan ?? 'Approval 2' }},<br><br><br><br>
-            <b>{{ $approval2->name }}</b>
-        </div>
-        @endif
-    </div>
 
     {{-- Lampiran HANYA bila peserta > 5 --}}
     @if($tampilkan_lampiran)

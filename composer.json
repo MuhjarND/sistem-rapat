@@ -20,7 +20,7 @@
         "laravel/ui": "2.0",
         "setasign/fpdf": "1.8",
         "setasign/fpdi": "2.3",
-        "simplesoftwareio/simple-qrcode": "~4"
+        "simplesoftwareio/simple-qrcode": "^4.2"
     },
     "require-dev": {
         "facade/ignition": "^2.0",
