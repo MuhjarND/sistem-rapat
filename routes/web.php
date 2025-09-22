@@ -15,6 +15,10 @@ Route::get('/home', 'HomeController@index')->name('home');
 
 //--------------------------------------------------------
 
+//PUBLIK
+Route::get('/qr/verify', 'VerificationController@verify')->name('qr.verify');
+
+
 //DASHBOARD
 Route::middleware(['auth'])->group(function() {
     Route::get('/dashboard/admin', 'DashboardController@admin')->name('dashboard.admin')->middleware('cekrole:admin');
@@ -30,6 +34,7 @@ Route::middleware(['auth', 'cekrole:admin'])->group(function () {
     Route::resource('undangan', 'UndanganController');
     Route::get('rapat/{id}/undangan-pdf', 'RapatController@undanganPdf')->name('rapat.undangan.pdf');
     Route::post('rapat/{id}/batal', 'RapatController@batalkan')->name('rapat.batal');
+    //ABSENSI
     Route::resource('absensi', 'AbsensiController');
     //INPUT DATA
     Route::resource('pimpinan', 'PimpinanRapatController');
@@ -52,6 +57,7 @@ Route::middleware(['auth', 'cekrole:admin'])->group(function () {
 
 //NOTULENSI
 Route::middleware(['auth', 'cekrole:admin,notulis'])->group(function () {
+    //CETAK ABSENSI
     Route::get('absensi/laporan/{id_rapat}', 'AbsensiController@exportPdf')->name('absensi.export.pdf');
     //NOTULENSI
     Route::get('notulensi',                 'NotulensiController@index')->name('notulensi.index');
@@ -66,7 +72,7 @@ Route::middleware(['auth', 'cekrole:admin,notulis'])->group(function () {
 });
 
 // PESERTA
-Route::middleware(['auth', 'cekrole:peserta'])->group(function () {
+Route::middleware(['auth', 'cekrole:admin,peserta'])->group(function () {
     Route::get('undangan-saya', 'UndanganController@undanganSaya')->name('undangan.saya');
     Route::get('absensi-saya', 'AbsensiController@absensiSaya')->name('absensi.saya');
     Route::post('absensi/isi', 'AbsensiController@isiAbsensi')->name('absensi.isi');
@@ -79,9 +85,6 @@ Route::middleware(['auth', 'cekrole:approval'])->group(function () {
     Route::get('/approval/sign/{token}', 'ApprovalController@signForm')->name('approval.sign');
     Route::post('/approval/sign/{token}', 'ApprovalController@signSubmit')->name('approval.sign.submit');
     Route::get('/approval/done/{token}', 'ApprovalController@done')->name('approval.done');
-
-// (opsional) endpoint verifikasi payload QR
-Route::post('/approval/verify', 'ApprovalController@verify')->name('approval.verify');
 });
 
 

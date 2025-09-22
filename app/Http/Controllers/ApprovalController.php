@@ -4,9 +4,9 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
-use SimpleSoftwareIO\QrCode\Facades\QrCode;
 
 class ApprovalController extends Controller
 {
@@ -69,126 +69,139 @@ class ApprovalController extends Controller
     }
 
     /**
-     * Proses setuju & generate QR (tanpa Imagick, pakai GD).
+     * Proses setuju & generate QR (tanpa Imagick/GD).
      * - Simpan PNG ke public/qr/...
      * - Update approval_requests
      * - Push notifikasi ke approver berikutnya jika ada
      * - Kalau step terakhir, tandai rapat.<doc_type>_approved_at
+     * - Jika doc_type = 'undangan' selesai, otomatis generate QR 'absensi' (unik & berbeda)
      */
-public function signSubmit(Request $request, $token)
-{
-    // 1) Ambil request approval
-    $req = DB::table('approval_requests')->where('sign_token', $token)->first();
-    if (!$req) abort(404);
-    if ($req->status === 'approved') {
+    public function signSubmit(Request $request, $token)
+    {
+        // 1) Ambil request approval
+        $req = DB::table('approval_requests')->where('sign_token', $token)->first();
+        if (!$req) abort(404);
+        if ($req->status === 'approved') {
+            return redirect()->route('approval.done', ['token' => $token])
+                ->with('success', 'Dokumen ini sudah disetujui sebelumnya.');
+        }
+
+        // 2) Cek urutan (step sebelumnya harus approved)
+        $blocked = DB::table('approval_requests')
+            ->where('rapat_id', $req->rapat_id)
+            ->where('doc_type', $req->doc_type)
+            ->where('order_index', '<', $req->order_index)
+            ->where('status', '!=', 'approved')
+            ->exists();
+        if ($blocked) {
+            return back()->with('error', 'Tahap sebelum Anda belum selesai.');
+        }
+
+        // 3) Payload + HMAC
+        $rapat    = DB::table('rapat')->where('id', $req->rapat_id)->first();
+        $approver = DB::table('users')->where('id', $req->approver_user_id)->first();
+
+        $payload = [
+            'v'         => 1,
+            'doc_type'  => $req->doc_type, // undangan | absensi | notulensi
+            'rapat_id'  => $req->rapat_id,
+            'nomor'     => $rapat->nomor_undangan ?? null,
+            'judul'     => $rapat->judul,
+            'tanggal'   => $rapat->tanggal,
+            'approver'  => [
+                'id'      => $approver->id,
+                'name'    => $approver->name,
+                'jabatan' => $approver->jabatan ?? null,
+                'order'   => $req->order_index,
+            ],
+            'issued_at' => now()->toIso8601String(),
+            'nonce'     => Str::random(16),
+        ];
+
+        $secret = config('app.key');
+        if (is_string($secret) && Str::startsWith($secret, 'base64:')) {
+            $secret = base64_decode(substr($secret, 7));
+        }
+        $payload['sig'] = hash_hmac(
+            'sha256',
+            json_encode($payload, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),
+            $secret
+        );
+        $payloadJson = json_encode($payload, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
+
+        // 4) === Generate QR via Google Chart API ===
+        //    ISI QR = URL verifikasi agar saat scan langsung membuka halaman verifikasi
+        $qrContent = route('qr.verify', ['d' => base64_encode($payloadJson)]);
+        $encoded   = urlencode($qrContent);
+        $qrUrl     = "https://chart.googleapis.com/chart?chs=220x220&cht=qr&chl={$encoded}";
+
+        // Siapkan folder & nama file
+        $qrDir = public_path('qr');
+        if (!is_dir($qrDir)) {
+            @mkdir($qrDir, 0755, true);
+        }
+        $basename     = 'qr_' . $req->doc_type . '_r' . $req->rapat_id . '_a' . $approver->id . '_' . Str::random(6) . '.png';
+        $relativePath = 'qr/' . $basename;
+        $absolutePath = public_path($relativePath);
+
+        // Unduh PNG ke public/qr (tanpa imagick/GD)
+        $pngData = @file_get_contents($qrUrl);
+        if ($pngData === false) {
+            // fallback server lain (opsional)
+            $alt = "https://api.qrserver.com/v1/create-qr-code/?size=220x220&data={$encoded}";
+            $pngData = @file_get_contents($alt);
+        }
+        if ($pngData === false) {
+            return back()->with('error', 'Gagal membuat QR (akses internet/allow_url_fopen nonaktif).');
+        }
+        file_put_contents($absolutePath, $pngData);
+
+        // 5) Simpan hasil signature ke DB
+        DB::table('approval_requests')->where('id', $req->id)->update([
+            'status'             => 'approved',
+            'signature_qr_path'  => $relativePath,   // contoh: 'qr/qr_undangan_r12_a5_xxxxxx.png'
+            'signature_payload'  => $payloadJson,
+            'signed_at'          => now(),
+            'updated_at'         => now(),
+        ]);
+
+        // 6) Teruskan ke approver berikutnya atau tandai selesai
+        $next = DB::table('approval_requests')
+            ->where('rapat_id', $req->rapat_id)
+            ->where('doc_type', $req->doc_type)
+            ->where('order_index', '>', $req->order_index)
+            ->orderBy('order_index')
+            ->first();
+
+        if ($next) {
+            $nextApprover = DB::table('users')->where('id', $next->approver_user_id)->first();
+            if ($nextApprover && $nextApprover->no_hp) {
+                $wa = preg_replace('/^0/', '62', $nextApprover->no_hp);
+                $signUrl = url('/approval/sign/'.$next->sign_token);
+                \App\Helpers\FonnteWa::send($wa, "Mohon approval {$req->doc_type} rapat: {$rapat->judul}\nLink: {$signUrl}");
+            }
+        } else {
+            // doc_type ini selesai
+            $col = $req->doc_type . '_approved_at'; // contoh: undangan_approved_at
+            if (Schema::hasColumn('rapat', $col)) {
+                DB::table('rapat')->where('id', $req->rapat_id)->update([$col => now()]);
+            }
+
+            // Bila UNDANGAN selesai -> otomatis buat QR ABSENSI (unik & berbeda)
+            if ($req->doc_type === 'undangan') {
+                $this->generateAbsensiQr((int)$req->rapat_id);
+            }
+
+            if ($req->doc_type === 'undangan') {
+                // generate QR ABSENSI sekarang juga
+                app(\App\Http\Controllers\AbsensiController::class)
+                    ->ensureAbsensiQrMirrorsUndangan((int) $req->rapat_id);
+            }
+        }
+
         return redirect()->route('approval.done', ['token' => $token])
-            ->with('success', 'Dokumen ini sudah disetujui sebelumnya.');
+            ->with('success', 'Approval berhasil & QR dibuat (QR berisi URL verifikasi).');
     }
-
-    // 2) Cek urutan (step sebelumnya harus approved)
-    $blocked = DB::table('approval_requests')
-        ->where('rapat_id', $req->rapat_id)
-        ->where('doc_type', $req->doc_type)
-        ->where('order_index', '<', $req->order_index)
-        ->where('status', '!=', 'approved')
-        ->exists();
-    if ($blocked) {
-        return back()->with('error', 'Tahap sebelum Anda belum selesai.');
-    }
-
-    // 3) Payload + HMAC
-    $rapat    = DB::table('rapat')->where('id', $req->rapat_id)->first();
-    $approver = DB::table('users')->where('id', $req->approver_user_id)->first();
-
-    $payload = [
-        'v'         => 1,
-        'doc_type'  => $req->doc_type, // undangan | absensi | notulensi
-        'rapat_id'  => $req->rapat_id,
-        'nomor'     => $rapat->nomor_undangan ?? null,
-        'judul'     => $rapat->judul,
-        'tanggal'   => $rapat->tanggal,
-        'approver'  => [
-            'id'      => $approver->id,
-            'name'    => $approver->name,
-            'jabatan' => $approver->jabatan ?? null,
-            'order'   => $req->order_index,
-        ],
-        'issued_at' => now()->toIso8601String(),
-        'nonce'     => Str::random(16),
-    ];
-
-    $secret = config('app.key');
-    if (is_string($secret) && Str::startsWith($secret, 'base64:')) {
-        $secret = base64_decode(substr($secret, 7));
-    }
-    $payload['sig'] = hash_hmac(
-        'sha256',
-        json_encode($payload, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),
-        $secret
-    );
-    $payloadJson = json_encode($payload, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
-
-    // 4) Generate QR via Google Chart API (tanpa imagick/GD)
-    //    Docs: https://chart.googleapis.com/chart?chs=220x220&cht=qr&chl=ENCODED
-    $encoded = urlencode($payloadJson);
-    $qrUrl   = "https://chart.googleapis.com/chart?chs=220x220&cht=qr&chl={$encoded}";
-
-    // Siapkan folder & nama file
-    $qrDir = public_path('qr');
-    if (!is_dir($qrDir)) {
-        @mkdir($qrDir, 0755, true);
-    }
-    $basename     = 'qr_' . $req->doc_type . '_r' . $req->rapat_id . '_a' . $approver->id . '_' . Str::random(6) . '.png';
-    $relativePath = 'qr/' . $basename;
-    $absolutePath = public_path($relativePath);
-
-    // Unduh PNG ke public/qr
-    // Catatan: butuh allow_url_fopen aktif. Jika server disable, ganti dengan Guzzle.
-    $pngData = @file_get_contents($qrUrl);
-    if ($pngData === false) {
-        // fallback server lain (opsional)
-        $alt = "https://api.qrserver.com/v1/create-qr-code/?size=220x220&data={$encoded}";
-        $pngData = @file_get_contents($alt);
-    }
-    if ($pngData === false) {
-        return back()->with('error', 'Gagal membuat QR (akses internet/allow_url_fopen nonaktif).');
-    }
-    file_put_contents($absolutePath, $pngData);
-
-    // 5) Simpan hasil signature ke DB (pakai kolom kamu)
-    DB::table('approval_requests')->where('id', $req->id)->update([
-        'status'             => 'approved',
-        'signature_qr_path'  => $relativePath,   // contoh: 'qr/qr_undangan_r12_a5_xxxxxx.png'
-        'signature_payload'  => $payloadJson,
-        'signed_at'          => now(),
-        'updated_at'         => now(),
-    ]);
-
-    // 6) Teruskan ke approver berikutnya atau tandai selesai
-    $next = DB::table('approval_requests')
-        ->where('rapat_id', $req->rapat_id)
-        ->where('doc_type', $req->doc_type)
-        ->where('order_index', '>', $req->order_index)
-        ->orderBy('order_index')
-        ->first();
-
-    if ($next) {
-        $nextApprover = DB::table('users')->where('id', $next->approver_user_id)->first();
-        if ($nextApprover && $nextApprover->no_hp) {
-            $wa = preg_replace('/^0/', '62', $nextApprover->no_hp);
-            $signUrl = url('/approval/sign/'.$next->sign_token);
-            \App\Helpers\FonnteWa::send($wa, "Mohon approval {$req->doc_type} rapat: {$rapat->judul}\nLink: {$signUrl}");
-        }
-    } else {
-        $col = $req->doc_type . '_approved_at'; // contoh: undangan_approved_at
-        if (Schema::hasColumn('rapat', $col)) {
-            DB::table('rapat')->where('id', $req->rapat_id)->update([$col => now()]);
-        }
-    }
-
-    return redirect()->route('approval.done', ['token' => $token])
-        ->with('success', 'Approval berhasil & QR dibuat (tanpa Imagick).');
-}
 
     /**
      * Halaman selesai approval.
@@ -200,5 +213,120 @@ public function signSubmit(Request $request, $token)
 
         $rapat = DB::table('rapat')->where('id', $req->rapat_id)->first();
         return view('approval.done', compact('req', 'rapat'));
+    }
+
+    /**
+     * Generate QR khusus dokumen ABSENSI (dipanggil otomatis saat undangan selesai).
+     * - Buat payload baru (doc_type='absensi', nonce baru, issued_at baru, sig baru)
+     * - Simpan PNG ke public/qr
+     * - Upsert approval_requests (doc_type='absensi', status=approved) per approver
+     */
+    private function generateAbsensiQr(int $rapatId): void
+    {
+        $rapat = DB::table('rapat')->where('id', $rapatId)->first();
+        if (!$rapat) return;
+
+        // daftar approver: approval1 wajib, approval2 opsional
+        $approvers = [];
+        if (!empty($rapat->approval1_user_id)) {
+            $approvers[] = (int)$rapat->approval1_user_id;
+        }
+        if (!empty($rapat->approval2_user_id)) {
+            $approvers[] = (int)$rapat->approval2_user_id;
+        }
+
+        $secret = config('app.key');
+        if (is_string($secret) && Str::startsWith($secret, 'base64:')) {
+            $secret = base64_decode(substr($secret, 7));
+        }
+
+        foreach ($approvers as $idx => $uid) {
+            $user = DB::table('users')->where('id', $uid)->first();
+            if (!$user) continue;
+
+            // payload baru KHUSUS absensi (unik: doc_type beda + nonce/issued_at baru)
+            $payload = [
+                'v'        => 1,
+                'doc_type' => 'absensi',
+                'rapat_id' => $rapat->id,
+                'nomor'    => $rapat->nomor_undangan ?? null,
+                'judul'    => $rapat->judul,
+                'tanggal'  => $rapat->tanggal,
+                'approver' => [
+                    'id'      => $user->id,
+                    'name'    => $user->name,
+                    'jabatan' => $user->jabatan ?? null,
+                    'order'   => $idx + 1,
+                ],
+                'issued_at'=> now()->toIso8601String(),
+                'nonce'    => Str::random(16),
+            ];
+            $payload['sig'] = hash_hmac(
+                'sha256',
+                json_encode($payload, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),
+                $secret
+            );
+            $payloadJson = json_encode($payload, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
+
+            // QR berisi URL verifikasi
+            $qrContent = route('qr.verify', ['d' => base64_encode($payloadJson)]);
+            $encoded   = urlencode($qrContent);
+            $qrUrl     = "https://chart.googleapis.com/chart?chs=220x220&cht=qr&chl={$encoded}";
+
+            // siapkan folder & file
+            $qrDir = public_path('qr');
+            if (!is_dir($qrDir)) {
+                @mkdir($qrDir, 0755, true);
+            }
+            $basename     = 'qr_absensi_r'.$rapat->id.'_a'.$user->id.'_'.Str::random(6).'.png';
+            $relativePath = 'qr/'.$basename;
+            $absolutePath = public_path($relativePath);
+
+            $pngData = @file_get_contents($qrUrl);
+            if ($pngData === false) {
+                $alt = "https://api.qrserver.com/v1/create-qr-code/?size=220x220&data={$encoded}";
+                $pngData = @file_get_contents($alt);
+            }
+            if ($pngData === false) {
+                Log::warning('[absensi-qr] gagal membuat QR: rapat '.$rapat->id.' user '.$user->id);
+                continue;
+            }
+            file_put_contents($absolutePath, $pngData);
+
+            // Upsert approval_requests untuk doc_type 'absensi' -> approved
+            $exists = DB::table('approval_requests')
+                ->where('rapat_id', $rapat->id)
+                ->where('doc_type', 'absensi')
+                ->where('approver_user_id', $user->id)
+                ->where('status', 'approved')
+                ->exists();
+
+            if (!$exists) {
+                DB::table('approval_requests')->insert([
+                    'rapat_id'          => $rapat->id,
+                    'doc_type'          => 'absensi',
+                    'approver_user_id'  => $user->id,
+                    'order_index'       => $idx + 1,
+                    'status'            => 'approved', // langsung approved otomatis
+                    'sign_token'        => Str::random(32),
+                    'signature_qr_path' => $relativePath,
+                    'signature_payload' => $payloadJson,
+                    'signed_at'         => now(),
+                    'created_at'        => now(),
+                    'updated_at'        => now(),
+                ]);
+            } else {
+                DB::table('approval_requests')
+                    ->where('rapat_id', $rapat->id)
+                    ->where('doc_type', 'absensi')
+                    ->where('approver_user_id', $user->id)
+                    ->update([
+                        'signature_qr_path' => $relativePath,
+                        'signature_payload' => $payloadJson,
+                        'signed_at'         => now(),
+                        'updated_at'        => now(),
+                    ]);
+            }
+        }
     }
 }

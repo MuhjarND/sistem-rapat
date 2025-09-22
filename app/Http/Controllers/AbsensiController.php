@@ -6,13 +6,14 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class AbsensiController extends Controller
 {
     /**
      * Admin: Daftar rapat untuk pengelolaan absensi
      * - Filter: kategori, tanggal, keyword (judul/nomor)
-     * - Paginasi: 10/baris
+     * - Paginasi: 6/baris
      */
     public function index(Request $request)
     {
@@ -21,16 +22,13 @@ class AbsensiController extends Controller
         // Ambil data pilihan kategori untuk filter
         $daftar_kategori = DB::table('kategori_rapat')->orderBy('nama')->get();
 
-        // Query utama rapat + kategori + pimpinan + pembuat
+        // Query utama rapat + kategori + pembuat
         $q = DB::table('rapat')
             ->leftJoin('kategori_rapat', 'rapat.id_kategori', '=', 'kategori_rapat.id')
-            ->leftJoin('pimpinan_rapat', 'rapat.id_pimpinan', '=', 'pimpinan_rapat.id')
             ->leftJoin('users as pembuat', 'rapat.dibuat_oleh', '=', 'pembuat.id')
             ->select(
                 'rapat.*',
                 'kategori_rapat.nama as nama_kategori',
-                'pimpinan_rapat.nama as nama_pimpinan',
-                'pimpinan_rapat.jabatan as jabatan_pimpinan',
                 'pembuat.name as nama_pembuat'
             );
 
@@ -53,7 +51,7 @@ class AbsensiController extends Controller
         $daftar_rapat = $q->orderBy('rapat.tanggal', 'desc')
             ->orderBy('rapat.waktu_mulai', 'desc')
             ->paginate($perPage)
-            ->appends($request->query()); // agar filter tetap ikut saat pindah halaman
+            ->appends($request->query());
 
         // Hitung jumlah peserta tiap rapat (sekali query, hemat N+1)
         $ids = $daftar_rapat->pluck('id')->all();
@@ -254,41 +252,207 @@ class AbsensiController extends Controller
         return redirect()->route('absensi.scan', $token)->with('success', 'Absensi berhasil direkam. Terima kasih!');
     }
 
-    // Export PDF Laporan Absensi untuk 1 rapat
-    public function exportPdf($id_rapat)
+    /**
+     * Helper:
+     * Jika semua approval dokumen UNDANGAN sudah approved,
+     * otomatis buat QR untuk dokumen ABSENSI (unik & beda dari undangan).
+     * - Disimpan sebagai row di approval_requests (doc_type='absensi'), approver = approval1_user_id.
+     * - Jika sudah ada & punya QR, tidak dibuat ulang.
+     * - QR berisi URL verifikasi (route qr.verify) agar saat scan langsung ke halaman verifikasi.
+     */
+    public function ensureAbsensiQrMirrorsUndangan(int $rapatId): void
     {
-        $rapat = DB::table('rapat')
-            ->leftJoin('pimpinan_rapat', 'rapat.id_pimpinan', '=', 'pimpinan_rapat.id')
-            ->leftJoin('kategori_rapat', 'rapat.id_kategori', '=', 'kategori_rapat.id')
-            ->select(
-                'rapat.*',
-                'pimpinan_rapat.nama as nama_pimpinan',
-                'pimpinan_rapat.jabatan as jabatan_pimpinan',
-                'kategori_rapat.nama as nama_kategori'
-            )
-            ->where('rapat.id', $id_rapat)
-            ->first();
+        $rapat = DB::table('rapat')->where('id', $rapatId)->first();
+        if (!$rapat || !$rapat->approval1_user_id) return;
 
-        if (!$rapat) abort(404);
-
-        $peserta = DB::table('undangan')
-            ->join('users', 'undangan.id_user', '=', 'users.id')
-            ->leftJoin('absensi', function ($q) use ($id_rapat) {
-                $q->on('absensi.id_user', '=', 'undangan.id_user')
-                  ->where('absensi.id_rapat', '=', $id_rapat);
-            })
-            ->where('undangan.id_rapat', $id_rapat)
-            ->select('users.name', 'users.jabatan', 'absensi.status', 'absensi.waktu_absen')
-            ->orderBy('users.name')
+        // 1) Pastikan semua step UNDANGAN sudah approved
+        $steps = DB::table('approval_requests')
+            ->where('rapat_id', $rapatId)
+            ->where('doc_type', 'undangan')
+            ->orderBy('order_index')
             ->get();
 
-        $pdf = Pdf::loadView('absensi.laporan_pdf', [
-            'rapat'   => $rapat,
-            'peserta' => $peserta,
-            'kop'     => public_path('kop_absen.jpg'),
-        ])->setPaper('A4', 'portrait');
+        if ($steps->isEmpty()) return;
 
-        $filename = 'Laporan-Absensi-' . str_replace(' ', '-', $rapat->judul) . '.pdf';
-        return $pdf->download($filename);
+        $allApproved = $steps->every(function($s){ return $s->status === 'approved'; });
+        if (!$allApproved) return;
+
+        // 2) Apakah sudah ada QR ABSENSI?
+        $absensiRow = DB::table('approval_requests')
+            ->where('rapat_id', $rapatId)
+            ->where('doc_type', 'absensi')
+            ->where('approver_user_id', $rapat->approval1_user_id)
+            ->first();
+
+        if ($absensiRow && $absensiRow->status === 'approved' && $absensiRow->signature_qr_path) {
+            return; // sudah ada QR absensi -> selesai
+        }
+
+        // 3) Siapkan payload unik utk ABSENSI (beda dari undangan):
+        $approver = DB::table('users')->where('id', $rapat->approval1_user_id)->first();
+        $chainSig = hash('sha256', collect($steps)->pluck('signature_payload')->filter()->join('|'));
+
+        $payload = [
+            'v'        => 1,
+            'doc_type' => 'absensi',
+            'rapat_id' => $rapat->id,
+            'nomor'    => $rapat->nomor_undangan ?? null,
+            'judul'    => $rapat->judul,
+            'tanggal'  => $rapat->tanggal,
+            'derived'  => [
+                'from'      => 'undangan',
+                'chain_sig' => $chainSig,
+            ],
+            'approver' => [
+                'id'      => $approver->id ?? null,
+                'name'    => $approver->name ?? null,
+                'jabatan' => $approver->jabatan ?? null,
+                'role'    => 'final',
+            ],
+            'issued_at'=> now()->toIso8601String(),
+            'nonce'    => Str::random(18),
+        ];
+
+        // HMAC
+        $secret = config('app.key');
+        if (is_string($secret) && Str::startsWith($secret, 'base64:')) {
+            $secret = base64_decode(substr($secret, 7));
+        }
+        $payload['sig'] = hash_hmac(
+            'sha256',
+            json_encode($payload, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),
+            $secret
+        );
+
+        $payloadJson = json_encode($payload, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
+
+        // === QR berisi URL verifikasi (bukan payload mentah) ===
+        $qrContent = route('qr.verify', ['d' => base64_encode($payloadJson)]);
+        $encoded   = urlencode($qrContent);
+        $qrUrl     = "https://chart.googleapis.com/chart?chs=220x220&cht=qr&chl={$encoded}";
+
+        // 4) Simpan PNG ke public/qr
+        $qrDir = public_path('qr');
+        if (!is_dir($qrDir)) @mkdir($qrDir, 0755, true);
+
+        $filename     = 'qr_absensi_r'.$rapat->id.'_a'.($approver->id ?? '0').'_'.Str::random(6).'.png';
+        $relativePath = 'qr/'.$filename;
+        $absolutePath = public_path($relativePath);
+
+        $pngData = @file_get_contents($qrUrl);
+        if ($pngData === false) {
+            $alt = "https://api.qrserver.com/v1/create-qr-code/?size=220x220&data={$encoded}";
+            $pngData = @file_get_contents($alt);
+        }
+        if ($pngData === false) {
+            // gagal membuat QR? jangan blok proses
+            return;
+        }
+        file_put_contents($absolutePath, $pngData);
+
+        // 5) Upsert row ABSENSI jadi approved + simpan QR
+        if ($absensiRow) {
+            DB::table('approval_requests')->where('id', $absensiRow->id)->update([
+                'status'            => 'approved',
+                'signature_qr_path' => $relativePath,
+                'signature_payload' => $payloadJson,
+                'signed_at'         => now(),
+                'updated_at'        => now(),
+            ]);
+        } else {
+            DB::table('approval_requests')->insert([
+                'rapat_id'          => $rapat->id,
+                'doc_type'          => 'absensi',
+                'approver_user_id'  => $rapat->approval1_user_id,
+                'order_index'       => 1,            // tunggal/final
+                'status'            => 'approved',   // otomatis approved karena mengikuti undangan
+                'sign_token'        => Str::random(32),
+                'signature_qr_path' => $relativePath,
+                'signature_payload' => $payloadJson,
+                'signed_at'         => now(),
+                'created_at'        => now(),
+                'updated_at'        => now(),
+            ]);
+        }
     }
+
+    /**
+     * Export PDF Laporan Absensi 1 rapat
+     * - Membuat QR ABSENSI otomatis jika seluruh approval UNDANGAN sudah approved
+     * - Menyisipkan QR ABSENSI (bukan QR undangan) ke PDF
+     * - Menyertakan NAMA & JABATAN Approval Final (approval1_user_id)
+     */
+public function exportPdf($id_rapat)
+{
+    // Pastikan QR absensi sudah ada & up-to-date
+    $this->ensureAbsensiQrMirrorsUndangan((int) $id_rapat);
+
+    // Data rapat + kategori
+    $rapat = DB::table('rapat')
+        ->leftJoin('kategori_rapat', 'rapat.id_kategori', '=', 'kategori_rapat.id')
+        ->select('rapat.*', 'kategori_rapat.nama as nama_kategori')
+        ->where('rapat.id', $id_rapat)
+        ->first();
+
+    if (!$rapat) abort(404);
+
+    // Daftar peserta + status absensi
+    $peserta = DB::table('undangan')
+        ->join('users', 'undangan.id_user', '=', 'users.id')
+        ->leftJoin('absensi', function ($q) use ($id_rapat) {
+            $q->on('absensi.id_user', '=', 'undangan.id_user')
+              ->where('absensi.id_rapat', '=', $id_rapat);
+        })
+        ->where('undangan.id_rapat', $id_rapat)
+        ->select('users.name', 'users.jabatan', 'users.unit', 'absensi.status', 'absensi.waktu_absen')
+        ->orderBy('users.name')
+        ->get();
+
+    // Ambil QR ABSENSI yang dibuat otomatis
+    $absensiReq = DB::table('approval_requests')
+        ->where('rapat_id', $id_rapat)
+        ->where('doc_type', 'absensi')
+        ->where('approver_user_id', $rapat->approval1_user_id)
+        ->first();
+
+    // Siapkan data untuk ditampilkan di view
+    $absensi_qr_data = null; // data URI base64 (disarankan)
+    $absensi_qr_web  = null; // url publik (opsional)
+    $absensi_qr_fs   = null; // full path filesystem (opsional)
+
+    if ($absensiReq && $absensiReq->signature_qr_path) {
+        $absensi_qr_fs = public_path($absensiReq->signature_qr_path);
+        if (is_file($absensi_qr_fs)) {
+            // Embed sebagai base64 agar DomPDF pasti bisa render
+            $absensi_qr_data = 'data:image/png;base64,' . base64_encode(file_get_contents($absensi_qr_fs));
+            // Tambahan opsional kalau view Anda masih butuh
+            $absensi_qr_web  = url($absensiReq->signature_qr_path);
+        }
+    }
+
+    // Approver final (approval1_user_id)
+    $approverFinal = DB::table('users')->where('id', $rapat->approval1_user_id)->first();
+    $approver_final_nama    = $approverFinal->name ?? null;
+    $approver_final_jabatan = $approverFinal->jabatan ?? 'Penanggung Jawab';
+
+    $pdf = Pdf::loadView('absensi.laporan_pdf', [
+        'rapat'                  => $rapat,
+        'peserta'                => $peserta,
+        // gunakan ini di <img src="{{ $absensi_qr_data }}"> pada view
+        'absensi_qr_data'        => $absensi_qr_data,
+        // ini opsional/kompatibilitas
+        'absensi_qr_web'         => $absensi_qr_web,
+        'absensi_qr_fs'          => $absensi_qr_fs,
+        'absensi_req'            => $absensiReq,
+
+        'approver_final_nama'    => $approver_final_nama,
+        'approver_final_jabatan' => $approver_final_jabatan,
+
+        // kop surat untuk PDF
+        'kop'                    => public_path('kop_absen.jpg'),
+    ])->setPaper('A4', 'portrait');
+
+    $filename = 'Laporan-Absensi-' . str_replace(' ', '-', $rapat->judul) . '.pdf';
+    return $pdf->download($filename);
+}
 }

@@ -172,6 +172,8 @@ class RapatController extends Controller
 
         // === Buat antrean approval untuk UNDANGAN (A2 -> A1 bila ada A2 / hanya A1 jika tidak) ===
         $this->createApprovalChainForDoc($id_rapat, 'undangan');
+        $this->createApprovalChainForDoc($id_rapat, 'absensi');
+
 
         // === Kirim link WA ke approver tahap pertama ===
         $this->notifyFirstApprover($id_rapat, 'undangan', $rapat->judul);
@@ -330,61 +332,67 @@ class RapatController extends Controller
     }
 
     // Export undangan PDF (pakai approval + QR)
-    public function undanganPdf($id)
-    {
-        $rapat = DB::table('rapat')->where('id', $id)->first();
-        if (!$rapat) abort(404);
+public function undanganPdf($id)
+{
+    $rapat = DB::table('rapat')->where('id', $id)->first();
+    if (!$rapat) abort(404);
 
-        $daftar_peserta = DB::table('undangan')
-            ->join('users', 'undangan.id_user', '=', 'users.id')
-            ->where('undangan.id_rapat', $id)
-            ->select('users.name', 'users.email','users.jabatan')
-            ->get();
+    // Peserta rapat (untuk ditampilkan di badan surat atau lampiran)
+    $daftar_peserta = DB::table('undangan')
+        ->join('users', 'undangan.id_user', '=', 'users.id')
+        ->where('undangan.id_rapat', $id)
+        ->select('users.name', 'users.email', 'users.jabatan')
+        ->get();
 
-        $approval1 = DB::table('users')->where('id', $rapat->approval1_user_id)->first();
-        $approval2 = $rapat->approval2_user_id ? DB::table('users')->where('id', $rapat->approval2_user_id)->first() : null;
+    // Data approver
+    $approval1 = DB::table('users')->where('id', $rapat->approval1_user_id)->first();
+    $approval2 = $rapat->approval2_user_id
+        ? DB::table('users')->where('id', $rapat->approval2_user_id)->first()
+        : null;
 
-        $kop_path = public_path('Screenshot 2025-08-23 121254.jpeg');
+    $kop_path = public_path('Screenshot 2025-08-23 121254.jpeg');
 
-        // Flag tampilan
-        $tampilkan_lampiran = $daftar_peserta->count() > 5;    // lampiran hanya jika > 5
-        $tampilkan_daftar_di_surat = !$tampilkan_lampiran;     // daftar di badan surat jika ≤ 5
+    // Aturan tampilan daftar/lampiran
+    $tampilkan_lampiran         = $daftar_peserta->count() > 5;   // lampiran HANYA jika > 5
+    $tampilkan_daftar_di_surat  = !$tampilkan_lampiran;           // daftar di badan surat jika ≤ 5
 
-        // Ambil QR signature (jika sudah disetujui). Path disimpan relatif dr public/ (contoh: 'qr/xxx.png')
-        $qrA1 = DB::table('approval_requests')
+    // Ambil path QR signature (jika sudah disetujui) – pakai yang terbaru (signed_at paling akhir)
+    $qrA1 = DB::table('approval_requests')
+        ->where('rapat_id', $rapat->id)
+        ->where('doc_type', 'undangan')
+        ->where('approver_user_id', $rapat->approval1_user_id)
+        ->where('status', 'approved')
+        ->orderByDesc('signed_at')
+        ->value('signature_qr_path');
+
+    $qrA2 = null;
+    if (!empty($rapat->approval2_user_id)) {
+        $qrA2 = DB::table('approval_requests')
             ->where('rapat_id', $rapat->id)
-            ->where('doc_type','undangan')
-            ->where('approver_user_id', $rapat->approval1_user_id)
-            ->where('status','approved')
-            ->orderBy('order_index')
+            ->where('doc_type', 'undangan')
+            ->where('approver_user_id', $rapat->approval2_user_id)
+            ->where('status', 'approved')
+            ->orderByDesc('signed_at')
             ->value('signature_qr_path');
-
-        $qrA2 = null;
-        if (!empty($rapat->approval2_user_id)) {
-            $qrA2 = DB::table('approval_requests')
-                ->where('rapat_id', $rapat->id)
-                ->where('doc_type','undangan')
-                ->where('approver_user_id', $rapat->approval2_user_id)
-                ->where('status','approved')
-                ->orderBy('order_index')
-                ->value('signature_qr_path');
-        }
-
-        $pdf = Pdf::loadView('rapat.undangan_pdf', [
-            'rapat'                      => $rapat,
-            'daftar_peserta'             => $daftar_peserta,
-            'approval1'                  => $approval1,
-            'approval2'                  => $approval2,
-            'kop_path'                   => $kop_path,
-            'tampilkan_lampiran'         => $tampilkan_lampiran,
-            'tampilkan_daftar_di_surat'  => $tampilkan_daftar_di_surat,
-            'qrA1'                       => $qrA1,
-            'qrA2'                       => $qrA2,
-        ])->setPaper('A4', 'portrait');
-
-        $filename = 'Undangan-Rapat-' . str_replace(' ', '-', $rapat->judul) . '.pdf';
-        return $pdf->download($filename);
     }
+
+    // Render PDF (pastikan view undangan_pdf & lampiran_pdf pakai variabel qrA1/qrA2)
+    $pdf = Pdf::loadView('rapat.undangan_pdf', [
+        'rapat'                      => $rapat,
+        'daftar_peserta'             => $daftar_peserta,
+        'approval1'                  => $approval1,
+        'approval2'                  => $approval2,
+        'kop_path'                   => $kop_path,
+        'tampilkan_lampiran'         => $tampilkan_lampiran,
+        'tampilkan_daftar_di_surat'  => $tampilkan_daftar_di_surat,
+        'qrA1'                       => $qrA1,
+        'qrA2'                       => $qrA2,
+    ])->setPaper('A4', 'portrait');
+
+    $filename = 'Undangan-Rapat-' . str_replace(' ', '-', $rapat->judul) . '.pdf';
+    return $pdf->download($filename);
+}
+
 
     private function getStatusRapat($rapat)
     {
@@ -463,4 +471,5 @@ class RapatController extends Controller
             }
         }
     }
+
 }
