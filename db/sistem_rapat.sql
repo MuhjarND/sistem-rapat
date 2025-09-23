@@ -3,9 +3,9 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Sep 11, 2025 at 06:18 AM
--- Server version: 10.4.27-MariaDB
--- PHP Version: 7.4.33
+-- Waktu pembuatan: 22 Sep 2025 pada 03.05
+-- Versi server: 10.4.27-MariaDB
+-- Versi PHP: 7.4.33
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
@@ -24,7 +24,7 @@ SET time_zone = "+00:00";
 -- --------------------------------------------------------
 
 --
--- Table structure for table `absensi`
+-- Struktur dari tabel `absensi`
 --
 
 CREATE TABLE `absensi` (
@@ -38,18 +38,71 @@ CREATE TABLE `absensi` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
--- Dumping data for table `absensi`
+-- Dumping data untuk tabel `absensi`
 --
 
 INSERT INTO `absensi` (`id`, `id_rapat`, `id_user`, `status`, `waktu_absen`, `created_at`, `updated_at`) VALUES
-(1, 1, 3, 'hadir', '2025-08-23 01:02:23', '2025-08-23 01:02:23', '2025-08-23 01:02:23'),
-(2, 3, 4, 'hadir', '2025-08-24 08:25:46', '2025-08-24 08:25:46', '2025-08-24 08:25:46'),
-(3, 8, 4, 'hadir', '2025-08-25 01:04:10', '2025-08-25 01:04:10', '2025-08-25 01:04:10');
+(1, 2, 6, 'hadir', '2025-09-18 07:19:53', '2025-09-18 07:19:53', '2025-09-18 07:19:53');
 
 -- --------------------------------------------------------
 
 --
--- Table structure for table `failed_jobs`
+-- Struktur dari tabel `approval_requests`
+--
+
+CREATE TABLE `approval_requests` (
+  `id` bigint(20) UNSIGNED NOT NULL,
+  `rapat_id` bigint(20) UNSIGNED NOT NULL,
+  `doc_type` enum('undangan','absensi','notulensi') NOT NULL,
+  `approver_user_id` bigint(20) UNSIGNED NOT NULL,
+  `order_index` tinyint(3) UNSIGNED NOT NULL DEFAULT 1,
+  `status` enum('pending','approved','rejected') NOT NULL DEFAULT 'pending',
+  `signature_qr_path` varchar(255) DEFAULT NULL,
+  `signature_payload` text DEFAULT NULL,
+  `signed_at` timestamp NULL DEFAULT NULL,
+  `sign_token` varchar(64) NOT NULL,
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Dumping data untuk tabel `approval_requests`
+--
+
+INSERT INTO `approval_requests` (`id`, `rapat_id`, `doc_type`, `approver_user_id`, `order_index`, `status`, `signature_qr_path`, `signature_payload`, `signed_at`, `sign_token`, `created_at`, `updated_at`) VALUES
+(1, 1, 'undangan', 5, 1, 'approved', 'qr/qr_undangan_r1_a5_fQhe82.png', '{\"v\":1,\"doc_type\":\"undangan\",\"rapat_id\":1,\"nomor\":\"t4qtqtqt\",\"judul\":\"Rapat Monitoring dan Evaluasi\",\"tanggal\":\"2025-09-19\",\"approver\":{\"id\":5,\"name\":\"Gilang\",\"jabatan\":\"Analis APBN\",\"order\":1},\"issued_at\":\"2025-09-18T15:11:27+09:00\",\"nonce\":\"PX4OMNAmbXgiPQcd\",\"sig\":\"081039cf50047c7afb39e6ada26f8c47e89a190190d1554a0abd76522cbd8069\"}', '2025-09-18 06:11:29', 'kH6eTu2q2Sh8qFLq4fn1byLvnDJRaM6lorSzIoqaonNjvrtl', '2025-09-18 06:10:11', '2025-09-18 06:11:29'),
+(2, 1, 'undangan', 4, 2, 'approved', 'qr/qr_undangan_r1_a4_sud9Zd.png', '{\"v\":1,\"doc_type\":\"undangan\",\"rapat_id\":1,\"nomor\":\"t4qtqtqt\",\"judul\":\"Rapat Monitoring dan Evaluasi\",\"tanggal\":\"2025-09-19\",\"approver\":{\"id\":4,\"name\":\"Luthfi\",\"jabatan\":\"Ketua PTA\",\"order\":2},\"issued_at\":\"2025-09-18T15:11:51+09:00\",\"nonce\":\"hu0mKnhboFYEFs3o\",\"sig\":\"5def718e6548a9780c5fb3253b7b561b05c1afe9b50d2cc77d1a47e06b5b9ca3\"}', '2025-09-18 06:11:53', 'p9xpNbjb2dEzHFMLaFeixgsZM8z1X8WAMno3p6MrG6oz5UQO', '2025-09-18 06:10:11', '2025-09-18 06:11:53'),
+(3, 2, 'undangan', 4, 1, 'approved', 'qr/qr_undangan_r2_a4_umwInm.png', '{\"v\":1,\"doc_type\":\"undangan\",\"rapat_id\":2,\"nomor\":\"523850208\",\"judul\":\"coba fitur\",\"tanggal\":\"2025-09-20\",\"approver\":{\"id\":4,\"name\":\"Luthfi\",\"jabatan\":\"Ketua PTA\",\"order\":1},\"issued_at\":\"2025-09-18T16:15:21+09:00\",\"nonce\":\"qTLqBOhBUxt0U2QF\",\"sig\":\"26aa2bec6a6d74ae42b6c9c84f744e1ced80cb66836de532af7c8f6865df5e75\"}', '2025-09-18 07:15:24', '0B1y23mUVFgDpHRfarOmSGGH5TKrftN8FHfjoJ30Zdx8nIHs', '2025-09-18 06:57:20', '2025-09-18 07:15:24'),
+(4, 3, 'undangan', 4, 1, 'approved', 'qr/qr_undangan_r3_a4_LPiwg1.png', '{\"v\":1,\"doc_type\":\"undangan\",\"rapat_id\":3,\"nomor\":\"529834793597\",\"judul\":\"rakor\",\"tanggal\":\"2025-09-19\",\"approver\":{\"id\":4,\"name\":\"Luthfi\",\"jabatan\":\"Ketua PTA\",\"order\":1},\"issued_at\":\"2025-09-18T16:15:29+09:00\",\"nonce\":\"McVxWNR8l3Q39e4H\",\"sig\":\"540712a150c71090f5c1008f770c9888c64cfff9f46c139acad197ab7b7c3899\"}', '2025-09-18 07:15:31', '6Iak91OZVQVCTbflxbMD4VFJcSz61EnIUdjjGuBwVC1OBIuh', '2025-09-18 07:03:48', '2025-09-18 07:15:31'),
+(5, 4, 'undangan', 4, 1, 'approved', 'qr/qr_undangan_r4_a4_TE1DMC.png', '{\"v\":1,\"doc_type\":\"undangan\",\"rapat_id\":4,\"nomor\":\"57295026800\",\"judul\":\"Testing qr absensi\",\"tanggal\":\"2025-09-20\",\"approver\":{\"id\":4,\"name\":\"Luthfi\",\"jabatan\":\"Ketua PTA\",\"order\":1},\"issued_at\":\"2025-09-19T08:36:01+09:00\",\"nonce\":\"NzBTuLT9efBNH8eY\",\"sig\":\"1684dc0971706840ad9b5f244405ca4e0f97277092a3042197ee34ced509ed6f\"}', '2025-09-18 23:36:03', 'nhvtWvRups0Tyd7ENBcA6oATcPFtJMUSGdLkkHKnhwWplJIl', '2025-09-18 23:34:59', '2025-09-18 23:36:03'),
+(6, 4, 'absensi', 4, 1, 'approved', 'qr/qr_absensi_r4_a4_xriRta.png', '{\"v\":1,\"doc_type\":\"absensi\",\"rapat_id\":4,\"nomor\":\"57295026800\",\"judul\":\"Testing qr absensi\",\"tanggal\":\"2025-09-20\",\"derived\":{\"from\":\"undangan\",\"chain_sig\":\"6469302f6c3572751cc6204934153728aa2f3872899c367cecf48863c4c7c383\"},\"approver\":{\"id\":4,\"name\":\"Luthfi\",\"jabatan\":\"Ketua PTA\",\"role\":\"final\"},\"issued_at\":\"2025-09-19T08:36:14+09:00\",\"nonce\":\"UDwxOC2oyB5JGzb7Lp\",\"sig\":\"1594e2a1b10a7171d8a079031b221b54f7f426bcc12c7a6055714ee49fe17d7b\"}', '2025-09-18 23:36:16', 'tMNQpEOaVBeohpoLSZih5ez57YIrBH5U', '2025-09-18 23:36:16', '2025-09-18 23:36:16'),
+(7, 5, 'undangan', 5, 1, 'approved', 'qr/qr_undangan_r5_a5_8VMVcs.png', '{\"v\":1,\"doc_type\":\"undangan\",\"rapat_id\":5,\"nomor\":\"3r45234234\",\"judul\":\"Testing fitur qr code absensi\",\"tanggal\":\"2025-09-20\",\"approver\":{\"id\":5,\"name\":\"Gilang\",\"jabatan\":\"Analis APBN\",\"order\":1},\"issued_at\":\"2025-09-19T09:59:30+09:00\",\"nonce\":\"wez98s8OgiwzxMbk\",\"sig\":\"bedf2948dd3b482a0c45570d00a4befe05cd50e74c380c610337eb5358757d36\"}', '2025-09-19 00:59:33', 'HqAQx08S6R5djuYhqMVuOrbXQbGXaI0DwuX1HCbdqe0efoqq', '2025-09-19 00:58:49', '2025-09-19 00:59:33'),
+(8, 5, 'absensi', 5, 1, 'approved', 'qr/qr_absensi_r5_a5_aeDvDa.png', '{\"v\":1,\"doc_type\":\"absensi\",\"rapat_id\":5,\"nomor\":\"3r45234234\",\"judul\":\"Testing fitur qr code absensi\",\"tanggal\":\"2025-09-20\",\"derived\":{\"from\":\"undangan\",\"chain_sig\":\"78bc446221fdae54e9bd81997328b75f4611e08a645580657793e022798507c6\"},\"approver\":{\"id\":5,\"name\":\"Gilang\",\"jabatan\":\"Analis APBN\",\"role\":\"final\"},\"issued_at\":\"2025-09-19T09:59:55+09:00\",\"nonce\":\"cvQurd7YKQIbBt0UWy\",\"sig\":\"cc5c448051b2ebc45148282dadd1f364e04d879c575d68177a8d022abd917d27\"}', '2025-09-19 00:59:58', '8tBjHVQ34RsscsKEHfB3Crr4vtLjGX9C', '2025-09-19 00:59:58', '2025-09-19 00:59:58'),
+(9, 6, 'undangan', 4, 1, 'approved', 'qr/qr_undangan_r6_a4_fl8iM5.png', '{\"v\":1,\"doc_type\":\"undangan\",\"rapat_id\":6,\"nomor\":\"6038530750927\",\"judul\":\"Testing fitur QR Absensi Ke 2\",\"tanggal\":\"2025-09-21\",\"approver\":{\"id\":4,\"name\":\"Luthfi\",\"jabatan\":\"Ketua PTA\",\"order\":1},\"issued_at\":\"2025-09-19T13:23:37+09:00\",\"nonce\":\"4HkFQ4rGFk20dtSk\",\"sig\":\"aca7020f1d930d77e8a56b2af4fd780114ea43caf68a81ebccf56393ea90ff06\"}', '2025-09-19 04:23:43', 'XNvlfJsGofMGlW2Ydl9g3Y4JL5kybXpr9cXMaQ31RWO4HMqa', '2025-09-19 04:22:44', '2025-09-19 04:23:43'),
+(10, 6, 'absensi', 4, 1, 'approved', 'qr/qr_absensi_r6_a4_xK6etJ.png', '{\"v\":1,\"doc_type\":\"absensi\",\"rapat_id\":6,\"nomor\":\"6038530750927\",\"judul\":\"Testing fitur QR Absensi Ke 2\",\"tanggal\":\"2025-09-21\",\"approver\":{\"id\":4,\"name\":\"Luthfi\",\"jabatan\":\"Ketua PTA\",\"order\":1},\"issued_at\":\"2025-09-19T13:23:49+09:00\",\"nonce\":\"2elIaeUo335xqar4\",\"sig\":\"ed6ba8212ccc3c2b0b85b8674dc66ce54e03d68f34dc9cf91c85a626bf5b96e1\"}', '2025-09-19 04:23:51', 'O8iGg28E46kQhfzXDp2ObRVAQmuFiIOHP49vA8bQFohaHeq4', '2025-09-19 04:22:45', '2025-09-19 04:23:51'),
+(11, 7, 'undangan', 5, 1, 'approved', 'qr/qr_undangan_r7_a5_FRFL9h.png', '{\"v\":1,\"doc_type\":\"undangan\",\"rapat_id\":7,\"nomor\":\"34535255\",\"judul\":\"testing fitur\",\"tanggal\":\"2025-09-21\",\"approver\":{\"id\":5,\"name\":\"Gilang\",\"jabatan\":\"Analis APBN\",\"order\":1},\"issued_at\":\"2025-09-19T14:05:40+09:00\",\"nonce\":\"RwuAzp4eyrbuyTIe\",\"sig\":\"df0808f92dcda59aae8281f15eae7cfeee5d686c34c8993e1af03a02efd23d71\"}', '2025-09-19 05:05:42', '6EClxKat7dGM95lsMloHid6iLBdtI1qXFa50CvGMc0R4tXKh', '2025-09-19 05:04:37', '2025-09-19 05:05:42'),
+(12, 7, 'undangan', 4, 2, 'approved', 'qr/qr_undangan_r7_a4_sPNtYG.png', '{\"v\":1,\"doc_type\":\"undangan\",\"rapat_id\":7,\"nomor\":\"34535255\",\"judul\":\"testing fitur\",\"tanggal\":\"2025-09-21\",\"approver\":{\"id\":4,\"name\":\"Luthfi\",\"jabatan\":\"Ketua PTA\",\"order\":2},\"issued_at\":\"2025-09-19T14:06:20+09:00\",\"nonce\":\"fxQU6Jz4ZhG4meLh\",\"sig\":\"79fce5548dd3f9ef92f20708d5758f7531e57d4267e0d0633232e457a8bdea1f\"}', '2025-09-19 05:06:22', 'L6ufqXb8IGWLMbDgLzUdiA7yhgChePUJrRzQv0cfDNs3dZQV', '2025-09-19 05:04:37', '2025-09-19 05:06:22'),
+(13, 7, 'absensi', 5, 1, 'approved', 'qr/qr_absensi_r7_a5_n3rLFT.png', '{\"v\":1,\"doc_type\":\"absensi\",\"rapat_id\":7,\"nomor\":\"34535255\",\"judul\":\"testing fitur\",\"tanggal\":\"2025-09-21\",\"approver\":{\"id\":5,\"name\":\"Gilang\",\"jabatan\":\"Analis APBN\",\"order\":1},\"issued_at\":\"2025-09-19T14:05:48+09:00\",\"nonce\":\"recBPMnPdtwD1zcL\",\"sig\":\"b50c2c98c73677af8ac10e16184421a1a2c381664f4af680c816feed2f3192da\"}', '2025-09-19 05:05:50', 'FP12mYR3xOkpfN4R3yTKuc26LrH2XptOMifLL7TmvpOqsYLE', '2025-09-19 05:04:37', '2025-09-19 05:05:50'),
+(14, 7, 'absensi', 4, 2, 'approved', 'qr/qr_absensi_r7_a4_aeM7uI.png', '{\"v\":1,\"doc_type\":\"absensi\",\"rapat_id\":7,\"nomor\":\"34535255\",\"judul\":\"testing fitur\",\"tanggal\":\"2025-09-21\",\"approver\":{\"id\":4,\"name\":\"Luthfi\",\"jabatan\":\"Ketua PTA\",\"order\":2},\"issued_at\":\"2025-09-19T14:06:28+09:00\",\"nonce\":\"rSVRXvHERFzPAtxG\",\"sig\":\"2a45ceb93002e2e9d8bb3d3f32c42b358ea6b5e4a383aa0c5c993a77b97dddad\"}', '2025-09-19 05:06:30', 'eKjQupIOBzEz0hdEN6kb0U5Hz5OgsUmqeWacLHBglFS3LEjj', '2025-09-19 05:04:37', '2025-09-19 05:06:30'),
+(15, 8, 'undangan', 4, 1, 'approved', 'qr/qr_undangan_r8_a4_GJTUoW.png', '{\"v\":1,\"doc_type\":\"undangan\",\"rapat_id\":8,\"nomor\":\"5248096830\",\"judul\":\"coba 2 lampiran\",\"tanggal\":\"2025-09-22\",\"approver\":{\"id\":4,\"name\":\"Luthfi\",\"jabatan\":\"Ketua PTA\",\"order\":1},\"issued_at\":\"2025-09-19T14:11:02+09:00\",\"nonce\":\"Csu0E4dkTSztXsx7\",\"sig\":\"e7fda64bed63ae637a3a116ebca7c16b5254e292f0df898c1cf47f0298bda3bb\"}', '2025-09-19 05:11:04', '3QNWRwKeeNcNY1priph31diP7vErLsMYp6v6wx7w2UO6WMCY', '2025-09-19 05:10:06', '2025-09-19 05:11:04'),
+(16, 8, 'absensi', 4, 1, 'approved', 'qr/qr_absensi_r8_a4_t5YGZ4.png', '{\"v\":1,\"doc_type\":\"absensi\",\"rapat_id\":8,\"nomor\":\"5248096830\",\"judul\":\"coba 2 lampiran\",\"tanggal\":\"2025-09-22\",\"approver\":{\"id\":4,\"name\":\"Luthfi\",\"jabatan\":\"Ketua PTA\",\"order\":1},\"issued_at\":\"2025-09-19T14:11:10+09:00\",\"nonce\":\"1yGp4iJ65lWjJjnM\",\"sig\":\"50c5e80bce552822147b7fd1e520d838753ac0694a02c7b1409256dbc912b679\"}', '2025-09-19 05:11:12', 'lyKNNSmS9c5eMCr14bdwDDC6b1LfhTcwtfzBWrYojFCUo44N', '2025-09-19 05:10:06', '2025-09-19 05:11:12'),
+(17, 9, 'undangan', 4, 1, 'approved', 'qr/qr_undangan_r9_a4_PWl815.png', '{\"v\":1,\"doc_type\":\"undangan\",\"rapat_id\":9,\"nomor\":\"57q239589308\",\"judul\":\"Testing lampiran 2\",\"tanggal\":\"2025-09-23\",\"approver\":{\"id\":4,\"name\":\"Luthfi\",\"jabatan\":\"Ketua PTA\",\"order\":1},\"issued_at\":\"2025-09-19T14:13:31+09:00\",\"nonce\":\"5oVWbIx8k1mKFCrd\",\"sig\":\"bbdb93bd328a1e564ffdc71f9cfe1e7fc8d10515a59d61e4b6ad0242ac5cbabe\"}', '2025-09-19 05:13:33', 'kdlwbyj9soFKlo37FZE0cCzz8855eXVfhu6LKJJEPg9nydH5', '2025-09-19 05:13:10', '2025-09-19 05:13:33'),
+(18, 9, 'absensi', 4, 1, 'approved', 'qr/qr_absensi_r9_a4_0TOU4p.png', '{\"v\":1,\"doc_type\":\"absensi\",\"rapat_id\":9,\"nomor\":\"57q239589308\",\"judul\":\"Testing lampiran 2\",\"tanggal\":\"2025-09-23\",\"approver\":{\"id\":4,\"name\":\"Luthfi\",\"jabatan\":\"Ketua PTA\",\"order\":1},\"issued_at\":\"2025-09-19T14:13:39+09:00\",\"nonce\":\"2Hd9HnFpcWYoJISj\",\"sig\":\"610de59be1a60b4431b542b4df3dffa85fabd61e923bb24842043a99fa358cf8\"}', '2025-09-19 05:13:41', 'ffDGFO6kZvtTpImMc4Pz3fB6XC0qOPnJU7EhIec1b2XmTcVH', '2025-09-19 05:13:10', '2025-09-19 05:13:41'),
+(19, 10, 'undangan', 4, 1, 'approved', 'qr/qr_undangan_r10_a4_oYpzYc.png', '{\"v\":1,\"doc_type\":\"undangan\",\"rapat_id\":10,\"nomor\":\"375433096805\",\"judul\":\"Testing fitur lagi\",\"tanggal\":\"2025-09-23\",\"approver\":{\"id\":4,\"name\":\"Luthfi\",\"jabatan\":\"Ketua PTA\",\"order\":1},\"issued_at\":\"2025-09-19T14:29:53+09:00\",\"nonce\":\"odvwLCrnf1I8Iex8\",\"sig\":\"a3e5aaecfd44a147a3c24398e8d9abe1a161dc5153e6f2e345de4ba436866eb0\"}', '2025-09-19 05:29:56', 'Jh55H0YfuQz8gzKjhy5rd0TK0Vtd0rPgjo7iHyQSqyBbF4lu', '2025-09-19 05:29:41', '2025-09-19 05:29:56'),
+(20, 10, 'absensi', 4, 1, 'approved', 'qr/qr_absensi_r10_a4_yL3z51.png', '{\"v\":1,\"doc_type\":\"absensi\",\"rapat_id\":10,\"nomor\":\"375433096805\",\"judul\":\"Testing fitur lagi\",\"tanggal\":\"2025-09-23\",\"approver\":{\"id\":4,\"name\":\"Luthfi\",\"jabatan\":\"Ketua PTA\",\"order\":1},\"issued_at\":\"2025-09-19T14:30:00+09:00\",\"nonce\":\"UotwxDrTXvriFjTq\",\"sig\":\"bd4af776717aeaf06a52c4ece49b7df167c267156fac6f92667cfb4682ad28fd\"}', '2025-09-19 05:30:02', 'D2umqGjhFjfYqoQwTVW7sd4Fu2VUq6EgtgKWHzU6Zw8DVuaD', '2025-09-19 05:29:41', '2025-09-19 05:30:02'),
+(21, 11, 'undangan', 4, 1, 'approved', 'qr/qr_undangan_r11_a4_qDa1GW.png', '{\"v\":1,\"doc_type\":\"undangan\",\"rapat_id\":11,\"nomor\":\"534252395028\",\"judul\":\"jsflajflkakl\",\"tanggal\":\"2025-09-24\",\"approver\":{\"id\":4,\"name\":\"Luthfi\",\"jabatan\":\"Ketua PTA\",\"order\":1},\"issued_at\":\"2025-09-19T16:54:41+09:00\",\"nonce\":\"AgpdC4RZkeAhs2I3\",\"sig\":\"9da0b8f04af43d4bd7ce3818185c1dad39292f2900ed1cee723c51bd283862ff\"}', '2025-09-19 07:54:43', '3PELQ66ZgCmuVJ8kcfuyWXEwqbyDQJR2JREVGUMYOyYVRMwb', '2025-09-19 07:53:55', '2025-09-19 07:54:43'),
+(22, 11, 'absensi', 4, 1, 'approved', 'qr/qr_absensi_r11_a4_1bu3on.png', '{\"v\":1,\"doc_type\":\"absensi\",\"rapat_id\":11,\"nomor\":\"534252395028\",\"judul\":\"jsflajflkakl\",\"tanggal\":\"2025-09-24\",\"approver\":{\"id\":4,\"name\":\"Luthfi\",\"jabatan\":\"Ketua PTA\",\"order\":1},\"issued_at\":\"2025-09-19T16:54:49+09:00\",\"nonce\":\"cyPVZP1VyVbfQiHJ\",\"sig\":\"2de34fdd35b93ed2cabbab10f0009438d95f1a50be8b2ef64083b4bd137fb27b\"}', '2025-09-19 07:54:51', '5gV1mRKwBpklLlWF0j4yjnhvcjyVGDzOi6P6RW1rWWaFC7X3', '2025-09-19 07:53:55', '2025-09-19 07:54:51'),
+(23, 11, 'absensi', 4, 1, 'approved', 'qr/qr_absensi_r11_a4_kVYcIk.png', '{\"v\":1,\"doc_type\":\"absensi\",\"rapat_id\":11,\"nomor\":\"534252395028\",\"judul\":\"jsflajflkakl\",\"tanggal\":\"2025-09-24\",\"approver\":{\"id\":4,\"name\":\"Luthfi\",\"jabatan\":\"Ketua PTA\",\"order\":1},\"issued_at\":\"2025-09-19T16:54:43+09:00\",\"nonce\":\"yJz19FMeJZwQgUCz\",\"sig\":\"a153dc27e66eeb97e102b99759865c73c4af112e9e310829351ed782d1b0ea65\"}', '2025-09-19 07:54:44', 'd5tc9p5AwwGCABT6umWZJscCJ6wPbgxH', '2025-09-19 07:54:44', '2025-09-19 07:54:44'),
+(24, 12, 'undangan', 4, 1, 'approved', 'qr/qr_undangan_r12_a4_K0B8yu.png', '{\"v\":1,\"doc_type\":\"undangan\",\"rapat_id\":12,\"nomor\":\"508028\",\"judul\":\"uiouioo\",\"tanggal\":\"2025-09-24\",\"approver\":{\"id\":4,\"name\":\"Luthfi\",\"jabatan\":\"Ketua PTA\",\"order\":1},\"issued_at\":\"2025-09-19T16:57:36+09:00\",\"nonce\":\"HWUyzitPfu7yojUg\",\"sig\":\"b2291cf82139e20df85cf36d7844e7da58a4302e9ec55ce75e0cea436b3f6788\"}', '2025-09-19 07:57:37', 'W7RXHgSatzIZ81ab3vHi5p3sOIMfgyswPRT57U7NTaE1hHRr', '2025-09-19 07:56:39', '2025-09-19 07:57:37'),
+(25, 12, 'absensi', 4, 1, 'approved', 'qr/qr_absensi_r12_a4_ZkLUGe.png', '{\"v\":1,\"doc_type\":\"absensi\",\"rapat_id\":12,\"nomor\":\"508028\",\"judul\":\"uiouioo\",\"tanggal\":\"2025-09-24\",\"approver\":{\"id\":4,\"name\":\"Luthfi\",\"jabatan\":\"Ketua PTA\",\"order\":1},\"issued_at\":\"2025-09-19T16:57:37+09:00\",\"nonce\":\"bKa59DgvYi3pMc9r\",\"sig\":\"62ab9b6ef9557daa3c96aeb3436ab62a4a417fc72607e97f9abccc4392996004\"}', '2025-09-19 07:57:39', 'tU8ow27nLpsHGlwJLqhmUp5tjnsKXe0ZXc2ob1OO6W06o71s', '2025-09-19 07:56:39', '2025-09-19 07:57:39'),
+(26, 13, 'undangan', 4, 1, 'approved', 'qr/qr_undangan_r13_a4_e6ZIN5.png', '{\"v\":1,\"doc_type\":\"undangan\",\"rapat_id\":13,\"nomor\":\"348403859080\",\"judul\":\"Rapat Koordinasi Internal\",\"tanggal\":\"2025-09-22\",\"approver\":{\"id\":4,\"name\":\"Luthfi\",\"jabatan\":\"Ketua PTA\",\"order\":1},\"issued_at\":\"2025-09-22T08:53:36+09:00\",\"nonce\":\"2Nv2gdO8xDrjpVJa\",\"sig\":\"28dbb738281d7b1cb27061e8a83ee48912895ef39e260fd625f4faba4c56bc14\"}', '2025-09-21 23:53:38', '1WJ73TEffKODB8PAXtrz4doY3lVgPDcAeNjvC1zx2h7MttJx', '2025-09-21 23:52:58', '2025-09-21 23:53:38'),
+(27, 13, 'absensi', 4, 1, 'approved', 'qr/qr_absensi_r13_a4_CnTWHA.png', '{\"v\":1,\"doc_type\":\"absensi\",\"rapat_id\":13,\"nomor\":\"348403859080\",\"judul\":\"Rapat Koordinasi Internal\",\"tanggal\":\"2025-09-22\",\"derived\":{\"from\":\"undangan\",\"chain_sig\":\"ee18085cb265530cfe99e358777aab019d8297ffab3c17236d52c3bc5f47b127\"},\"approver\":{\"id\":4,\"name\":\"Luthfi\",\"jabatan\":\"Ketua PTA\",\"role\":\"final\"},\"issued_at\":\"2025-09-22T08:53:40+09:00\",\"nonce\":\"fCawOKFHfxByPBC2IS\",\"sig\":\"664d749255ba684df6a673f3beea1d7166c38432a4a652cf24da6ad18db66647\"}', '2025-09-21 23:53:41', 'NIeIARvY5HXjCIP6ThzwWb98wiuyA3yvdbvDbC2uJ01QZgk2', '2025-09-21 23:52:58', '2025-09-21 23:53:41'),
+(28, 13, 'absensi', 4, 1, 'approved', 'qr/qr_absensi_r13_a4_dN4mwk.png', '{\"v\":1,\"doc_type\":\"absensi\",\"rapat_id\":13,\"nomor\":\"348403859080\",\"judul\":\"Rapat Koordinasi Internal\",\"tanggal\":\"2025-09-22\",\"approver\":{\"id\":4,\"name\":\"Luthfi\",\"jabatan\":\"Ketua PTA\",\"order\":1},\"issued_at\":\"2025-09-22T08:53:38+09:00\",\"nonce\":\"HB68ts4hbYpULig9\",\"sig\":\"69435f0374a919b5d07b205e348d4e5ceb5c393b2691c9866e81e24bac8e4114\"}', '2025-09-21 23:53:39', '4PIaRRxkowzOnptFdFUrQ3U3zlNrOkSY', '2025-09-21 23:53:39', '2025-09-21 23:53:39');
+
+-- --------------------------------------------------------
+
+--
+-- Struktur dari tabel `failed_jobs`
 --
 
 CREATE TABLE `failed_jobs` (
@@ -64,7 +117,7 @@ CREATE TABLE `failed_jobs` (
 -- --------------------------------------------------------
 
 --
--- Table structure for table `jobs`
+-- Struktur dari tabel `jobs`
 --
 
 CREATE TABLE `jobs` (
@@ -80,7 +133,7 @@ CREATE TABLE `jobs` (
 -- --------------------------------------------------------
 
 --
--- Table structure for table `kategori_rapat`
+-- Struktur dari tabel `kategori_rapat`
 --
 
 CREATE TABLE `kategori_rapat` (
@@ -91,22 +144,21 @@ CREATE TABLE `kategori_rapat` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
--- Dumping data for table `kategori_rapat`
+-- Dumping data untuk tabel `kategori_rapat`
 --
 
 INSERT INTO `kategori_rapat` (`id`, `nama`, `created_at`, `updated_at`) VALUES
-(1, 'Monitoring dan Evaluasi', '2025-08-24 01:07:16', '2025-08-24 01:07:16'),
-(2, 'Koordinasi Sewilayah PTA Papua Barat', '2025-08-24 01:07:40', '2025-08-24 01:07:40'),
-(3, 'Koordinasi Internal', '2025-08-24 01:07:57', '2025-08-24 01:07:57'),
-(4, 'Kategori 1', '2025-08-28 06:15:01', '2025-08-28 06:15:01'),
-(5, 'Kategori 2', '2025-08-28 06:15:10', '2025-08-28 06:15:10'),
-(6, 'Kategori 3', '2025-08-28 06:15:19', '2025-08-28 06:15:19'),
-(7, 'Kategori 4', '2025-08-28 06:15:28', '2025-08-28 06:15:28');
+(1, 'Monitoring dan Evaluasi', '2025-09-18 06:08:42', '2025-09-18 06:08:42'),
+(2, 'Koordinasi Internal', '2025-09-18 06:08:56', '2025-09-18 06:08:56'),
+(3, 'Koordinasi Nasional', '2025-09-18 06:09:10', '2025-09-18 06:09:10'),
+(4, 'Kategori A', '2025-09-18 06:09:18', '2025-09-18 06:09:18'),
+(5, 'Kategori B', '2025-09-18 06:09:24', '2025-09-18 06:09:24'),
+(6, 'Kategori C', '2025-09-18 06:09:34', '2025-09-18 06:09:34');
 
 -- --------------------------------------------------------
 
 --
--- Table structure for table `laporan_archived_meetings`
+-- Struktur dari tabel `laporan_archived_meetings`
 --
 
 CREATE TABLE `laporan_archived_meetings` (
@@ -118,23 +170,10 @@ CREATE TABLE `laporan_archived_meetings` (
   `updated_at` timestamp NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
---
--- Dumping data for table `laporan_archived_meetings`
---
-
-INSERT INTO `laporan_archived_meetings` (`id`, `rapat_id`, `archived_by`, `archived_at`, `created_at`, `updated_at`) VALUES
-(1, 14, 1, NULL, '2025-09-11 02:12:00', '2025-09-11 02:12:00'),
-(2, 1, 1, NULL, '2025-09-11 02:12:18', '2025-09-11 02:12:18'),
-(3, 23, 1, NULL, '2025-09-11 02:12:45', '2025-09-11 02:12:45'),
-(4, 15, 1, NULL, '2025-09-11 02:19:35', '2025-09-11 02:19:35'),
-(5, 20, 1, NULL, '2025-09-11 02:20:07', '2025-09-11 02:20:07'),
-(6, 16, NULL, '2025-09-11 04:13:56', '2025-09-11 04:13:56', '2025-09-11 04:13:56'),
-(7, 4, NULL, '2025-09-11 04:14:24', '2025-09-11 04:14:24', '2025-09-11 04:14:24');
-
 -- --------------------------------------------------------
 
 --
--- Table structure for table `laporan_files`
+-- Struktur dari tabel `laporan_files`
 --
 
 CREATE TABLE `laporan_files` (
@@ -155,38 +194,10 @@ CREATE TABLE `laporan_files` (
   `updated_at` timestamp NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
---
--- Dumping data for table `laporan_files`
---
-
-INSERT INTO `laporan_files` (`id`, `is_archived`, `archived_at`, `id_rapat`, `id_kategori`, `judul`, `tanggal_laporan`, `keterangan`, `file_name`, `file_path`, `mime`, `size`, `uploaded_by`, `created_at`, `updated_at`) VALUES
-(11, 0, NULL, NULL, 1, 'Rapat 6', '2025-06-26', NULL, 'Laporan rapat internal08-13-2025-200153.pdf', 'laporan/d36f8cb5-a263-48e0-96a0-b7b7afa03ffc.pdf', 'application/pdf', 1393333, 1, '2025-08-29 04:56:56', '2025-08-29 04:56:56'),
-(13, 0, NULL, NULL, 3, 'Testing aplikasi', '2025-06-18', NULL, 'Laporan rapat internal08-13-2025-200153.pdf', 'laporan/5354b122-7eec-4658-a4d1-0a4811d50f13.pdf', 'application/pdf', 1393333, 1, '2025-08-29 05:10:25', '2025-08-29 05:10:25'),
-(14, 0, NULL, NULL, 2, 'Testing fitur', '2024-06-29', 'sfasf', 'Laporan 08-13-2025-195913.pdf', 'laporan/35e4392b-46f1-45b7-880f-e3b6caa5e0d5.pdf', 'application/pdf', 1055965, 1, '2025-08-29 05:11:56', '2025-08-29 05:11:56'),
-(17, 0, NULL, NULL, 4, 'Testing lagi', '2025-05-08', NULL, 'Laporan 08-13-2025-195913.pdf', 'laporan/80be8059-de0b-43b0-bc8f-9227a6f4cf6f.pdf', 'application/pdf', 1055965, 1, '2025-08-29 05:42:21', '2025-08-29 05:42:21'),
-(18, 0, NULL, NULL, 5, 'testing fitur', '2025-07-17', NULL, 'Laporan 08-13-2025-195913.pdf', 'laporan/b298b066-33f7-42a0-8314-de611831194e.pdf', 'application/pdf', 1055965, 1, '2025-08-29 06:19:40', '2025-08-29 06:19:40'),
-(20, 0, NULL, NULL, 2, 'Rapat 4', '2025-09-05', NULL, 'Undangan Rapat Monev Kesekretariatan.pdf', 'laporan/f0ee2fc3-9f25-4863-bfca-c6a67fbb2765.pdf', 'application/pdf', 290678, 1, '2025-09-05 13:26:31', '2025-09-08 06:55:40'),
-(21, 0, NULL, NULL, 5, 'Rapat 2', '2025-09-08', NULL, 'TAMPALATE PESERTA BANYAK.pdf', 'laporan/d0e6c260-8ff3-42d0-8a5d-556cb675916f.pdf', 'application/pdf', 1068551, 1, '2025-09-08 06:16:59', '2025-09-08 06:16:59'),
-(22, 0, NULL, NULL, 2, 'Rapat 3', '2025-09-08', NULL, 'TAMPALATE PESERTA BANYAK.pdf', 'laporan/c660ed58-b204-47a8-b633-45a3dc06913c.pdf', 'application/pdf', 1068551, 1, '2025-09-08 06:17:14', '2025-09-08 06:17:14'),
-(23, 1, '2025-09-11 04:16:21', NULL, NULL, 'Rapat 4', '2025-09-08', NULL, 'TAMPALATE PESERTA BANYAK.pdf', 'laporan/244cc0fe-4042-43ca-ad4a-80ad729e2709.pdf', 'application/pdf', 1068551, 1, '2025-09-08 06:17:36', '2025-09-11 04:16:21'),
-(24, 1, '2025-09-08 23:44:43', NULL, 5, 'Rapat 2', '2025-09-08', NULL, 'TAMPALATE PESERTA BANYAK.pdf', 'laporan/89e098c9-152f-4dad-909b-c8f631c649ca.pdf', 'application/pdf', 1068551, 1, '2025-09-08 06:17:51', '2025-09-08 23:44:43'),
-(25, 1, '2025-09-10 03:53:06', NULL, 7, 'Rapat 6', '2025-09-08', NULL, 'TAMPALATE PESERTA BANYAK.pdf', 'laporan/74b0f371-7676-4715-ba4e-84d951f1e3f8.pdf', 'application/pdf', 1068551, 1, '2025-09-08 06:18:04', '2025-09-10 03:53:06'),
-(26, 1, '2025-09-08 06:49:52', NULL, 6, 'Rapat 1', '2025-09-08', NULL, 'TAMPALATE PESERTA BANYAK.pdf', 'laporan/75cf10d7-ea09-49ef-b3ee-fbe0b21710cd.pdf', 'application/pdf', 1068551, 1, '2025-09-08 06:18:16', '2025-09-08 06:49:52'),
-(30, 1, '2025-09-10 03:31:30', 14, 1, 'Gabungan Rapat: mencoba fitur queue ke 2 (12 Sep 2025)', '2025-09-12', 'PDF gabungan otomatis (Undangan + Absensi + Notulensi)', 'mencoba-fitur-queue-ke-2-gabungan.pdf', 'laporan/6729861b-ab2c-44b9-bb88-3d3f39759358.pdf', 'application/pdf', 3395824, 1, '2025-09-10 03:31:30', '2025-09-10 03:31:30'),
-(31, 1, '2025-09-10 03:31:46', 15, 5, 'Gabungan Rapat: mencoba fitur queue ke 3 (12 Sep 2025)', '2025-09-12', 'PDF gabungan otomatis (Undangan + Absensi + Notulensi)', 'mencoba-fitur-queue-ke-3-gabungan.pdf', 'laporan/66768ef6-aff7-42d9-a3c6-2710cb0fc509.pdf', 'application/pdf', 3392800, 1, '2025-09-10 03:31:46', '2025-09-10 03:31:46'),
-(32, 1, '2025-09-10 03:33:09', 1, 1, 'Gabungan Rapat: Rapat 1 (12 Sep 2020)', '2020-09-12', 'PDF gabungan otomatis (Undangan + Absensi + Notulensi)', 'rapat-1-gabungan.pdf', 'laporan/885b8e6e-d7c0-4f52-b32a-dc7e2a3a5b38.pdf', 'application/pdf', 3043881, 1, '2025-09-10 03:33:09', '2025-09-10 03:33:09'),
-(33, 1, '2025-09-10 03:34:53', 1, 1, 'Gabungan Rapat: Rapat 1 (12 Sep 2020)', '2020-09-12', 'PDF gabungan otomatis (Undangan + Absensi + Notulensi)', 'rapat-1-gabungan.pdf', 'laporan/cf2c0f65-95ea-471d-945e-b687fca9b6c2.pdf', 'application/pdf', 3043881, 1, '2025-09-10 03:34:53', '2025-09-10 03:34:53'),
-(34, 1, '2025-09-10 03:35:13', 14, 1, 'Gabungan Rapat: mencoba fitur queue ke 2 (12 Sep 2025)', '2025-09-12', 'PDF gabungan otomatis (Undangan + Absensi + Notulensi)', 'mencoba-fitur-queue-ke-2-gabungan.pdf', 'laporan/37bf6efe-3383-49a2-807b-2ecd206569bd.pdf', 'application/pdf', 3395824, 1, '2025-09-10 03:35:13', '2025-09-10 03:35:13'),
-(35, 1, '2025-09-10 03:38:34', 15, 5, 'Gabungan Rapat: mencoba fitur queue ke 3 (12 Sep 2025)', '2025-09-12', 'PDF gabungan otomatis (Undangan + Absensi + Notulensi)', 'mencoba-fitur-queue-ke-3-gabungan.pdf', 'laporan/ffbc2de4-acda-4e82-a87e-ac477d783e9b.pdf', 'application/pdf', 3392800, 1, '2025-09-10 03:38:34', '2025-09-10 03:38:34'),
-(36, 1, '2025-09-10 03:52:49', 15, 5, 'Gabungan Rapat: mencoba fitur queue ke 3 (12 Sep 2025)', '2025-09-12', 'PDF gabungan otomatis (Undangan + Absensi + Notulensi)', 'mencoba-fitur-queue-ke-3-gabungan.pdf', 'laporan/a5be9e98-90ed-422f-9581-6f1acd0ca58a.pdf', 'application/pdf', 3392800, 1, '2025-09-10 03:52:49', '2025-09-10 03:52:49'),
-(37, 1, '2025-09-10 03:53:32', 16, 2, 'Gabungan Rapat: Mencoba fitur wa (12 Sep 2025)', '2025-09-12', 'PDF gabungan otomatis (Undangan + Absensi)', 'mencoba-fitur-wa-gabungan.pdf', 'laporan/01e8710c-e5e6-4a14-8f0c-2ef5c0717d90.pdf', 'application/pdf', 190238, 1, '2025-09-10 03:53:32', '2025-09-10 03:53:32'),
-(38, 1, '2025-09-11 04:13:56', 16, 2, 'Gabungan Rapat: Mencoba fitur wa (12 Sep 2025)', '2025-09-12', 'PDF gabungan otomatis (Undangan + Absensi)', 'mencoba-fitur-wa-gabungan.pdf', 'laporan/2cfe9be0-a5c9-4210-8dca-b031fae6335e.pdf', 'application/pdf', 190238, 1, '2025-09-11 04:13:56', '2025-09-11 04:13:56'),
-(39, 1, '2025-09-11 04:14:24', 4, 4, 'Gabungan Rapat: dslkfjklsadf (23 Agt 2025)', '2025-08-23', 'PDF gabungan otomatis (Undangan + Absensi)', 'dslkfjklsadf-gabungan.pdf', 'laporan/d304b3cf-cbf8-4582-bdfa-3065d753e8d8.pdf', 'application/pdf', 190130, 1, '2025-09-11 04:14:24', '2025-09-11 04:14:24');
-
 -- --------------------------------------------------------
 
 --
--- Table structure for table `migrations`
+-- Struktur dari tabel `migrations`
 --
 
 CREATE TABLE `migrations` (
@@ -196,7 +207,7 @@ CREATE TABLE `migrations` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
--- Dumping data for table `migrations`
+-- Dumping data untuk tabel `migrations`
 --
 
 INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES
@@ -207,33 +218,38 @@ INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES
 (5, '2025_08_23_090214_create_undangan_table', 1),
 (6, '2025_08_23_090234_create_absensi_table', 1),
 (7, '2025_08_23_090254_create_notulensi_table', 1),
-(8, '2025_08_23_103529_tambah_nomor_undangan_di_rapat', 2),
-(9, '2025_08_23_113333_tambah_pemimpin_rapat_di_rapat', 3),
-(10, '2025_08_23_115916_create_pimpinan_rapat_table', 4),
-(11, '2025_08_23_120008_tambah_id_pimpinan_di_rapat', 4),
-(12, '2025_08_23_122845_tambah_jabatan_pada_users', 5),
-(13, '2025_08_23_160700_tambah_status_pada_rapat', 6),
-(14, '2025_08_23_174323_create_kategori_rapat_table', 7),
-(15, '2025_08_23_174738_tambah_id_kategori_di_rapat', 7),
-(16, '2025_08_25_091108_tambah_token_qr_di_rapat', 8),
-(17, '2025_08_26_082836_create_notulensi_detail_table', 9),
-(18, '2025_08_26_095313_add_dibuat_oleh_to_notulensi_table', 10),
-(19, '2025_08_26_100357_modify_isi_nullable_in_notulensi', 11),
-(20, '2025_08_26_101846_create_notulensi_dokumentasi_table', 12),
-(21, '2025_08_27_144404_create_laporan_files_table', 13),
-(22, '2025_08_27_152207_add_id_kategori_to_laporan_files_table', 14),
-(23, '2025_09_03_091757_create_jobs_table', 15),
-(24, '2025_09_05_222059_add_constraint_to_undangan_absensi', 16),
-(25, '2025_09_05_222149_add_constraint_to_absensi', 16),
-(26, '2025_09_06_114705_add_no_hp_to_users_table', 17),
-(27, '2025_09_08_150228_add_is_archived_to_laporan_files_table', 18),
-(28, '2025_09_08_150540_add_archived_at_to_laporan_files_table', 19),
-(29, '2025_09_10_122949_create_laporan_archived_meetings_table', 20);
+(8, '2025_08_23_103529_tambah_nomor_undangan_di_rapat', 1),
+(9, '2025_08_23_115916_create_pimpinan_rapat_table', 1),
+(10, '2025_08_23_120008_tambah_id_pimpinan_di_rapat', 1),
+(11, '2025_08_23_122845_tambah_jabatan_pada_users', 1),
+(12, '2025_08_23_160700_tambah_status_pada_rapat', 1),
+(13, '2025_08_23_174323_create_kategori_rapat_table', 1),
+(14, '2025_08_23_174738_tambah_id_kategori_di_rapat', 1),
+(15, '2025_08_25_091108_tambah_token_qr_di_rapat', 1),
+(16, '2025_08_26_082836_create_notulensi_detail_table', 1),
+(17, '2025_08_26_095313_add_dibuat_oleh_to_notulensi_table', 1),
+(18, '2025_08_26_100357_modify_isi_nullable_in_notulensi', 1),
+(19, '2025_08_26_101846_create_notulensi_dokumentasi_table', 1),
+(20, '2025_08_27_144404_create_laporan_files_table', 1),
+(21, '2025_08_27_152207_add_id_kategori_to_laporan_files_table', 1),
+(22, '2025_09_03_091757_create_jobs_table', 1),
+(23, '2025_09_05_222059_add_constraint_to_undangan_absensi', 1),
+(24, '2025_09_05_222149_add_constraint_to_absensi', 1),
+(25, '2025_09_06_114705_add_no_hp_to_users_table', 1),
+(26, '2025_09_08_150228_add_is_archived_to_laporan_files_table', 1),
+(27, '2025_09_08_150540_add_archived_at_to_laporan_files_table', 1),
+(28, '2025_09_10_122949_create_laporan_archived_meetings_table', 1),
+(29, '2025_09_16_133332_add_unit_to_users_table', 1),
+(30, '2025_09_16_143058_add_tingkatan_to_users_table', 1),
+(31, '2025_09_16_145230_add_approvals_columns_to_rapat_table', 1),
+(32, '2025_09_16_145918_alter_role_enum_add_approval_in_users_table', 1),
+(33, '2025_09_17_161406_create_approval_requests_table', 1),
+(34, '2025_09_19_094920_add_absensi_qr_to_rapat_table', 2);
 
 -- --------------------------------------------------------
 
 --
--- Table structure for table `notulensi`
+-- Struktur dari tabel `notulensi`
 --
 
 CREATE TABLE `notulensi` (
@@ -247,22 +263,16 @@ CREATE TABLE `notulensi` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
--- Dumping data for table `notulensi`
+-- Dumping data untuk tabel `notulensi`
 --
 
 INSERT INTO `notulensi` (`id`, `id_rapat`, `dibuat_oleh`, `id_user`, `isi`, `created_at`, `updated_at`) VALUES
-(1, 1, NULL, 2, 'sfksfljsdlddfj sfjlasf', '2025-08-23 01:12:37', '2025-08-23 01:12:37'),
-(2, 2, NULL, 1, NULL, '2025-08-26 01:16:51', '2025-08-26 01:16:51'),
-(3, 8, NULL, 1, NULL, '2025-08-26 01:42:08', '2025-08-26 05:18:31'),
-(4, 3, NULL, 1, NULL, '2025-08-29 05:27:05', '2025-08-29 05:27:05'),
-(5, 7, NULL, 1, NULL, '2025-08-29 05:27:54', '2025-08-29 05:27:54'),
-(6, 14, NULL, 1, NULL, '2025-09-08 04:30:37', '2025-09-08 04:30:37'),
-(7, 15, NULL, 1, NULL, '2025-09-08 04:31:33', '2025-09-08 04:31:33');
+(1, 2, NULL, 1, NULL, '2025-09-18 23:18:48', '2025-09-18 23:18:48');
 
 -- --------------------------------------------------------
 
 --
--- Table structure for table `notulensi_detail`
+-- Struktur dari tabel `notulensi_detail`
 --
 
 CREATE TABLE `notulensi_detail` (
@@ -278,34 +288,22 @@ CREATE TABLE `notulensi_detail` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
--- Dumping data for table `notulensi_detail`
+-- Dumping data untuk tabel `notulensi_detail`
 --
 
 INSERT INTO `notulensi_detail` (`id`, `id_notulensi`, `urut`, `hasil_pembahasan`, `rekomendasi`, `penanggung_jawab`, `tgl_penyelesaian`, `created_at`, `updated_at`) VALUES
-(1, 2, 1, '<p>dsf</p>', '<p>df</p>', 'KESEKRETARIATAN', '2025-08-26', '2025-08-26 01:16:51', '2025-08-26 01:16:51'),
-(2, 2, 2, '<p>dfdsf</p>', '<p>sdfdsf</p>', NULL, NULL, '2025-08-26 01:16:51', '2025-08-26 01:16:51'),
-(17, 3, 1, '<p>Lorem ipsum adalah teks pengganti atau teks contoh yang biasa digunakan dalam desain grafis dan percetakan untuk menampilkan tata letak suatu proyek. Teks ini, yang berasal dari bahasa Latin, tidak memiliki arti<strong> yang jelas dan sengaja dibuat untuk menghindari perha</strong>tian pada isi teks, sehingga fokus pada elemen desain seperti tipografi dan tata letak.&nbsp;</p>', '<p>Lorem ipsum adalah teks pengganti atau teks contoh yang biasa digunakan dalam desain grafis dan percetakan untuk menampilkan tata letak suatu proyek. Teks ini, yang berasal dari bahasa Latin, tidak memiliki arti yang jelas dan sengaja dibuat untuk menghindari perhatian pada isi teks, sehingga fokus pada elemen desain seperti tipografi dan tata letak.&nbsp;</p>', 'KESEKRETARIATAN', NULL, '2025-08-26 05:18:31', '2025-08-26 05:18:31'),
-(18, 3, 2, '<p><strong>Lorem ipsum adalah teks pengganti atau teks contoh yang biasa digunakan dalam desain grafis dan percetakan untuk menampilkan tata letak suatu proyek. Teks ini, yang berasal dari bahasa Latin, tidak memiliki arti yang jelas dan sengaja dibuat untuk menghindari perhatian pada isi teks, sehingga fokus pada elemen desain seperti tipografi dan tata letak.&nbsp;</strong></p>', '<ul><li>Lorem ipsum adalah teks pengganti atau teks contoh yang biasa digunakan dalam desain grafis dan percetakan untuk menampilkan tata letak suatu proyek.&nbsp;</li><li>Teks ini, yang berasal dari bahasa Latin, tidak memiliki arti yang jelas dan sengaja dibuat untuk menghindari perhatian pada isi teks, sehingga fokus pada elemen desain seperti tipografi dan tata letak.&nbsp;</li></ul>', NULL, '2025-08-05', '2025-08-26 05:18:31', '2025-08-26 05:18:31'),
-(19, 3, 3, '<p>Lorem ipsum adalah teks pengganti atau teks contoh yang biasa digunakan dalam desain grafis dan percetakan untuk menampilkan tata letak suatu proyek. Teks ini, yang berasal dari bahasa Latin, tidak memiliki arti yang jelas dan sengaja dibuat untuk menghindari perhatian pada isi teks, sehingga fokus pada elemen desain seperti tipografi dan tata letak.&nbsp;</p>', '<p>Lorem ipsum adalah teks pengganti atau teks contoh yang biasa digunakan dalam desain grafis dan percetakan untuk menampilkan tata letak suatu proyek. Teks ini, yang berasal dari bahasa Latin, tidak memiliki arti yang jelas dan sengaja dibuat untuk menghindari perhatian pada isi teks, sehingga fokus pada elemen desain seperti tipografi dan tata letak.&nbsp;</p>', NULL, '2025-08-06', '2025-08-26 05:18:31', '2025-08-26 05:18:31'),
-(20, 3, 4, '<p>Lorem ipsum adalah teks pengganti atau teks contoh yang biasa digunakan dalam desain grafis dan percetakan untuk menampilkan tata letak suatu proyek. Teks ini, yang berasal dari bahasa Latin, tidak memiliki arti yang jelas dan sengaja dibuat untuk menghindari perhatian pada isi teks, sehingga fokus pada elemen desain seperti tipografi dan tata letak.&nbsp;</p>', '<p>Lorem ipsum adalah teks pengganti atau teks contoh yang biasa digunakan dalam desain grafis dan percetakan untuk menampilkan tata letak suatu proyek. Teks ini, yang berasal dari bahasa Latin, tidak memiliki arti yang jelas dan sengaja dibuat untuk menghindari perhatian pada isi teks, sehingga fokus pada elemen desain seperti tipografi dan tata letak.&nbsp;</p>', NULL, '2025-08-21', '2025-08-26 05:18:31', '2025-08-26 05:18:31'),
-(21, 3, 5, '<p>Lorem ipsum adalah teks pengganti atau teks contoh yang biasa digunakan dalam desain grafis dan percetakan untuk menampilkan tata letak suatu proyek. Teks ini, yang berasal dari bahasa Latin, tidak memiliki arti yang jelas dan sengaja dibuat untuk menghindari perhatian pada isi teks, sehingga fokus pada elemen desain seperti tipografi dan tata letak.&nbsp;</p>', '<p>Lorem ipsum adalah teks pengganti atau teks contoh yang biasa digunakan dalam desain grafis dan percetakan untuk menampilkan tata letak suatu proyek. Teks ini, yang berasal dari bahasa Latin, tidak memiliki arti yang jelas dan sengaja dibuat untuk menghindari perhatian pada isi teks, sehingga fokus pada elemen desain seperti tipografi dan tata letak.&nbsp;</p>', NULL, '2025-08-29', '2025-08-26 05:18:31', '2025-08-26 05:18:31'),
-(22, 3, 6, '<p>Lorem ipsum adalah teks pengganti atau teks contoh yang biasa digunakan dalam desain grafis dan percetakan untuk menampilkan tata letak suatu proyek. Teks ini, yang berasal dari bahasa Latin, tidak memiliki arti yang jelas dan sengaja dibuat untuk menghindari perhatian pada isi teks, sehingga fokus pada elemen desain seperti tipografi dan tata letak.&nbsp;</p>', '<p>Lorem ipsum adalah teks pengganti atau teks contoh yang biasa digunakan dalam desain grafis dan percetakan untuk menampilkan tata letak suatu proyek. Teks ini, yang berasal dari bahasa Latin, tidak memiliki arti yang jelas dan sengaja dibuat untuk menghindari perhatian pada isi teks, sehingga fokus pada elemen desain seperti tipografi dan tata letak.&nbsp;</p>', NULL, NULL, '2025-08-26 05:18:31', '2025-08-26 05:18:31'),
-(23, 4, 1, '<p>testing</p>', '<p>testing</p>', NULL, NULL, '2025-08-29 05:27:05', '2025-08-29 05:27:05'),
-(24, 4, 2, '<p><strong>cba</strong></p>', '<p>coba lagi</p>', NULL, NULL, '2025-08-29 05:27:05', '2025-08-29 05:27:05'),
-(25, 5, 1, '<p>testing</p>', '<p>testing</p>', NULL, NULL, '2025-08-29 05:27:54', '2025-08-29 05:27:54'),
-(26, 5, 2, '<p><strong>bdsfjls</strong></p>', '<ul><li>coba lagi</li></ul>', NULL, NULL, '2025-08-29 05:27:54', '2025-08-29 05:27:54'),
-(27, 6, 1, '<ul><li>Membahas realiasi belanja pegawai yang sudah dilakukan revisi namun baru setengahnya yang terealisasi.&nbsp;</li></ul>', '<ul><li>Membahas realiasi belanja pegawai yang sudah dilakukan revisi namun baru setengahnya yang terealisasi.&nbsp;</li></ul>', NULL, NULL, '2025-09-08 04:30:37', '2025-09-08 04:30:37'),
-(28, 6, 2, '<ul><li>Membahas realiasi belanja pegawai yang sudah dilakukan revisi namun baru setengahnya yang terealisasi.&nbsp;</li></ul>', '<ul><li>Membahas realiasi belanja pegawai yang sudah dilakukan revisi namun baru setengahnya yang terealisasi.&nbsp;</li></ul>', NULL, NULL, '2025-09-08 04:30:37', '2025-09-08 04:30:37'),
-(29, 6, 3, '<ul><li>Membahas realiasi belanja pegawai yang sudah dilakukan revisi namun baru setengahnya yang terealisasi.&nbsp;</li></ul>', '<ul><li>Membahas realiasi belanja pegawai yang sudah dilakukan revisi namun baru setengahnya yang terealisasi.&nbsp;</li></ul>', NULL, NULL, '2025-09-08 04:30:37', '2025-09-08 04:30:37'),
-(30, 6, 4, '<ul><li>Membahas realiasi belanja pegawai yang sudah dilakukan revisi namun baru setengahnya yang terealisasi.&nbsp;</li></ul>', '<ul><li>Membahas realiasi belanja pegawai yang sudah dilakukan revisi namun baru setengahnya yang terealisasi.&nbsp;</li></ul>', NULL, NULL, '2025-09-08 04:30:37', '2025-09-08 04:30:37'),
-(31, 7, 1, '<ul><li>Membahas realiasi belanja pegawai yang sudah dilakukan revisi namun baru setengahnya yang terealisasi.&nbsp;</li></ul>', '<ul><li>Membahas realiasi belanja pegawai yang sudah dilakukan revisi namun baru setengahnya yang terealisasi.&nbsp;</li></ul>', NULL, NULL, '2025-09-08 04:31:33', '2025-09-08 04:31:33'),
-(32, 7, 2, '<ul><li>Membahas realiasi belanja pegawai yang sudah dilakukan revisi namun baru setengahnya yang terealisasi.&nbsp;</li></ul>', '<ul><li>Membahas realiasi belanja pegawai yang sudah dilakukan revisi namun baru setengahnya yang terealisasi.&nbsp;</li></ul>', NULL, NULL, '2025-09-08 04:31:33', '2025-09-08 04:31:33'),
-(33, 7, 3, '<ul><li>Membahas realiasi belanja pegawai yang sudah dilakukan revisi namun baru setengahnya yang terealisasi.&nbsp;</li></ul>', '<ul><li>Membahas realiasi belanja pegawai yang sudah dilakukan revisi namun baru setengahnya yang terealisasi.&nbsp;</li></ul>', NULL, NULL, '2025-09-08 04:31:33', '2025-09-08 04:31:33');
+(1, 1, 1, '<ul><li>Membahas teknis pengisian survey setiap triwulan agar ada pembatasan dalam pengisian survey untuk meminimalisir nilai yang rendah. Misalnya masing-masing satker 8 orang.&nbsp;</li></ul>', '<ul><li>Membahas teknis pengisian survey setiap triwulan agar ada pembatasan dalam pengisian survey untuk meminimalisir nilai yang rendah. Misalnya masing-masing satker 8 orang.&nbsp;</li></ul>', NULL, '2025-09-20', '2025-09-18 23:18:48', '2025-09-18 23:18:48'),
+(2, 1, 2, '<ul><li>Membahas teknis pengisian survey setiap triwulan agar ada pembatasan dalam pengisian survey untuk meminimalisir nilai yang rendah. Misalnya masing-masing satker 8 orang.&nbsp;</li></ul>', '<ul><li>Membahas teknis pengisian survey setiap triwulan agar ada pembatasan dalam pengisian survey untuk meminimalisir nilai yang rendah. Misalnya masing-masing satker 8 orang.&nbsp;</li></ul>', NULL, '2025-09-20', '2025-09-18 23:18:48', '2025-09-18 23:18:48'),
+(3, 1, 3, '<ul><li>Membahas teknis pengisian survey setiap triwulan agar ada pembatasan dalam pengisian survey untuk meminimalisir nilai yang rendah. Misalnya masing-masing satker 8 orang.&nbsp;</li></ul>', '<ul><li>Membahas teknis pengisian survey setiap triwulan agar ada pembatasan dalam pengisian survey untuk meminimalisir nilai yang rendah. Misalnya masing-masing satker 8 orang.&nbsp;</li></ul>', NULL, '2025-09-20', '2025-09-18 23:18:48', '2025-09-18 23:18:48'),
+(4, 1, 4, '<ul><li>Membahas teknis pengisian survey setiap triwulan agar ada pembatasan dalam pengisian survey untuk meminimalisir nilai yang rendah. Misalnya masing-masing satker 8 orang.&nbsp;</li></ul>', '<ul><li>Membahas teknis pengisian survey setiap triwulan agar ada pembatasan dalam pengisian survey untuk meminimalisir nilai yang rendah. Misalnya masing-masing satker 8 orang.&nbsp;</li></ul>', NULL, '2025-09-20', '2025-09-18 23:18:48', '2025-09-18 23:18:48'),
+(5, 1, 5, '<ul><li>Membahas teknis pengisian survey setiap triwulan agar ada pembatasan dalam pengisian survey untuk meminimalisir nilai yang rendah. Misalnya masing-masing satker 8 orang.&nbsp;</li></ul>', '<ul><li>Membahas teknis pengisian survey setiap triwulan agar ada pembatasan dalam pengisian survey untuk meminimalisir nilai yang rendah. Misalnya masing-masing satker 8 orang.&nbsp;</li></ul>', NULL, '2025-09-20', '2025-09-18 23:18:48', '2025-09-18 23:18:48'),
+(6, 1, 6, '<ul><li>Membahas teknis pengisian survey setiap triwulan agar ada pembatasan dalam pengisian survey untuk meminimalisir nilai yang rendah. Misalnya masing-masing satker 8 orang.&nbsp;</li></ul>', '<ul><li>Membahas teknis pengisian survey setiap triwulan agar ada pembatasan dalam pengisian survey untuk meminimalisir nilai yang rendah. Misalnya masing-masing satker 8 orang.&nbsp;</li></ul>', NULL, '2025-09-20', '2025-09-18 23:18:48', '2025-09-18 23:18:48'),
+(7, 1, 7, '<ul><li>Membahas teknis pengisian survey setiap triwulan agar ada pembatasan dalam pengisian survey untuk meminimalisir nilai yang rendah. Misalnya masing-masing satker 8 orang.&nbsp;</li></ul>', '<ul><li>Membahas teknis pengisian survey setiap triwulan agar ada pembatasan dalam pengisian survey untuk meminimalisir nilai yang rendah. Misalnya masing-masing satker 8 orang.&nbsp;</li></ul>', NULL, '2025-09-20', '2025-09-18 23:18:48', '2025-09-18 23:18:48');
 
 -- --------------------------------------------------------
 
 --
--- Table structure for table `notulensi_dokumentasi`
+-- Struktur dari tabel `notulensi_dokumentasi`
 --
 
 CREATE TABLE `notulensi_dokumentasi` (
@@ -318,30 +316,18 @@ CREATE TABLE `notulensi_dokumentasi` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
--- Dumping data for table `notulensi_dokumentasi`
+-- Dumping data untuk tabel `notulensi_dokumentasi`
 --
 
 INSERT INTO `notulensi_dokumentasi` (`id`, `id_notulensi`, `file_path`, `caption`, `created_at`, `updated_at`) VALUES
-(1, 3, 'uploads/notulensi/WhatsApp-Image-2025-07-07-at-08-43-39-4a68da7d-68ad10f01a1e1.jpg', NULL, '2025-08-26 01:42:08', '2025-08-26 01:42:08'),
-(2, 3, 'uploads/notulensi/WhatsApp-Image-2025-07-07-at-08-43-39-ae9cd5bd-68ad10f01ad6d.jpg', NULL, '2025-08-26 01:42:08', '2025-08-26 01:42:08'),
-(3, 3, 'uploads/notulensi/WhatsApp-Image-2025-07-07-at-08-43-40-2f998487-68ad10f01b727.jpg', NULL, '2025-08-26 01:42:08', '2025-08-26 01:42:08'),
-(4, 4, 'uploads/notulensi/WhatsApp-Image-2025-08-14-at-8-42-14-AM-68b13a2961fde.jpeg', NULL, '2025-08-29 05:27:05', '2025-08-29 05:27:05'),
-(5, 4, 'uploads/notulensi/WhatsApp-Image-2025-08-14-at-8-42-15-AM-1--68b13a2962961.jpeg', NULL, '2025-08-29 05:27:05', '2025-08-29 05:27:05'),
-(6, 4, 'uploads/notulensi/WhatsApp-Image-2025-08-14-at-8-42-16-AM-1--68b13a2963184.jpeg', NULL, '2025-08-29 05:27:05', '2025-08-29 05:27:05'),
-(7, 5, 'uploads/notulensi/WhatsApp-Image-2025-08-14-at-8-42-15-AM-68b13a5a961a2.jpeg', NULL, '2025-08-29 05:27:54', '2025-08-29 05:27:54'),
-(8, 5, 'uploads/notulensi/WhatsApp-Image-2025-08-14-at-8-42-16-AM-1--68b13a5a96b92.jpeg', NULL, '2025-08-29 05:27:54', '2025-08-29 05:27:54'),
-(9, 5, 'uploads/notulensi/WhatsApp-Image-2025-08-14-at-8-42-16-AM-68b13a5a97581.jpeg', NULL, '2025-08-29 05:27:54', '2025-08-29 05:27:54'),
-(10, 6, 'uploads/notulensi/WhatsApp-Image-2025-09-03-at-6-56-08-PM-68be5bedf40b6.jpeg', NULL, '2025-09-08 04:30:38', '2025-09-08 04:30:38'),
-(11, 6, 'uploads/notulensi/WhatsApp-Image-2025-09-03-at-6-56-09-PM-68be5bee00823.jpeg', NULL, '2025-09-08 04:30:38', '2025-09-08 04:30:38'),
-(12, 6, 'uploads/notulensi/WhatsApp-Image-2025-09-03-at-6-56-10-PM-68be5bee019a9.jpeg', NULL, '2025-09-08 04:30:38', '2025-09-08 04:30:38'),
-(13, 7, 'uploads/notulensi/WhatsApp-Image-2025-09-03-at-6-56-27-PM-68be5c2566c24.jpeg', NULL, '2025-09-08 04:31:33', '2025-09-08 04:31:33'),
-(14, 7, 'uploads/notulensi/WhatsApp-Image-2025-09-03-at-6-56-28-PM-68be5c25678ff.jpeg', NULL, '2025-09-08 04:31:33', '2025-09-08 04:31:33'),
-(15, 7, 'uploads/notulensi/WhatsApp-Image-2025-09-03-at-6-56-33-PM-68be5c25686d9.jpeg', NULL, '2025-09-08 04:31:33', '2025-09-08 04:31:33');
+(1, 1, 'uploads/notulensi/WhatsApp-Image-2025-09-03-at-6-56-10-PM-68cc935867916.jpeg', NULL, '2025-09-18 23:18:48', '2025-09-18 23:18:48'),
+(2, 1, 'uploads/notulensi/WhatsApp-Image-2025-09-03-at-6-56-14-PM-68cc93586b07e.jpeg', NULL, '2025-09-18 23:18:48', '2025-09-18 23:18:48'),
+(3, 1, 'uploads/notulensi/WhatsApp-Image-2025-09-03-at-6-56-27-PM-68cc93586c2d5.jpeg', NULL, '2025-09-18 23:18:48', '2025-09-18 23:18:48');
 
 -- --------------------------------------------------------
 
 --
--- Table structure for table `password_resets`
+-- Struktur dari tabel `password_resets`
 --
 
 CREATE TABLE `password_resets` (
@@ -353,7 +339,7 @@ CREATE TABLE `password_resets` (
 -- --------------------------------------------------------
 
 --
--- Table structure for table `pimpinan_rapat`
+-- Struktur dari tabel `pimpinan_rapat`
 --
 
 CREATE TABLE `pimpinan_rapat` (
@@ -364,25 +350,24 @@ CREATE TABLE `pimpinan_rapat` (
   `updated_at` timestamp NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
---
--- Dumping data for table `pimpinan_rapat`
---
-
-INSERT INTO `pimpinan_rapat` (`id`, `nama`, `jabatan`, `created_at`, `updated_at`) VALUES
-(1, 'Nurmansyah, S.Ag, M.H', 'Sekretaris', '2025-08-23 03:20:13', '2025-08-23 03:20:13'),
-(2, 'Muhjar', 'PKSTI', '2025-08-23 03:20:22', '2025-08-23 03:20:22');
-
 -- --------------------------------------------------------
 
 --
--- Table structure for table `rapat`
+-- Struktur dari tabel `rapat`
 --
 
 CREATE TABLE `rapat` (
   `id` bigint(20) UNSIGNED NOT NULL,
   `token_qr` varchar(64) DEFAULT NULL,
+  `undangan_approved_at` timestamp NULL DEFAULT NULL,
+  `absensi_approved_at` timestamp NULL DEFAULT NULL,
+  `notulensi_approved_at` timestamp NULL DEFAULT NULL,
   `nomor_undangan` varchar(255) DEFAULT NULL,
   `id_kategori` bigint(20) UNSIGNED DEFAULT NULL,
+  `approval1_user_id` bigint(20) UNSIGNED DEFAULT NULL,
+  `approval2_user_id` bigint(20) UNSIGNED DEFAULT NULL,
+  `absensi_qr_payload` text DEFAULT NULL,
+  `absensi_qr_path` varchar(255) DEFAULT NULL,
   `judul` varchar(255) NOT NULL,
   `deskripsi` text DEFAULT NULL,
   `tanggal` date NOT NULL,
@@ -396,38 +381,28 @@ CREATE TABLE `rapat` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
--- Dumping data for table `rapat`
+-- Dumping data untuk tabel `rapat`
 --
 
-INSERT INTO `rapat` (`id`, `token_qr`, `nomor_undangan`, `id_kategori`, `judul`, `deskripsi`, `tanggal`, `waktu_mulai`, `tempat`, `dibuat_oleh`, `id_pimpinan`, `status`, `created_at`, `updated_at`) VALUES
-(1, NULL, '324658623683', 1, 'Rapat 1', 'Testing', '2020-09-12', '09:22:00', 'PTA Papua Barat', 1, 1, 'akan_datang', '2025-08-23 00:48:34', '2025-08-24 01:15:04'),
-(2, NULL, 'dsfhsfhk123134', 3, 'Rapat 2', 'dfdsjflasd', '2025-08-25', '09:00:00', 'PTA Papua Barat', 1, 1, 'dibatalkan', '2025-08-23 01:54:04', '2025-08-24 01:10:15'),
-(3, NULL, '123456678', 2, 'Rapat 3', 'Testing', '2025-08-23', '16:36:00', 'PTA Papua Barat', 1, 1, 'akan_datang', '2025-08-23 07:35:16', '2025-08-24 01:10:58'),
-(4, NULL, 'dfsf', 4, 'dslkfjklsadf', 'kldsklasfj', '2025-08-23', '17:20:00', 'bkhk', 1, 2, 'akan_datang', '2025-08-23 08:17:37', '2025-08-28 06:15:55'),
-(5, NULL, '123456778', 7, 'Testing rapat', 'tes tes', '2025-08-23', '17:20:00', 'PTA Papua Barat', 1, 1, 'akan_datang', '2025-08-23 08:18:24', '2025-08-28 06:16:30'),
-(6, NULL, '2224343243', 3, 'Rapat 4', 'dslfjs lkfdla jsfl', '2025-08-23', '17:33:00', 'PTA Papua Barat', 1, 1, 'akan_datang', '2025-08-23 08:30:42', '2025-08-24 01:11:28'),
-(7, NULL, '2323435235', 6, 'Rapat 5', 'slfjlkasfj lsfjla', '2025-08-23', '17:36:00', 'PTA Papua Barat', 1, 2, 'akan_datang', '2025-08-23 08:34:08', '2025-08-28 06:16:18'),
-(8, '3mtcXrUax4VIrcu6qgVKTrbNTCrJb0id', '238985035803', 5, 'Coba testing tanggal rapat', 'Rapat untuk melakukan uji coba', '2025-08-02', '09:55:00', 'PTA Papua Barat', 1, 1, 'akan_datang', '2025-08-25 00:49:42', '2025-09-03 00:04:51'),
-(9, 'zzsfKWobV5quOKiYKaunUM6NskHuOKCj', '987654321', 1, 'Coba Membuat Rapat', 'Testing create rapat manual lagi.', '2025-09-03', '08:50:00', 'Hotel Ambarukmo', 1, 1, 'akan_datang', '2025-09-02 23:43:57', '2025-09-02 23:43:57'),
-(10, 'EcUt281L3gxILYRLY1DUNul5KjslERlE', '8765432', 1, 'Rapat Monitoring dan Evaluasi Bidang Kesekretariatan', 'Monitoring dan Evaluasi Bidang Kesekretariatan Bulanan', '2025-09-03', '09:25:00', 'PTA Papua Barat', 1, 1, 'akan_datang', '2025-09-03 00:23:41', '2025-09-03 00:23:41'),
-(11, 'chtPkAX1rYzQOCTLr3euXLfnXIyJG9Rg', '3454745u562', 1, 'coba fitur queue', 'mencoba fitur queue apakah berfungsi atau tidak', '2025-09-10', '09:30:00', 'Ruang Kesekretariatan PTA Papua Barat', 1, 2, 'akan_datang', '2025-09-03 00:29:06', '2025-09-03 00:29:06'),
-(12, '9uqqZokmZqMRmHajBjLIK1S48B6YX0Rh', '4583745934769', 4, 'coba fitur queue', 'mencoba fitur antrian undangan', '2025-09-03', '09:50:00', 'PTA Papua Barat', 1, 1, 'akan_datang', '2025-09-03 00:47:54', '2025-09-03 00:47:54'),
-(13, 'WCq7tQSydTs8RIGMXqEEr1yZck50Jn5b', '42348023840', 2, 'mencoba fitur queue ke 1', 'coba dulu ya gaes', '2025-09-05', '21:35:00', 'PTA Papua Barat', 1, 1, 'akan_datang', '2025-09-05 12:34:06', '2025-09-05 12:34:06'),
-(14, '1PyUMX91gDqKAsX4EhzkYJOoHAMCxmnr', '534535345', 1, 'mencoba fitur queue ke 2', 'coba dulu lagi', '2025-09-12', '21:49:00', 'PTA Papua Barat', 1, 2, 'akan_datang', '2025-09-05 12:45:38', '2025-09-06 11:35:58'),
-(15, 'niaQWUi2RY41aYKh2NbSgo5IRw9oHmKx', '2340802850580', 5, 'mencoba fitur queue ke 3', 'coba lagiiiiii huuft', '2025-09-12', '21:50:00', 'PTA Papua Barat', 1, 1, 'akan_datang', '2025-09-05 12:48:55', '2025-09-05 12:48:55'),
-(16, 'HOKGfLwS00EVXEgCaC1mvzDkNnWolPT2', '4235080680', 2, 'Mencoba fitur wa', 'Testing fitur wa satu user', '2025-09-12', '12:14:00', 'PTA Papua Barat', 1, 1, 'akan_datang', '2025-09-06 03:08:41', '2025-09-06 03:08:41'),
-(17, 'HrdwLE9e1NVAzYGUAbs6J55fZV4iStEb', '035048308', 1, 'Mencoba fitur wa ke 2', 'coba fitur wa dengan notif dan arah ke sistem', '2025-09-06', '18:10:00', 'Ruang Kesekretariatan PTA Papua Barat', 1, 1, 'akan_datang', '2025-09-06 09:08:59', '2025-09-06 09:08:59'),
-(19, '9eh5MLgNP62aOhBU1qVirNT0MBnYXwvj', '2385038028-', 3, 'testing fitur create pop up', 'coba fitur create pop up apakah bisa atau tidak', '2025-09-06', '19:25:00', 'PTA PAPUA BARAT', 1, 1, 'akan_datang', '2025-09-06 10:24:27', '2025-09-06 10:24:47'),
-(20, '4OEKKw3GWH0zxJamJXJjNdJUelE6nI2Y', '438508602', 1, 'coba fitur pop up lagi', 'testing fitur pop up', '2025-09-06', '19:30:00', 'PTA Papua Barat', 1, 1, 'akan_datang', '2025-09-06 10:25:51', '2025-09-06 10:25:51'),
-(21, 'XIjUqNj5R1cj7MoMXsLrgb5IefF2BYnr', '4050376080', 1, 'Testing', 'coba coba', '2025-09-06', '20:38:00', 'PTA Papua Barat', 1, 1, 'akan_datang', '2025-09-06 11:36:35', '2025-09-06 11:36:35'),
-(22, 'kXMyZk4hWvWIE7wgdMAjS7M4XBBc4wGR', '03458036820', 3, 'Testing fitur pilihan peserta', 'coba coba', '2025-09-06', '21:43:00', 'PTA Papua Barat', 1, 1, 'akan_datang', '2025-09-06 12:37:56', '2025-09-06 12:37:56'),
-(23, 'XLeOMacuMvJqFrzqS2N5L8J94BLKjSTX', '28402750280', 3, 'mencoba fitur drop down user', 'semoga kali ini bisa.', '2025-09-07', '10:20:00', 'PTA Papua Barat', 1, 1, 'akan_datang', '2025-09-07 01:18:19', '2025-09-07 01:18:19'),
-(24, 'KPWFZ2O3Bs02UePNzBXsHRFFvn6xdZrb', '34259350580', 2, 'mencoba kembali fitur undangan', 'coba coba lagi gaes', '2025-09-08', '13:52:00', 'PTA Papua Barat', 1, 1, 'akan_datang', '2025-09-07 04:50:17', '2025-09-07 04:50:17');
+INSERT INTO `rapat` (`id`, `token_qr`, `undangan_approved_at`, `absensi_approved_at`, `notulensi_approved_at`, `nomor_undangan`, `id_kategori`, `approval1_user_id`, `approval2_user_id`, `absensi_qr_payload`, `absensi_qr_path`, `judul`, `deskripsi`, `tanggal`, `waktu_mulai`, `tempat`, `dibuat_oleh`, `id_pimpinan`, `status`, `created_at`, `updated_at`) VALUES
+(1, 'ds5KIT7mjiOzmmRtdKv0qWbHyEIlI1HK', '2025-09-18 06:11:53', NULL, NULL, 't4qtqtqt', 1, 4, 5, NULL, NULL, 'Rapat Monitoring dan Evaluasi', 'monev', '2025-09-19', '15:10:00', 'PTA', 1, NULL, 'akan_datang', '2025-09-18 06:10:10', '2025-09-18 06:10:10'),
+(2, 'bdVPUn98aTI5sV1geuO7PtjZdae8ok01', '2025-09-18 07:15:24', NULL, NULL, '523850208', 2, 4, NULL, NULL, NULL, 'coba fitur', 'coba fitur', '2025-09-20', '16:00:00', 'Testing', 1, NULL, 'akan_datang', '2025-09-18 06:57:17', '2025-09-18 06:57:17'),
+(3, 'k49ucxPLzZEQot8QG7Ou1lE2qe7j1K0J', '2025-09-18 07:15:31', NULL, NULL, '529834793597', 4, 4, NULL, NULL, NULL, 'rakor', 'rapat koordinasi', '2025-09-19', '16:10:00', 'pta', 1, NULL, 'akan_datang', '2025-09-18 07:03:48', '2025-09-18 07:03:48'),
+(4, '38rYYW0xZrdDWJ2YSEGD4oin4OpC87cb', '2025-09-18 23:36:03', NULL, NULL, '57295026800', 1, 4, NULL, NULL, NULL, 'Testing qr absensi', 'coba coba dulu', '2025-09-20', '08:40:00', 'PTA Papua Barat', 1, NULL, 'akan_datang', '2025-09-18 23:34:54', '2025-09-18 23:34:54'),
+(5, 'C8MGKD7IkKlEZbzFES1c1pPpzVDoNet1', '2025-09-19 00:59:33', NULL, NULL, '3r45234234', 2, 5, NULL, '{\"v\":1,\"doc_type\":\"absensi\",\"rapat_id\":5,\"nomor\":\"3r45234234\",\"judul\":\"Testing fitur qr code absensi\",\"tanggal\":\"2025-09-20\",\"issued_at\":\"2025-09-19T09:59:33+09:00\",\"nonce\":\"bLB4PtqvV9oCHNT4\",\"sig\":\"89d4648f14bf2c8421ffe6ef0b199132cfc3c0d4ce3b7b195c981b1fb78b16c3\"}', 'qr/qr_absensi_r5_qYjyDc.png', 'Testing fitur qr code absensi', 'coba coba', '2025-09-20', '10:00:00', 'pta', 1, NULL, 'akan_datang', '2025-09-19 00:58:49', '2025-09-19 00:59:35'),
+(6, 'FZH5UJnBPeyPrhDe2A2nwffNeObZJyc2', '2025-09-19 04:23:44', '2025-09-19 04:23:51', NULL, '6038530750927', 1, 4, NULL, NULL, NULL, 'Testing fitur QR Absensi Ke 2', 'Mencoba fitur qr absensi lainnya', '2025-09-21', '13:25:00', 'pta', 1, NULL, 'akan_datang', '2025-09-19 04:22:41', '2025-09-19 04:22:41'),
+(7, 'i3WjuNCdwcHYAogb08LgnjfPzyJhmjHb', '2025-09-19 05:06:22', '2025-09-19 05:06:30', NULL, '34535255', 1, 4, 5, NULL, NULL, 'testing fitur', 'sjflajflkajl', '2025-09-21', '17:09:00', 'pta', 1, NULL, 'akan_datang', '2025-09-19 05:04:36', '2025-09-19 05:04:36'),
+(8, 'DGGgU7PrhLF3Rf6smrhI7u5brnsnNz41', '2025-09-19 05:11:04', '2025-09-19 05:11:12', NULL, '5248096830', 5, 4, NULL, NULL, NULL, 'coba 2 lampiran', 'testing lampirang', '2025-09-22', '14:10:00', 'pta', 1, NULL, 'akan_datang', '2025-09-19 05:10:04', '2025-09-19 05:10:04'),
+(9, 'Ah9rwEBxJ9PW3MoK7B0ZDKPPfjGsp2pb', '2025-09-19 05:13:33', '2025-09-19 05:13:41', NULL, '57q239589308', 2, 4, NULL, NULL, NULL, 'Testing lampiran 2', 'coba coba', '2025-09-23', '14:14:00', 'online', 1, NULL, 'akan_datang', '2025-09-19 05:13:07', '2025-09-19 05:13:07'),
+(10, 'hVWaplEfM8U1xkPDfLXrVuP9VjQU4gW9', '2025-09-19 05:29:56', '2025-09-19 05:30:02', NULL, '375433096805', 1, 4, NULL, NULL, NULL, 'Testing fitur lagi', 'sfjajfopa', '2025-09-23', '14:30:00', 'asjfos', 1, NULL, 'akan_datang', '2025-09-19 05:29:39', '2025-09-19 05:29:39'),
+(11, 'Mmj9HTYmPebzWCdOwzDBaTInCiED3Xep', '2025-09-19 07:54:43', '2025-09-19 07:54:51', NULL, '534252395028', 3, 4, NULL, NULL, NULL, 'jsflajflkakl', 'ldjsaklfjklasjf', '2025-09-24', '17:00:00', 'pta', 1, NULL, 'akan_datang', '2025-09-19 07:53:53', '2025-09-19 07:53:53'),
+(12, 'iuCC81E0JlOEVjbWEIUIaUtvNeIkOsEN', '2025-09-19 07:57:37', '2025-09-19 07:57:16', NULL, '508028', 1, 4, NULL, NULL, NULL, 'uiouioo', 'ouiouio', '2025-09-24', '18:00:00', 'afa', 1, NULL, 'akan_datang', '2025-09-19 07:56:38', '2025-09-19 07:56:38'),
+(13, 'G6OvSqgAMOODelvidutvejsHdWxVbMEJ', '2025-09-21 23:53:38', NULL, NULL, '348403859080', 3, 4, NULL, NULL, NULL, 'Rapat Koordinasi Internal', 'Rapat Koordinasi Internal membahas tentang blba lbal', '2025-09-22', '08:58:00', 'pta papua barat', 1, NULL, 'akan_datang', '2025-09-21 23:52:53', '2025-09-21 23:52:53');
 
 -- --------------------------------------------------------
 
 --
--- Table structure for table `undangan`
+-- Struktur dari tabel `undangan`
 --
 
 CREATE TABLE `undangan` (
@@ -440,54 +415,57 @@ CREATE TABLE `undangan` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
--- Dumping data for table `undangan`
+-- Dumping data untuk tabel `undangan`
 --
 
 INSERT INTO `undangan` (`id`, `id_rapat`, `id_user`, `status`, `created_at`, `updated_at`) VALUES
-(17, 2, 3, 'terkirim', '2025-08-24 01:10:15', '2025-08-24 01:10:15'),
-(18, 2, 4, 'terkirim', '2025-08-24 01:10:15', '2025-08-24 01:10:15'),
-(19, 3, 3, 'terkirim', '2025-08-24 01:10:58', '2025-08-24 01:10:58'),
-(20, 3, 4, 'terkirim', '2025-08-24 01:10:58', '2025-08-24 01:10:58'),
-(25, 6, 3, 'terkirim', '2025-08-24 01:11:28', '2025-08-24 01:11:28'),
-(26, 6, 4, 'terkirim', '2025-08-24 01:11:28', '2025-08-24 01:11:28'),
-(29, 1, 3, 'terkirim', '2025-08-24 01:15:04', '2025-08-24 01:15:04'),
-(32, 4, 3, 'terkirim', '2025-08-28 06:15:55', '2025-08-28 06:15:55'),
-(33, 4, 4, 'terkirim', '2025-08-28 06:15:55', '2025-08-28 06:15:55'),
-(36, 7, 3, 'terkirim', '2025-08-28 06:16:18', '2025-08-28 06:16:18'),
-(37, 7, 4, 'terkirim', '2025-08-28 06:16:18', '2025-08-28 06:16:18'),
-(38, 5, 3, 'terkirim', '2025-08-28 06:16:30', '2025-08-28 06:16:30'),
-(39, 5, 4, 'terkirim', '2025-08-28 06:16:30', '2025-08-28 06:16:30'),
-(44, 9, 3, 'terkirim', '2025-09-02 23:43:57', '2025-09-02 23:43:57'),
-(45, 9, 4, 'terkirim', '2025-09-02 23:44:05', '2025-09-02 23:44:05'),
-(46, 8, 3, 'terkirim', '2025-09-03 00:04:51', '2025-09-03 00:04:51'),
-(47, 8, 4, 'terkirim', '2025-09-03 00:04:51', '2025-09-03 00:04:51'),
-(48, 10, 3, 'terkirim', '2025-09-03 00:23:41', '2025-09-03 00:23:41'),
-(49, 11, 3, 'terkirim', '2025-09-03 00:29:06', '2025-09-03 00:29:06'),
-(50, 12, 3, 'terkirim', '2025-09-03 00:47:54', '2025-09-03 00:47:54'),
-(51, 13, 3, 'terkirim', '2025-09-05 12:34:06', '2025-09-05 12:34:06'),
-(54, 15, 3, 'terkirim', '2025-09-05 12:48:55', '2025-09-05 12:48:55'),
-(55, 15, 4, 'terkirim', '2025-09-05 12:48:55', '2025-09-05 12:48:55'),
-(56, 16, 3, 'terkirim', '2025-09-06 03:08:41', '2025-09-06 03:08:41'),
-(57, 16, 4, 'terkirim', '2025-09-06 03:08:41', '2025-09-06 03:08:41'),
-(58, 17, 3, 'terkirim', '2025-09-06 09:08:59', '2025-09-06 09:08:59'),
-(59, 17, 4, 'terkirim', '2025-09-06 09:09:05', '2025-09-06 09:09:05'),
-(63, 19, 3, 'terkirim', '2025-09-06 10:24:47', '2025-09-06 10:24:47'),
-(64, 19, 4, 'terkirim', '2025-09-06 10:24:47', '2025-09-06 10:24:47'),
-(65, 20, 3, 'terkirim', '2025-09-06 10:25:51', '2025-09-06 10:25:51'),
-(66, 20, 4, 'terkirim', '2025-09-06 10:25:51', '2025-09-06 10:25:51'),
-(68, 14, 4, 'terkirim', '2025-09-06 11:35:58', '2025-09-06 11:35:58'),
-(69, 21, 4, 'terkirim', '2025-09-06 11:36:35', '2025-09-06 11:36:35'),
-(70, 22, 3, 'terkirim', '2025-09-06 12:37:56', '2025-09-06 12:37:56'),
-(71, 22, 4, 'terkirim', '2025-09-06 12:37:56', '2025-09-06 12:37:56'),
-(72, 23, 3, 'terkirim', '2025-09-07 01:18:19', '2025-09-07 01:18:19'),
-(73, 23, 4, 'terkirim', '2025-09-07 01:18:25', '2025-09-07 01:18:25'),
-(74, 24, 3, 'terkirim', '2025-09-07 04:50:17', '2025-09-07 04:50:17'),
-(75, 24, 4, 'terkirim', '2025-09-07 04:50:23', '2025-09-07 04:50:23');
+(1, 1, 6, 'terkirim', '2025-09-18 06:10:10', '2025-09-18 06:10:10'),
+(2, 1, 7, 'terkirim', '2025-09-18 06:10:10', '2025-09-18 06:10:10'),
+(3, 2, 6, 'terkirim', '2025-09-18 06:57:17', '2025-09-18 06:57:17'),
+(4, 3, 6, 'terkirim', '2025-09-18 07:03:48', '2025-09-18 07:03:48'),
+(5, 4, 6, 'terkirim', '2025-09-18 23:34:54', '2025-09-18 23:34:54'),
+(6, 5, 6, 'terkirim', '2025-09-19 00:58:49', '2025-09-19 00:58:49'),
+(7, 6, 6, 'terkirim', '2025-09-19 04:22:41', '2025-09-19 04:22:41'),
+(8, 7, 6, 'terkirim', '2025-09-19 05:04:36', '2025-09-19 05:04:36'),
+(9, 8, 6, 'terkirim', '2025-09-19 05:10:04', '2025-09-19 05:10:04'),
+(10, 8, 7, 'terkirim', '2025-09-19 05:10:05', '2025-09-19 05:10:05'),
+(11, 8, 8, 'terkirim', '2025-09-19 05:10:05', '2025-09-19 05:10:05'),
+(12, 8, 9, 'terkirim', '2025-09-19 05:10:05', '2025-09-19 05:10:05'),
+(13, 8, 10, 'terkirim', '2025-09-19 05:10:06', '2025-09-19 05:10:06'),
+(14, 9, 3, 'terkirim', '2025-09-19 05:13:07', '2025-09-19 05:13:07'),
+(15, 9, 6, 'terkirim', '2025-09-19 05:13:07', '2025-09-19 05:13:07'),
+(16, 9, 7, 'terkirim', '2025-09-19 05:13:08', '2025-09-19 05:13:08'),
+(17, 9, 8, 'terkirim', '2025-09-19 05:13:09', '2025-09-19 05:13:09'),
+(18, 9, 9, 'terkirim', '2025-09-19 05:13:09', '2025-09-19 05:13:09'),
+(19, 9, 10, 'terkirim', '2025-09-19 05:13:09', '2025-09-19 05:13:09'),
+(20, 10, 3, 'terkirim', '2025-09-19 05:29:39', '2025-09-19 05:29:39'),
+(21, 10, 6, 'terkirim', '2025-09-19 05:29:39', '2025-09-19 05:29:39'),
+(22, 10, 7, 'terkirim', '2025-09-19 05:29:39', '2025-09-19 05:29:39'),
+(23, 10, 8, 'terkirim', '2025-09-19 05:29:40', '2025-09-19 05:29:40'),
+(24, 10, 9, 'terkirim', '2025-09-19 05:29:40', '2025-09-19 05:29:40'),
+(25, 10, 10, 'terkirim', '2025-09-19 05:29:40', '2025-09-19 05:29:40'),
+(26, 11, 3, 'terkirim', '2025-09-19 07:53:53', '2025-09-19 07:53:53'),
+(27, 11, 6, 'terkirim', '2025-09-19 07:53:53', '2025-09-19 07:53:53'),
+(28, 11, 7, 'terkirim', '2025-09-19 07:53:53', '2025-09-19 07:53:53'),
+(29, 11, 8, 'terkirim', '2025-09-19 07:53:54', '2025-09-19 07:53:54'),
+(30, 11, 9, 'terkirim', '2025-09-19 07:53:54', '2025-09-19 07:53:54'),
+(31, 11, 10, 'terkirim', '2025-09-19 07:53:54', '2025-09-19 07:53:54'),
+(32, 12, 3, 'terkirim', '2025-09-19 07:56:38', '2025-09-19 07:56:38'),
+(33, 12, 6, 'terkirim', '2025-09-19 07:56:38', '2025-09-19 07:56:38'),
+(34, 12, 7, 'terkirim', '2025-09-19 07:56:38', '2025-09-19 07:56:38'),
+(35, 12, 8, 'terkirim', '2025-09-19 07:56:38', '2025-09-19 07:56:38'),
+(36, 12, 9, 'terkirim', '2025-09-19 07:56:39', '2025-09-19 07:56:39'),
+(37, 12, 10, 'terkirim', '2025-09-19 07:56:39', '2025-09-19 07:56:39'),
+(38, 13, 6, 'terkirim', '2025-09-21 23:52:53', '2025-09-21 23:52:53'),
+(39, 13, 7, 'terkirim', '2025-09-21 23:52:57', '2025-09-21 23:52:57'),
+(40, 13, 8, 'terkirim', '2025-09-21 23:52:57', '2025-09-21 23:52:57'),
+(41, 13, 9, 'terkirim', '2025-09-21 23:52:57', '2025-09-21 23:52:57'),
+(42, 13, 10, 'terkirim', '2025-09-21 23:52:58', '2025-09-21 23:52:58');
 
 -- --------------------------------------------------------
 
 --
--- Table structure for table `users`
+-- Struktur dari tabel `users`
 --
 
 CREATE TABLE `users` (
@@ -496,30 +474,38 @@ CREATE TABLE `users` (
   `email` varchar(255) NOT NULL,
   `no_hp` varchar(20) DEFAULT NULL,
   `jabatan` varchar(255) DEFAULT NULL,
+  `unit` enum('kepaniteraan','kesekretariatan') NOT NULL DEFAULT 'kesekretariatan',
+  `tingkatan` tinyint(4) DEFAULT NULL,
   `email_verified_at` timestamp NULL DEFAULT NULL,
   `password` varchar(255) NOT NULL,
-  `role` enum('admin','notulis','peserta') NOT NULL DEFAULT 'peserta',
+  `role` enum('admin','notulis','peserta','approval') NOT NULL DEFAULT 'peserta',
   `remember_token` varchar(100) DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
--- Dumping data for table `users`
+-- Dumping data untuk tabel `users`
 --
 
-INSERT INTO `users` (`id`, `name`, `email`, `no_hp`, `jabatan`, `email_verified_at`, `password`, `role`, `remember_token`, `created_at`, `updated_at`) VALUES
-(1, 'Admin Sistem', 'admin@sistemrapat.test', NULL, NULL, NULL, '$2y$10$5i7o5CoHbL.6IQsNCz22R.gqfTyjMCTeF6UFV3d8yEb4quPkXJp8m', 'admin', NULL, '2025-08-23 00:08:00', '2025-08-23 00:08:00'),
-(2, 'Notulis Satu', 'notulis@sistemrapat.test', NULL, NULL, NULL, '$2y$10$PNztkyptCNqzdPpcscnse.NsCpdymtMx9xZwKJG/CPDwMRpV28qUa', 'notulis', NULL, '2025-08-23 00:08:00', '2025-08-23 00:08:00'),
-(3, 'Syamsul Bahri, S.H.I.', 'peserta@sistemrapat.test', NULL, 'Kepala Bagian Perencanaan dan Kepegawaian', NULL, '$2y$10$tLBMl2Ts9auu5siiikLBlOspFkdHpc8.QYfpyDaC9q9MKAiEi1WB.', 'peserta', NULL, '2025-08-23 00:08:00', '2025-08-23 03:38:31'),
-(4, 'Muhjar', 'muhjardani0900@gmail.com', '081240170314', 'CPNS', NULL, '$2y$10$TrdGf1c3Bgk/GDfxQflIruf3PAiQ3ibXPvGtfdYBDr.RzVqSVvDfa', 'peserta', NULL, '2025-08-23 01:54:44', '2025-08-23 03:37:51');
+INSERT INTO `users` (`id`, `name`, `email`, `no_hp`, `jabatan`, `unit`, `tingkatan`, `email_verified_at`, `password`, `role`, `remember_token`, `created_at`, `updated_at`) VALUES
+(1, 'Admin Sistem', 'admin@sistemrapat.test', NULL, NULL, 'kesekretariatan', NULL, NULL, '$2y$10$Nw85.OknZ077vjQbeC9G7eigRz81i4eE6hFx86yDRhlFCU/40bOo.', 'admin', NULL, '2025-09-18 06:01:53', '2025-09-18 06:01:53'),
+(2, 'Notulis Satu', 'notulis@sistemrapat.test', NULL, NULL, 'kesekretariatan', NULL, NULL, '$2y$10$bzCs90tppjxCZhjmra1TnOiLKH6gWXL1OjeUaFs0W7QYaAyrTzVhC', 'notulis', NULL, '2025-09-18 06:01:53', '2025-09-18 06:01:53'),
+(3, 'Peserta Satu', 'peserta@sistemrapat.test', NULL, NULL, 'kesekretariatan', NULL, NULL, '$2y$10$XIejy1XsSiPTlKtifClZIeljnN7WUOtwvuUJ6rcg81DWQxm5GLUOG', 'peserta', NULL, '2025-09-18 06:01:53', '2025-09-18 06:01:53'),
+(4, 'Luthfi', 'luthfi@gmail.com', '08121579761533', 'Ketua PTA', 'kepaniteraan', 1, NULL, '$2y$10$zQbkDs3eUd1LDfG175/Dx.A8YVOSLoQRQmCS/EeYGpECw43LTmOYu', 'approval', NULL, '2025-09-18 06:05:16', '2025-09-18 23:44:29'),
+(5, 'Gilang', 'gilang@gmail.com', '083129031844', 'Analis APBN', 'kesekretariatan', 2, NULL, '$2y$10$r.gpL2aYE05.JdEhzMUUkO.2p9cWO5dNw8Qu9yruD0nLmZkv9vm6W', 'approval', NULL, '2025-09-18 06:06:35', '2025-09-18 06:06:35'),
+(6, 'Muhjar', 'muhjar@gmail.com', '081240170314', 'PKSTi', 'kesekretariatan', NULL, NULL, '$2y$10$rxhFQyVACKZQ70RCLoFQPuxZh8RM9Gj3zD6wQxVc22wJ.yFsgQUO2', 'peserta', NULL, '2025-09-18 06:07:09', '2025-09-18 06:07:09'),
+(7, 'Hari', 'hari@gmail.com', '081234325558', 'PPNPN', 'kesekretariatan', NULL, NULL, '$2y$10$YfLNtg4GFnp9VRkFr9g4QuUdj/lNBsLpMGdW5pxp4s/lMJSt23oQi', 'peserta', NULL, '2025-09-18 06:07:38', '2025-09-18 06:07:38'),
+(8, 'akbar', 'akbar@gmail.com', '08237592379024', 'App', 'kepaniteraan', NULL, NULL, '$2y$10$psqbJHbwEHmOaUH.c0gjauwRrg1dUAeLZYTuZ5MSbKh6x9n54Qua2', 'peserta', NULL, '2025-09-19 05:07:45', '2025-09-19 05:07:45'),
+(9, 'yudis', 'yudis@gmail.com', '0834368595947', 'Keprotokolan', 'kesekretariatan', NULL, NULL, '$2y$10$zFY3UBhJd5g8i7eWm86BU.QvebeygnyK5FIvDkX29YyO7bc3eUUl6', 'peserta', NULL, '2025-09-19 05:08:17', '2025-09-19 05:08:17'),
+(10, 'Fajri', 'fajri@gmail.com', '08123435357', 'app', 'kepaniteraan', NULL, NULL, '$2y$10$EcrFd3E1auUJ.fvNkR6/rep/cpC/6eGPFhVikv53TkQoUWISjjQtO', 'peserta', NULL, '2025-09-19 05:09:11', '2025-09-19 05:09:11');
 
 --
 -- Indexes for dumped tables
 --
 
 --
--- Indexes for table `absensi`
+-- Indeks untuk tabel `absensi`
 --
 ALTER TABLE `absensi`
   ADD PRIMARY KEY (`id`),
@@ -527,26 +513,35 @@ ALTER TABLE `absensi`
   ADD KEY `absensi_id_user_foreign` (`id_user`);
 
 --
--- Indexes for table `failed_jobs`
+-- Indeks untuk tabel `approval_requests`
+--
+ALTER TABLE `approval_requests`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `approval_requests_sign_token_unique` (`sign_token`),
+  ADD KEY `approval_requests_approver_user_id_foreign` (`approver_user_id`),
+  ADD KEY `approval_requests_rapat_id_doc_type_order_index_index` (`rapat_id`,`doc_type`,`order_index`);
+
+--
+-- Indeks untuk tabel `failed_jobs`
 --
 ALTER TABLE `failed_jobs`
   ADD PRIMARY KEY (`id`);
 
 --
--- Indexes for table `jobs`
+-- Indeks untuk tabel `jobs`
 --
 ALTER TABLE `jobs`
   ADD PRIMARY KEY (`id`),
   ADD KEY `jobs_queue_index` (`queue`);
 
 --
--- Indexes for table `kategori_rapat`
+-- Indeks untuk tabel `kategori_rapat`
 --
 ALTER TABLE `kategori_rapat`
   ADD PRIMARY KEY (`id`);
 
 --
--- Indexes for table `laporan_archived_meetings`
+-- Indeks untuk tabel `laporan_archived_meetings`
 --
 ALTER TABLE `laporan_archived_meetings`
   ADD PRIMARY KEY (`id`),
@@ -554,56 +549,56 @@ ALTER TABLE `laporan_archived_meetings`
   ADD KEY `laporan_archived_meetings_rapat_id_index` (`rapat_id`);
 
 --
--- Indexes for table `laporan_files`
+-- Indeks untuk tabel `laporan_files`
 --
 ALTER TABLE `laporan_files`
   ADD PRIMARY KEY (`id`),
   ADD KEY `laporan_files_id_kategori_index` (`id_kategori`);
 
 --
--- Indexes for table `migrations`
+-- Indeks untuk tabel `migrations`
 --
 ALTER TABLE `migrations`
   ADD PRIMARY KEY (`id`);
 
 --
--- Indexes for table `notulensi`
+-- Indeks untuk tabel `notulensi`
 --
 ALTER TABLE `notulensi`
   ADD PRIMARY KEY (`id`);
 
 --
--- Indexes for table `notulensi_detail`
+-- Indeks untuk tabel `notulensi_detail`
 --
 ALTER TABLE `notulensi_detail`
   ADD PRIMARY KEY (`id`);
 
 --
--- Indexes for table `notulensi_dokumentasi`
+-- Indeks untuk tabel `notulensi_dokumentasi`
 --
 ALTER TABLE `notulensi_dokumentasi`
   ADD PRIMARY KEY (`id`);
 
 --
--- Indexes for table `password_resets`
+-- Indeks untuk tabel `password_resets`
 --
 ALTER TABLE `password_resets`
   ADD KEY `password_resets_email_index` (`email`);
 
 --
--- Indexes for table `pimpinan_rapat`
+-- Indeks untuk tabel `pimpinan_rapat`
 --
 ALTER TABLE `pimpinan_rapat`
   ADD PRIMARY KEY (`id`);
 
 --
--- Indexes for table `rapat`
+-- Indeks untuk tabel `rapat`
 --
 ALTER TABLE `rapat`
   ADD PRIMARY KEY (`id`);
 
 --
--- Indexes for table `undangan`
+-- Indeks untuk tabel `undangan`
 --
 ALTER TABLE `undangan`
   ADD PRIMARY KEY (`id`),
@@ -611,120 +606,134 @@ ALTER TABLE `undangan`
   ADD KEY `undangan_id_user_foreign` (`id_user`);
 
 --
--- Indexes for table `users`
+-- Indeks untuk tabel `users`
 --
 ALTER TABLE `users`
   ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `users_email_unique` (`email`);
+  ADD UNIQUE KEY `users_email_unique` (`email`),
+  ADD KEY `users_tingkatan_index` (`tingkatan`);
 
 --
--- AUTO_INCREMENT for dumped tables
+-- AUTO_INCREMENT untuk tabel yang dibuang
 --
 
 --
--- AUTO_INCREMENT for table `absensi`
+-- AUTO_INCREMENT untuk tabel `absensi`
 --
 ALTER TABLE `absensi`
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+
+--
+-- AUTO_INCREMENT untuk tabel `approval_requests`
+--
+ALTER TABLE `approval_requests`
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=29;
+
+--
+-- AUTO_INCREMENT untuk tabel `failed_jobs`
+--
+ALTER TABLE `failed_jobs`
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT untuk tabel `jobs`
+--
+ALTER TABLE `jobs`
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT untuk tabel `kategori_rapat`
+--
+ALTER TABLE `kategori_rapat`
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
+
+--
+-- AUTO_INCREMENT untuk tabel `laporan_archived_meetings`
+--
+ALTER TABLE `laporan_archived_meetings`
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT untuk tabel `laporan_files`
+--
+ALTER TABLE `laporan_files`
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT untuk tabel `migrations`
+--
+ALTER TABLE `migrations`
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=35;
+
+--
+-- AUTO_INCREMENT untuk tabel `notulensi`
+--
+ALTER TABLE `notulensi`
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+
+--
+-- AUTO_INCREMENT untuk tabel `notulensi_detail`
+--
+ALTER TABLE `notulensi_detail`
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
+
+--
+-- AUTO_INCREMENT untuk tabel `notulensi_dokumentasi`
+--
+ALTER TABLE `notulensi_dokumentasi`
   MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
--- AUTO_INCREMENT for table `failed_jobs`
---
-ALTER TABLE `failed_jobs`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
-
---
--- AUTO_INCREMENT for table `jobs`
---
-ALTER TABLE `jobs`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=13;
-
---
--- AUTO_INCREMENT for table `kategori_rapat`
---
-ALTER TABLE `kategori_rapat`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
-
---
--- AUTO_INCREMENT for table `laporan_archived_meetings`
---
-ALTER TABLE `laporan_archived_meetings`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
-
---
--- AUTO_INCREMENT for table `laporan_files`
---
-ALTER TABLE `laporan_files`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=40;
-
---
--- AUTO_INCREMENT for table `migrations`
---
-ALTER TABLE `migrations`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=30;
-
---
--- AUTO_INCREMENT for table `notulensi`
---
-ALTER TABLE `notulensi`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
-
---
--- AUTO_INCREMENT for table `notulensi_detail`
---
-ALTER TABLE `notulensi_detail`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=34;
-
---
--- AUTO_INCREMENT for table `notulensi_dokumentasi`
---
-ALTER TABLE `notulensi_dokumentasi`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=16;
-
---
--- AUTO_INCREMENT for table `pimpinan_rapat`
+-- AUTO_INCREMENT untuk tabel `pimpinan_rapat`
 --
 ALTER TABLE `pimpinan_rapat`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT;
 
 --
--- AUTO_INCREMENT for table `rapat`
+-- AUTO_INCREMENT untuk tabel `rapat`
 --
 ALTER TABLE `rapat`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=25;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=14;
 
 --
--- AUTO_INCREMENT for table `undangan`
+-- AUTO_INCREMENT untuk tabel `undangan`
 --
 ALTER TABLE `undangan`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=76;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=43;
 
 --
--- AUTO_INCREMENT for table `users`
+-- AUTO_INCREMENT untuk tabel `users`
 --
 ALTER TABLE `users`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
 
 --
--- Constraints for dumped tables
+-- Ketidakleluasaan untuk tabel pelimpahan (Dumped Tables)
 --
 
 --
--- Constraints for table `absensi`
+-- Ketidakleluasaan untuk tabel `absensi`
 --
 ALTER TABLE `absensi`
   ADD CONSTRAINT `absensi_id_rapat_foreign` FOREIGN KEY (`id_rapat`) REFERENCES `rapat` (`id`) ON DELETE CASCADE,
   ADD CONSTRAINT `absensi_id_user_foreign` FOREIGN KEY (`id_user`) REFERENCES `users` (`id`) ON DELETE CASCADE;
 
 --
--- Constraints for table `laporan_archived_meetings`
+-- Ketidakleluasaan untuk tabel `approval_requests`
+--
+ALTER TABLE `approval_requests`
+  ADD CONSTRAINT `approval_requests_approver_user_id_foreign` FOREIGN KEY (`approver_user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `approval_requests_rapat_id_foreign` FOREIGN KEY (`rapat_id`) REFERENCES `rapat` (`id`) ON DELETE CASCADE;
+
+--
+-- Ketidakleluasaan untuk tabel `laporan_archived_meetings`
 --
 ALTER TABLE `laporan_archived_meetings`
   ADD CONSTRAINT `laporan_archived_meetings_archived_by_foreign` FOREIGN KEY (`archived_by`) REFERENCES `users` (`id`) ON DELETE SET NULL,
   ADD CONSTRAINT `laporan_archived_meetings_rapat_id_foreign` FOREIGN KEY (`rapat_id`) REFERENCES `rapat` (`id`) ON DELETE CASCADE;
 
 --
--- Constraints for table `undangan`
+-- Ketidakleluasaan untuk tabel `undangan`
 --
 ALTER TABLE `undangan`
   ADD CONSTRAINT `undangan_id_rapat_foreign` FOREIGN KEY (`id_rapat`) REFERENCES `rapat` (`id`) ON DELETE CASCADE,

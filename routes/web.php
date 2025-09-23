@@ -69,6 +69,7 @@ Route::middleware(['auth', 'cekrole:admin,notulis'])->group(function () {
     Route::get('notulensi/{id}/edit',       'NotulensiController@edit')->name('notulensi.edit');
     Route::put('notulensi/{id}',            'NotulensiController@update')->name('notulensi.update');
     Route::get('notulensi/{id}/cetak', 'NotulensiController@cetakGabung')->name('notulensi.cetak');
+    Route::get('/notulensi/{id}/export', 'NotulensiController@exportPdf')->name('notulensi.export');
 });
 
 // PESERTA

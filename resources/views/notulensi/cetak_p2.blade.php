@@ -1,7 +1,7 @@
-@php
+@php 
     use Carbon\Carbon;
 
-    // Tentukan judul kolom ke-2
+    // (opsional) judul kolom tengah
     $kat = strtolower($rapat->nama_kategori ?? '');
     if (str_contains($kat, 'monitor') || str_contains($kat, 'monev') || str_contains($kat, 'evaluasi')) {
         $kolom2 = 'Hasil Monitoring & Evaluasi';
@@ -39,7 +39,6 @@
         tbody tr:first-child td { padding-top: 6px; }
 
         .title { font-weight: bold; font-size: 14px; margin: 0 0 6px 0; }
-
         .th-green { background: #28a745; color: #000; font-weight: bold; text-align: center; }
 
         .col-no   { width: 4%;  text-align: center; }
@@ -48,10 +47,38 @@
         .col-pj   { width: 17%; }
         .col-tgl  { width: 17%; text-align: center; }
 
-        /* TTD */
-        .ttd-table { width: 100%; margin-top: 30px; border: none; }
-        .ttd-table td { border: none; text-align: center; vertical-align: bottom; }
-        .ttd-name { text-decoration: underline; margin-top: 60px; }
+        /* ====== BLOK TTD ====== */
+        .sign-stage{
+            position: relative;   /* referensi absolute untuk kolom kanan */
+            min-height: 60mm;     /* tinggi area tanda tangan */
+            margin-top: 6mm;      /* LANGSUNG di bawah tabel; ubah kalau perlu */
+        }
+
+        /* Kiri (Notulis) — tetap seperti permintaan */
+        .left-sign{
+            width: 70mm;
+            text-align: center;
+        }
+        .left-header{ margin-bottom: 4px; font-size: 11px; }
+        .qr{
+            width: 32mm;          /* ukuran QR konsisten kiri/kanan */
+            height: auto;
+            margin: 0 auto 6px auto;
+            display: block;
+        }
+        .name{ font-weight: bold; text-decoration: underline; }
+        .role{ font-weight: bold; margin-top: 2px; }
+        .muted{ color:#666; font-size: 10px; }
+
+        /* Kanan (Pimpinan) — diletakkan sejajar di sisi kanan */
+        .right-sign{
+            position: absolute;
+            top: 0;               /* sejajar vertikal dengan blok kiri (tepat di bawah tabel) */
+            right: 12mm;          /* jarak dari tepi kanan halaman (menyesuaikan @page margin right) */
+            width: 70mm;
+            text-align: center;
+        }
+        .right-header{ margin-bottom: 4px; font-size: 11px; }
     </style>
 </head>
 <body>
@@ -62,9 +89,7 @@
     <thead>
         <tr>
             <th class="th-green col-no">No.</th>
-            <th class="th-green col-hasil">
-                Hasil {{ $rapat->nama_kategori ?? 'Pembahasan' }}
-            </th>
+            <th class="th-green col-hasil">Hasil {{ $rapat->nama_kategori ?? 'Pembahasan' }}</th>
             <th class="th-green col-rek">Rekomendasi Tindak Lanjut</th>
             <th class="th-green col-pj">Penanggung Jawab</th>
             <th class="th-green col-tgl">Tgl. Penyelesaian</th>
@@ -89,21 +114,32 @@
     </tbody>
 </table>
 
-{{-- TANDA TANGAN --}}
-<table class="ttd-table">
-    <tr>
-        <td>Dibuat Oleh,</td>
-        <td>Manokwari, {{ $tanggalCetak }}</td>
-    </tr>
-    <tr>
-        <td style="height:70px;"></td>
-        <td></td>
-    </tr>
-    <tr>
-        <td class="ttd-name">{{ $creator->name ?? '-' }}<br><span style="font-weight:bold;">Notulen</span></td>
-        <td class="ttd-name">{{ $rapat->nama_pimpinan ?? '-' }}<br><span style="font-weight:bold;">{{ $rapat->jabatan_pimpinan ?? 'Pimpinan Rapat' }}</span></td>
-    </tr>
-</table>
+{{-- ====== AREA TANDA TANGAN ====== --}}
+<div class="sign-stage">
+    {{-- Kiri: Notulis (tidak diubah) --}}
+    <div class="left-sign">
+        <div class="left-header">Dibuat Oleh,</div>
+        @if(!empty($qr_notulis_data))
+            <img class="qr" src="{{ $qr_notulis_data }}">
+        @else
+            <div class="muted">(QR Notulis belum tersedia)</div>
+        @endif
+        <div class="name">{{ $notulis_nama ?? '-' }}</div>
+        <div class="role">{{ $notulis_jabatan ?? 'Notulis' }}</div>
+    </div>
+
+    {{-- Kanan: Pimpinan (sejajar kanan) --}}
+    <div class="right-sign">
+        <div class="right-header">Manokwari, {{ $tanggalCetak }}</div>
+        @if(!empty($qr_pimpinan_data))
+            <img class="qr" src="{{ $qr_pimpinan_data }}">
+        @else
+            <div class="muted">(Menunggu approval pimpinan)</div>
+        @endif
+        <div class="name">{{ $pimpinan_nama ?? '-' }}</div>
+        <div class="role">{{ $pimpinan_jabatan ?? 'Pimpinan Rapat' }}</div>
+    </div>
+</div>
 
 </body>
 </html>
