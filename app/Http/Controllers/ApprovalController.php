@@ -11,6 +11,99 @@ use Illuminate\Support\Str;
 class ApprovalController extends Controller
 {
     /**
+     * Helper: buat QR dari konten (URL verifikasi), lalu tempel logo di tengah (GD, tanpa Imagick).
+     * - $qrContent : string yang akan di-encode ke QR (kita pakai URL verifikasi)
+     * - $savePathAbs : path absolut tempat simpan PNG final
+     * - $logoAbsPath : path absolut logo (PNG/JPG/GIF). Boleh null / tidak ada -> QR tanpa logo
+     * - $size : ukuran sisi QR sumber dari service (px)
+     * return bool sukses
+     */
+private function makeQrWithLogo(string $qrContent, string $savePathAbs, ?string $logoAbsPath, int $size = 420): bool
+{
+    // 1) Ambil QR dasar
+    $encoded = urlencode($qrContent);
+    $src1 = "https://chart.googleapis.com/chart?chs={$size}x{$size}&cht=qr&chl={$encoded}";
+    $png  = @file_get_contents($src1);
+    if ($png === false) {
+        $src2 = "https://api.qrserver.com/v1/create-qr-code/?size={$size}x{$size}&data={$encoded}&margin=2";
+        $png  = @file_get_contents($src2);
+        if ($png === false) return false;
+    }
+    $tmp = sys_get_temp_dir().'/qr_'.uniqid().'.png';
+    @file_put_contents($tmp, $png);
+
+    $qr = @imagecreatefrompng($tmp);
+    @unlink($tmp);
+    if (!$qr) return false;
+    imagesavealpha($qr, true);
+    imagealphablending($qr, true);
+
+    // 2) Logo (opsional)
+    if ($logoAbsPath && is_file($logoAbsPath)) {
+        $logo = null;
+        $type = @exif_imagetype($logoAbsPath);
+        if     ($type === IMAGETYPE_PNG)  $logo = @imagecreatefrompng($logoAbsPath);
+        elseif ($type === IMAGETYPE_JPEG) $logo = @imagecreatefromjpeg($logoAbsPath);
+        elseif ($type === IMAGETYPE_GIF)  $logo = @imagecreatefromgif($logoAbsPath);
+
+        if ($logo) {
+            imagesavealpha($logo, true);
+            imagealphablending($logo, true);
+
+            // Target ukuran logo ~22% dari lebar QR
+            $qrW = imagesx($qr);  $qrH = imagesy($qr);
+            $lgW = imagesx($logo);$lgH = imagesy($logo);
+            $targetW = (int) floor($qrW * 0.22);
+            $scale   = $targetW / max(1, $lgW);
+            $targetH = (int) floor($lgH * $scale);
+
+            // Resize ke canvas transparan
+            $logoRes = imagecreatetruecolor($targetW, $targetH);
+            imagesavealpha($logoRes, true);
+            imagealphablending($logoRes, false); // penting agar setpixel alpha efektif
+            $transparent = imagecolorallocatealpha($logoRes, 0, 0, 0, 127);
+            imagefill($logoRes, 0, 0, $transparent);
+
+            imagecopyresampled($logoRes, $logo, 0, 0, 0, 0, $targetW, $targetH, $lgW, $lgH);
+            imagedestroy($logo);
+
+            // 3) Ubah white-ish → alpha (hilangkan background putih)
+            $threshold = 245; // 0..255 (semakin kecil, semakin agresif)
+            for ($y = 0; $y < $targetH; $y++) {
+                for ($x = 0; $x < $targetW; $x++) {
+                    $col = imagecolorat($logoRes, $x, $y);
+                    // dukung truecolor dgn alpha
+                    $r = ($col >> 16) & 0xFF;
+                    $g = ($col >> 8)  & 0xFF;
+                    $b = ($col)       & 0xFF;
+                    $a = ($col & 0x7F000000) >> 24; // 0..127 (0=opaque)
+
+                    // Jika sudah transparan, skip
+                    if ($a >= 1) continue;
+
+                    // Jika cukup putih → set transparan penuh
+                    if ($r >= $threshold && $g >= $threshold && $b >= $threshold) {
+                        $newCol = imagecolorallocatealpha($logoRes, $r, $g, $b, 127);
+                        imagesetpixel($logoRes, $x, $y, $newCol);
+                    }
+                }
+            }
+            imagealphablending($logoRes, true); // kembali normal
+
+            // 4) Tempel ke pusat QR
+            $dstX = (int) floor(($qrW - $targetW) / 2);
+            $dstY = (int) floor(($qrH - $targetH) / 2);
+            imagecopy($qr, $logoRes, $dstX, $dstY, 0, 0, $targetW, $targetH);
+            imagedestroy($logoRes);
+        }
+    }
+
+    // 5) Simpan PNG final
+    $ok = @imagepng($qr, $savePathAbs, 6);
+    imagedestroy($qr);
+    return (bool) $ok;
+}
+    /**
      * Tampilkan semua approval pending milik user login.
      */
     public function pending()
@@ -69,7 +162,7 @@ class ApprovalController extends Controller
     }
 
     /**
-     * Proses setuju & generate QR (tanpa Imagick/GD).
+     * Proses setuju & generate QR (tanpa Imagick).
      * - Simpan PNG ke public/qr/...
      * - Update approval_requests
      * - Push notifikasi ke approver berikutnya jika ada
@@ -129,11 +222,9 @@ class ApprovalController extends Controller
         );
         $payloadJson = json_encode($payload, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
 
-        // 4) === Generate QR via Google Chart API ===
+        // 4) === Generate QR berlogo ===
         //    ISI QR = URL verifikasi agar saat scan langsung membuka halaman verifikasi
         $qrContent = route('qr.verify', ['d' => base64_encode($payloadJson)]);
-        $encoded   = urlencode($qrContent);
-        $qrUrl     = "https://chart.googleapis.com/chart?chs=220x220&cht=qr&chl={$encoded}";
 
         // Siapkan folder & nama file
         $qrDir = public_path('qr');
@@ -144,17 +235,15 @@ class ApprovalController extends Controller
         $relativePath = 'qr/' . $basename;
         $absolutePath = public_path($relativePath);
 
-        // Unduh PNG ke public/qr (tanpa imagick/GD)
-        $pngData = @file_get_contents($qrUrl);
-        if ($pngData === false) {
-            // fallback server lain (opsional)
-            $alt = "https://api.qrserver.com/v1/create-qr-code/?size=220x220&data={$encoded}";
-            $pngData = @file_get_contents($alt);
+        // Path logo (opsional)
+        $logoPath = public_path('logo_qr.png');
+        $logoAbs  = is_file($logoPath) ? $logoPath : null;
+
+        // Buat file QR + logo
+        $ok = $this->makeQrWithLogo($qrContent, $absolutePath, $logoAbs, 420);
+        if (!$ok) {
+            return back()->with('error', 'Gagal membuat QR (berlogo). Pastikan ekstensi GD aktif.');
         }
-        if ($pngData === false) {
-            return back()->with('error', 'Gagal membuat QR (akses internet/allow_url_fopen nonaktif).');
-        }
-        file_put_contents($absolutePath, $pngData);
 
         // 5) Simpan hasil signature ke DB
         DB::table('approval_requests')->where('id', $req->id)->update([
@@ -190,17 +279,15 @@ class ApprovalController extends Controller
             // Bila UNDANGAN selesai -> otomatis buat QR ABSENSI (unik & berbeda)
             if ($req->doc_type === 'undangan') {
                 $this->generateAbsensiQr((int)$req->rapat_id);
-            }
 
-            if ($req->doc_type === 'undangan') {
-                // generate QR ABSENSI sekarang juga
+                // Opsional: panggil mirror ke controller Absensi jika kamu pakai fungsi itu juga
                 app(\App\Http\Controllers\AbsensiController::class)
                     ->ensureAbsensiQrMirrorsUndangan((int) $req->rapat_id);
             }
         }
 
         return redirect()->route('approval.done', ['token' => $token])
-            ->with('success', 'Approval berhasil & QR dibuat (QR berisi URL verifikasi).');
+            ->with('success', 'Approval berhasil & QR berlogo dibuat (berisi URL verifikasi).');
     }
 
     /**
@@ -218,7 +305,7 @@ class ApprovalController extends Controller
     /**
      * Generate QR khusus dokumen ABSENSI (dipanggil otomatis saat undangan selesai).
      * - Buat payload baru (doc_type='absensi', nonce baru, issued_at baru, sig baru)
-     * - Simpan PNG ke public/qr
+     * - Simpan PNG ke public/qr (berlogo)
      * - Upsert approval_requests (doc_type='absensi', status=approved) per approver
      */
     private function generateAbsensiQr(int $rapatId): void
@@ -228,12 +315,8 @@ class ApprovalController extends Controller
 
         // daftar approver: approval1 wajib, approval2 opsional
         $approvers = [];
-        if (!empty($rapat->approval1_user_id)) {
-            $approvers[] = (int)$rapat->approval1_user_id;
-        }
-        if (!empty($rapat->approval2_user_id)) {
-            $approvers[] = (int)$rapat->approval2_user_id;
-        }
+        if (!empty($rapat->approval1_user_id)) $approvers[] = (int)$rapat->approval1_user_id;
+        if (!empty($rapat->approval2_user_id)) $approvers[] = (int)$rapat->approval2_user_id;
 
         $secret = config('app.key');
         if (is_string($secret) && Str::startsWith($secret, 'base64:')) {
@@ -244,7 +327,7 @@ class ApprovalController extends Controller
             $user = DB::table('users')->where('id', $uid)->first();
             if (!$user) continue;
 
-            // payload baru KHUSUS absensi (unik: doc_type beda + nonce/issued_at baru)
+            // payload unik ABSENSI
             $payload = [
                 'v'        => 1,
                 'doc_type' => 'absensi',
@@ -270,28 +353,24 @@ class ApprovalController extends Controller
 
             // QR berisi URL verifikasi
             $qrContent = route('qr.verify', ['d' => base64_encode($payloadJson)]);
-            $encoded   = urlencode($qrContent);
-            $qrUrl     = "https://chart.googleapis.com/chart?chs=220x220&cht=qr&chl={$encoded}";
 
             // siapkan folder & file
             $qrDir = public_path('qr');
-            if (!is_dir($qrDir)) {
-                @mkdir($qrDir, 0755, true);
-            }
+            if (!is_dir($qrDir)) @mkdir($qrDir, 0755, true);
             $basename     = 'qr_absensi_r'.$rapat->id.'_a'.$user->id.'_'.Str::random(6).'.png';
             $relativePath = 'qr/'.$basename;
             $absolutePath = public_path($relativePath);
 
-            $pngData = @file_get_contents($qrUrl);
-            if ($pngData === false) {
-                $alt = "https://api.qrserver.com/v1/create-qr-code/?size=220x220&data={$encoded}";
-                $pngData = @file_get_contents($alt);
-            }
-            if ($pngData === false) {
-                Log::warning('[absensi-qr] gagal membuat QR: rapat '.$rapat->id.' user '.$user->id);
+            // logo (opsional)
+            $logoPath = public_path('logo_qr.png');
+            $logoAbs  = is_file($logoPath) ? $logoPath : null;
+
+            // Buat QR + logo
+            $ok = $this->makeQrWithLogo($qrContent, $absolutePath, $logoAbs, 420);
+            if (!$ok) {
+                Log::warning('[absensi-qr] gagal membuat QR berlogo: rapat '.$rapat->id.' user '.$user->id);
                 continue;
             }
-            file_put_contents($absolutePath, $pngData);
 
             // Upsert approval_requests untuk doc_type 'absensi' -> approved
             $exists = DB::table('approval_requests')
@@ -307,7 +386,7 @@ class ApprovalController extends Controller
                     'doc_type'          => 'absensi',
                     'approver_user_id'  => $user->id,
                     'order_index'       => $idx + 1,
-                    'status'            => 'approved', // langsung approved otomatis
+                    'status'            => 'approved', // otomatis
                     'sign_token'        => Str::random(32),
                     'signature_qr_path' => $relativePath,
                     'signature_payload' => $payloadJson,

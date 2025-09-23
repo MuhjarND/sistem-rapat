@@ -87,6 +87,3 @@ Route::middleware(['auth', 'cekrole:approval'])->group(function () {
     Route::post('/approval/sign/{token}', 'ApprovalController@signSubmit')->name('approval.sign.submit');
     Route::get('/approval/done/{token}', 'ApprovalController@done')->name('approval.done');
 });
-
-
-
