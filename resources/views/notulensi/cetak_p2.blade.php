@@ -43,9 +43,9 @@
 
         .col-no   { width: 4%;  text-align: center; }
         .col-hasil{ width: 36%; }
-        .col-rek  { width: 26%; }
-        .col-pj   { width: 17%; }
-        .col-tgl  { width: 17%; text-align: center; }
+        .col-rek  { width: 36%; }
+        .col-pj   { width: 14%; }
+        .col-tgl  { width: 10%; text-align: center; }
 
         /* ====== BLOK TTD ====== */
         .sign-stage{
@@ -73,7 +73,7 @@
         /* Kanan (Pimpinan) — diletakkan sejajar di sisi kanan */
         .right-sign{
             position: absolute;
-            top: 0;               /* sejajar vertikal dengan blok kiri (tepat di bawah tabel) */
+            top: 0mm;               /* sejajar vertikal dengan blok kiri (tepat di bawah tabel) */
             right: 12mm;          /* jarak dari tepi kanan halaman (menyesuaikan @page margin right) */
             width: 70mm;
             text-align: center;
@@ -137,7 +137,7 @@
             <div class="muted">(Menunggu approval pimpinan)</div>
         @endif
         <div class="name">{{ $pimpinan_nama ?? '-' }}</div>
-        <div class="role">{{ $pimpinan_jabatan ?? 'Pimpinan Rapat' }}</div>
+        <div class="role">Pimpinan Rapat</div>
     </div>
 </div>
 
