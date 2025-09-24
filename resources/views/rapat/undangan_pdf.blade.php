@@ -21,10 +21,11 @@
         ol { margin: 6px 0 8px 18px; padding: 0; }
         .clearfix::after { content: ""; display: table; clear: both; }
 
-        /* tambahan untuk QR */
+        /* QR block */
         .qr { height: 90px; }
         .qr-caption { font-size: 10pt; color:#333; }
         .qr-placeholder { height: 90px; }
+        .waiting-note { font-size:10pt; color:#666; margin-top:4px; display:inline-block; }
     </style>
 </head>
 <body>
@@ -108,14 +109,24 @@
         {{-- Tanda tangan Approval 1 (wajib) --}}
         <div class="ttd">
             {{ $approval1->jabatan ?? 'Approval 1' }},<br>
-            @if(!empty($qrA1) && file_exists(public_path($qrA1)))
+
+            @php
+                $qrA1Exists = !empty($qrA1) && file_exists(public_path($qrA1));
+            @endphp
+
+            @if($qrA1Exists)
+                {{-- Tampilkan QR jika sudah approved --}}
                 <img class="qr" src="{{ public_path($qrA1) }}"><br>
                 <span class="qr-caption">Terverifikasi digital (Melalui Sistem Rapat)</span><br>
             @else
+                {{-- Jika belum approved, tampilkan placeholder + teks menunggu --}}
                 <div class="qr-placeholder"></div><br>
+                <span class="waiting-note"><em>Menunggu approval</em></span><br>
             @endif
+
             <b>{{ $approval1->name ?? '-' }}</b>
         </div>
+    </div>
 
     {{-- Lampiran HANYA bila peserta > 5 --}}
     @if($tampilkan_lampiran)
