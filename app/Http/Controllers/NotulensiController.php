@@ -125,7 +125,7 @@ class NotulensiController extends Controller
             return redirect()->route('notulensi.sudah')->with('success', 'Notulensi untuk rapat ini sudah ada.');
         }
 
-        // header notulensi
+        // header
         $id_notulensi = DB::table('notulensi')->insertGetId([
             'id_rapat'   => $request->id_rapat,
             'id_user'    => Auth::id(),   // notulis (pembuat)
@@ -133,7 +133,7 @@ class NotulensiController extends Controller
             'updated_at' => now(),
         ]);
 
-        // detail baris
+        // detail
         $urut = 1; $rows = [];
         foreach ($request->baris as $r) {
             $rows[] = [
@@ -175,7 +175,7 @@ class NotulensiController extends Controller
             }
         }
 
-        // === AUTO: QR TTD NOTULIS (order 1, approved) ===
+        // === AUTO: QR TTD NOTULIS (order 1, approved) + logo ===
         $this->ensureNotulensiNotulisQr((int)$request->id_rapat, (int)$id_notulensi);
 
         // === Setup approval chain NOTULENSI: aprv2 (opsional) -> aprv1 ===
@@ -361,10 +361,8 @@ class NotulensiController extends Controller
     }
 
     /**
-     * Cetak gabungan:
-     * - cetak_p1 (portrait) : tetap
-     * - cetak_p2 (landscape): TTD Notulis & TTD Pimpinan (QR)
-     * - cetak_p3 (portrait) : tetap
+     * Cetak gabungan (p1, p2, p3). P2 memuat QR Notulis & QR Pimpinan.
+     * Di sini kita **force refresh** QR Notulis supaya schema & ECC terbaru.
      */
     public function cetakGabung($id)
     {
@@ -393,10 +391,10 @@ class NotulensiController extends Controller
         $creator = DB::table('users')->where('id',$notulensi->id_user)->first();
         $jumlah_peserta = DB::table('undangan')->where('id_rapat', $notulensi->id_rapat)->count();
 
-        // Pastikan QR Notulis ada & valid
-        $this->ensureNotulensiNotulisQr((int)$notulensi->id_rapat, (int)$notulensi->id);
+        // pastikan QR Notulis ada & up-to-date (force refresh)
+        $this->ensureNotulensiNotulisQr((int)$notulensi->id_rapat, (int)$notulensi->id, true);
 
-        // QR Notulis
+        // QR Notulis (approved)
         $qrNotulis = DB::table('approval_requests')
             ->where('rapat_id', $notulensi->id_rapat)
             ->where('doc_type', 'notulensi')
@@ -412,7 +410,7 @@ class NotulensiController extends Controller
             }
         }
 
-        // QR Pimpinan (jika sudah approve)
+        // QR Pimpinan (approved)
         $qrPimpinan = DB::table('approval_requests')
             ->where('rapat_id', $notulensi->id_rapat)
             ->where('doc_type', 'notulensi')
@@ -472,25 +470,27 @@ class NotulensiController extends Controller
     }
 
     /**
-     * Pastikan QR TTD Notulis (doc_type notulensi, approver=notulis) ada & valid.
-     * - Auto-approved (order_index=1)
-     * - Simpan PNG di public/qr
-     * - Isi QR = URL verifikasi (qr.verify?d=base64(payload))
+     * Buat/refresh QR TTD Notulis (doc_type notulensi, approver=notulis) + tempel logo.
+     * $forceRefresh: true untuk memaksa regenerate & overwrite (dipakai saat cetak).
      */
-    private function ensureNotulensiNotulisQr(int $rapatId, int $notulenId): void
+    private function ensureNotulensiNotulisQr(int $rapatId, int $notulenId, bool $forceRefresh = false): void
     {
         $notulensi = DB::table('notulensi')->where('id', $notulenId)->first();
         $rapat     = DB::table('rapat')->where('id', $rapatId)->first();
         if (!$notulensi || !$rapat) return;
 
-        $notulisUser = DB::table('users')->where('id', $notulensi->id_user)->first();
-
         $row = DB::table('approval_requests')
             ->where('rapat_id', $rapatId)
             ->where('doc_type', 'notulensi')
-            ->where('approver_user_id', $notulensi->id_user)
+            ->where('approver_user_id', $notulensi->id_user) // notulis
             ->first();
 
+        if ($row && $row->status === 'approved' && $row->signature_qr_path && !$forceRefresh) return;
+
+        // ambil data notulis (nama/jabatan opsional)
+        $notulisUser = DB::table('users')->where('id', $notulensi->id_user)->first();
+
+        // === payload KONSISTEN: gunakan 'approver' (bukan 'signer') ===
         $payload = [
             'v'          => 1,
             'doc_type'   => 'notulensi',
@@ -501,8 +501,8 @@ class NotulensiController extends Controller
             'tanggal'    => $rapat->tanggal,
             'approver'   => [
                 'id'      => $notulensi->id_user,
-                'name'    => $notulisUser->name ?? 'Notulis',
-                'jabatan' => $notulisUser->jabatan ?? 'Notulis',
+                'name'    => $notulisUser->name ?? null,
+                'jabatan' => $notulisUser->jabatan ?? null,
                 'order'   => 1,
             ],
             'issued_at'  => now()->toIso8601String(),
@@ -520,10 +520,10 @@ class NotulensiController extends Controller
         );
         $payloadJson = json_encode($payload, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
 
-        // QR = URL verifikasi
+        // QR = URL verifikasi + ECC H (aman untuk logo)
         $qrContent = route('qr.verify', ['d' => base64_encode($payloadJson)]);
         $encoded   = urlencode($qrContent);
-        $qrUrl     = "https://chart.googleapis.com/chart?chs=220x220&cht=qr&chl={$encoded}";
+        $qrUrl     = "https://chart.googleapis.com/chart?chs=600x600&cht=qr&chl={$encoded}&chld=H|0";
 
         $dir = public_path('qr');
         if (!is_dir($dir)) @mkdir($dir, 0755, true);
@@ -532,28 +532,60 @@ class NotulensiController extends Controller
         $relativePath = 'qr/'.$filename;
         $absolutePath = public_path($relativePath);
 
-        // regenerate jika file tak ada atau payload berubah
-        $needGenerate = true;
-        if ($row && $row->signature_qr_path && $row->signature_payload) {
-            $existingFs = public_path($row->signature_qr_path);
-            $samePayload = hash_equals($row->signature_payload, $payloadJson);
-            if (is_file($existingFs) && $samePayload) {
-                $needGenerate = false;
-                $relativePath = $row->signature_qr_path;
-                $absolutePath = $existingFs;
+        $png = @file_get_contents($qrUrl);
+        if ($png === false) {
+            $alt = "https://api.qrserver.com/v1/create-qr-code/?size=600x600&data={$encoded}&ecc=H&margin=0";
+            $png = @file_get_contents($alt);
+        }
+        if ($png === false) return;
+
+        // Tempel logo transparan (ratio 18% lebar QR)
+        $logoPath = public_path('logo_qr.png'); // PNG transparan
+        $saved = false;
+        if (function_exists('imagecreatefromstring') && function_exists('imagepng')) {
+            $qrImg = @imagecreatefromstring($png);
+            if ($qrImg !== false) {
+                if (is_file($logoPath)) {
+                    $logoImg = @imagecreatefrompng($logoPath);
+                    if ($logoImg !== false) {
+                        imagealphablending($logoImg, true);
+                        imagesavealpha($logoImg, true);
+
+                        $qrW = imagesx($qrImg); $qrH = imagesy($qrImg);
+                        $lw  = imagesx($logoImg); $lh = imagesy($logoImg);
+
+                        $targetW = (int) round($qrW * 0.18); // 18% width
+                        $targetH = (int) round($lh * ($targetW / $lw));
+
+                        $dstX = (int) round(($qrW - $targetW) / 2);
+                        $dstY = (int) round(($qrH - $targetH) / 2);
+
+                        $logoResized = imagecreatetruecolor($targetW, $targetH);
+                        imagealphablending($logoResized, false);
+                        imagesavealpha($logoResized, true);
+                        imagecopyresampled($logoResized, $logoImg, 0, 0, 0, 0, $targetW, $targetH, $lw, $lh);
+
+                        imagecopy($qrImg, $logoResized, $dstX, $dstY, 0, 0, $targetW, $targetH);
+
+                        imagepng($qrImg, $absolutePath);
+                        imagedestroy($logoResized);
+                        imagedestroy($logoImg);
+                        imagedestroy($qrImg);
+                        $saved = true;
+                    }
+                }
+                if (!$saved) {
+                    imagepng($qrImg, $absolutePath);
+                    imagedestroy($qrImg);
+                    $saved = true;
+                }
             }
         }
-
-        if ($needGenerate) {
-            $png = @file_get_contents($qrUrl);
-            if ($png === false) {
-                $alt = "https://api.qrserver.com/v1/create-qr-code/?size=220x220&data={$encoded}";
-                $png = @file_get_contents($alt);
-            }
-            if ($png === false) return;
+        if (!$saved) {
             file_put_contents($absolutePath, $png);
         }
 
+        // Upsert/Update approval_requests notulis
         if ($row) {
             DB::table('approval_requests')->where('id', $row->id)->update([
                 'status'            => 'approved',
@@ -567,7 +599,7 @@ class NotulensiController extends Controller
             DB::table('approval_requests')->insert([
                 'rapat_id'          => $rapatId,
                 'doc_type'          => 'notulensi',
-                'approver_user_id'  => $notulensi->id_user,
+                'approver_user_id'  => $notulensi->id_user, // notulis
                 'order_index'       => 1,
                 'status'            => 'approved',
                 'sign_token'        => Str::random(32),

@@ -11,99 +11,6 @@ use Illuminate\Support\Str;
 class ApprovalController extends Controller
 {
     /**
-     * Helper: buat QR dari konten (URL verifikasi), lalu tempel logo di tengah (GD, tanpa Imagick).
-     * - $qrContent : string yang akan di-encode ke QR (kita pakai URL verifikasi)
-     * - $savePathAbs : path absolut tempat simpan PNG final
-     * - $logoAbsPath : path absolut logo (PNG/JPG/GIF). Boleh null / tidak ada -> QR tanpa logo
-     * - $size : ukuran sisi QR sumber dari service (px)
-     * return bool sukses
-     */
-private function makeQrWithLogo(string $qrContent, string $savePathAbs, ?string $logoAbsPath, int $size = 420): bool
-{
-    // 1) Ambil QR dasar
-    $encoded = urlencode($qrContent);
-    $src1 = "https://chart.googleapis.com/chart?chs={$size}x{$size}&cht=qr&chl={$encoded}";
-    $png  = @file_get_contents($src1);
-    if ($png === false) {
-        $src2 = "https://api.qrserver.com/v1/create-qr-code/?size={$size}x{$size}&data={$encoded}&margin=2";
-        $png  = @file_get_contents($src2);
-        if ($png === false) return false;
-    }
-    $tmp = sys_get_temp_dir().'/qr_'.uniqid().'.png';
-    @file_put_contents($tmp, $png);
-
-    $qr = @imagecreatefrompng($tmp);
-    @unlink($tmp);
-    if (!$qr) return false;
-    imagesavealpha($qr, true);
-    imagealphablending($qr, true);
-
-    // 2) Logo (opsional)
-    if ($logoAbsPath && is_file($logoAbsPath)) {
-        $logo = null;
-        $type = @exif_imagetype($logoAbsPath);
-        if     ($type === IMAGETYPE_PNG)  $logo = @imagecreatefrompng($logoAbsPath);
-        elseif ($type === IMAGETYPE_JPEG) $logo = @imagecreatefromjpeg($logoAbsPath);
-        elseif ($type === IMAGETYPE_GIF)  $logo = @imagecreatefromgif($logoAbsPath);
-
-        if ($logo) {
-            imagesavealpha($logo, true);
-            imagealphablending($logo, true);
-
-            // Target ukuran logo ~22% dari lebar QR
-            $qrW = imagesx($qr);  $qrH = imagesy($qr);
-            $lgW = imagesx($logo);$lgH = imagesy($logo);
-            $targetW = (int) floor($qrW * 0.22);
-            $scale   = $targetW / max(1, $lgW);
-            $targetH = (int) floor($lgH * $scale);
-
-            // Resize ke canvas transparan
-            $logoRes = imagecreatetruecolor($targetW, $targetH);
-            imagesavealpha($logoRes, true);
-            imagealphablending($logoRes, false); // penting agar setpixel alpha efektif
-            $transparent = imagecolorallocatealpha($logoRes, 0, 0, 0, 127);
-            imagefill($logoRes, 0, 0, $transparent);
-
-            imagecopyresampled($logoRes, $logo, 0, 0, 0, 0, $targetW, $targetH, $lgW, $lgH);
-            imagedestroy($logo);
-
-            // 3) Ubah white-ish → alpha (hilangkan background putih)
-            $threshold = 245; // 0..255 (semakin kecil, semakin agresif)
-            for ($y = 0; $y < $targetH; $y++) {
-                for ($x = 0; $x < $targetW; $x++) {
-                    $col = imagecolorat($logoRes, $x, $y);
-                    // dukung truecolor dgn alpha
-                    $r = ($col >> 16) & 0xFF;
-                    $g = ($col >> 8)  & 0xFF;
-                    $b = ($col)       & 0xFF;
-                    $a = ($col & 0x7F000000) >> 24; // 0..127 (0=opaque)
-
-                    // Jika sudah transparan, skip
-                    if ($a >= 1) continue;
-
-                    // Jika cukup putih → set transparan penuh
-                    if ($r >= $threshold && $g >= $threshold && $b >= $threshold) {
-                        $newCol = imagecolorallocatealpha($logoRes, $r, $g, $b, 127);
-                        imagesetpixel($logoRes, $x, $y, $newCol);
-                    }
-                }
-            }
-            imagealphablending($logoRes, true); // kembali normal
-
-            // 4) Tempel ke pusat QR
-            $dstX = (int) floor(($qrW - $targetW) / 2);
-            $dstY = (int) floor(($qrH - $targetH) / 2);
-            imagecopy($qr, $logoRes, $dstX, $dstY, 0, 0, $targetW, $targetH);
-            imagedestroy($logoRes);
-        }
-    }
-
-    // 5) Simpan PNG final
-    $ok = @imagepng($qr, $savePathAbs, 6);
-    imagedestroy($qr);
-    return (bool) $ok;
-}
-    /**
      * Tampilkan semua approval pending milik user login.
      */
     public function pending()
@@ -162,7 +69,7 @@ private function makeQrWithLogo(string $qrContent, string $savePathAbs, ?string 
     }
 
     /**
-     * Proses setuju & generate QR (tanpa Imagick).
+     * Proses setuju & generate QR (dengan logo jika ada).
      * - Simpan PNG ke public/qr/...
      * - Update approval_requests
      * - Push notifikasi ke approver berikutnya jika ada
@@ -190,7 +97,7 @@ private function makeQrWithLogo(string $qrContent, string $savePathAbs, ?string 
             return back()->with('error', 'Tahap sebelum Anda belum selesai.');
         }
 
-        // 3) Payload + HMAC
+        // 3) Payload + HMAC (schema konsisten: approver)
         $rapat    = DB::table('rapat')->where('id', $req->rapat_id)->first();
         $approver = DB::table('users')->where('id', $req->approver_user_id)->first();
 
@@ -222,8 +129,7 @@ private function makeQrWithLogo(string $qrContent, string $savePathAbs, ?string 
         );
         $payloadJson = json_encode($payload, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
 
-        // 4) === Generate QR berlogo ===
-        //    ISI QR = URL verifikasi agar saat scan langsung membuka halaman verifikasi
+        // 4) Generate QR berisi URL verifikasi + tempel logo
         $qrContent = route('qr.verify', ['d' => base64_encode($payloadJson)]);
 
         // Siapkan folder & nama file
@@ -235,20 +141,16 @@ private function makeQrWithLogo(string $qrContent, string $savePathAbs, ?string 
         $relativePath = 'qr/' . $basename;
         $absolutePath = public_path($relativePath);
 
-        // Path logo (opsional)
-        $logoPath = public_path('logo_qr.png');
-        $logoAbs  = is_file($logoPath) ? $logoPath : null;
-
-        // Buat file QR + logo
-        $ok = $this->makeQrWithLogo($qrContent, $absolutePath, $logoAbs, 420);
+        // Simpan QR + logo (ECC High; jika GD tidak ada, fallback PNG biasa)
+        $ok = $this->saveQrWithLogo($qrContent, $absolutePath, 600, public_path('logo_qr.png'));
         if (!$ok) {
-            return back()->with('error', 'Gagal membuat QR (berlogo). Pastikan ekstensi GD aktif.');
+            return back()->with('error', 'Gagal membuat QR (akses internet/allow_url_fopen nonaktif).');
         }
 
         // 5) Simpan hasil signature ke DB
         DB::table('approval_requests')->where('id', $req->id)->update([
             'status'             => 'approved',
-            'signature_qr_path'  => $relativePath,   // contoh: 'qr/qr_undangan_r12_a5_xxxxxx.png'
+            'signature_qr_path'  => $relativePath,
             'signature_payload'  => $payloadJson,
             'signed_at'          => now(),
             'updated_at'         => now(),
@@ -271,23 +173,22 @@ private function makeQrWithLogo(string $qrContent, string $savePathAbs, ?string 
             }
         } else {
             // doc_type ini selesai
-            $col = $req->doc_type . '_approved_at'; // contoh: undangan_approved_at
+            $col = $req->doc_type . '_approved_at';
             if (Schema::hasColumn('rapat', $col)) {
                 DB::table('rapat')->where('id', $req->rapat_id)->update([$col => now()]);
             }
 
-            // Bila UNDANGAN selesai -> otomatis buat QR ABSENSI (unik & berbeda)
+            // Bila UNDANGAN selesai -> otomatis buat QR ABSENSI (unik & berbeda, plus logo)
             if ($req->doc_type === 'undangan') {
                 $this->generateAbsensiQr((int)$req->rapat_id);
-
-                // Opsional: panggil mirror ke controller Absensi jika kamu pakai fungsi itu juga
+                // Atau sinkron dengan AbsensiController kalau kamu pakai ensure...:
                 app(\App\Http\Controllers\AbsensiController::class)
                     ->ensureAbsensiQrMirrorsUndangan((int) $req->rapat_id);
             }
         }
 
         return redirect()->route('approval.done', ['token' => $token])
-            ->with('success', 'Approval berhasil & QR berlogo dibuat (berisi URL verifikasi).');
+            ->with('success', 'Approval berhasil & QR dibuat (dengan logo).');
     }
 
     /**
@@ -305,7 +206,7 @@ private function makeQrWithLogo(string $qrContent, string $savePathAbs, ?string 
     /**
      * Generate QR khusus dokumen ABSENSI (dipanggil otomatis saat undangan selesai).
      * - Buat payload baru (doc_type='absensi', nonce baru, issued_at baru, sig baru)
-     * - Simpan PNG ke public/qr (berlogo)
+     * - Simpan PNG ke public/qr dengan logo
      * - Upsert approval_requests (doc_type='absensi', status=approved) per approver
      */
     private function generateAbsensiQr(int $rapatId): void
@@ -315,8 +216,12 @@ private function makeQrWithLogo(string $qrContent, string $savePathAbs, ?string 
 
         // daftar approver: approval1 wajib, approval2 opsional
         $approvers = [];
-        if (!empty($rapat->approval1_user_id)) $approvers[] = (int)$rapat->approval1_user_id;
-        if (!empty($rapat->approval2_user_id)) $approvers[] = (int)$rapat->approval2_user_id;
+        if (!empty($rapat->approval1_user_id)) {
+            $approvers[] = (int)$rapat->approval1_user_id;
+        }
+        if (!empty($rapat->approval2_user_id)) {
+            $approvers[] = (int)$rapat->approval2_user_id;
+        }
 
         $secret = config('app.key');
         if (is_string($secret) && Str::startsWith($secret, 'base64:')) {
@@ -327,7 +232,7 @@ private function makeQrWithLogo(string $qrContent, string $savePathAbs, ?string 
             $user = DB::table('users')->where('id', $uid)->first();
             if (!$user) continue;
 
-            // payload unik ABSENSI
+            // payload baru KHUSUS absensi (unik)
             $payload = [
                 'v'        => 1,
                 'doc_type' => 'absensi',
@@ -356,19 +261,17 @@ private function makeQrWithLogo(string $qrContent, string $savePathAbs, ?string 
 
             // siapkan folder & file
             $qrDir = public_path('qr');
-            if (!is_dir($qrDir)) @mkdir($qrDir, 0755, true);
+            if (!is_dir($qrDir)) {
+                @mkdir($qrDir, 0755, true);
+            }
             $basename     = 'qr_absensi_r'.$rapat->id.'_a'.$user->id.'_'.Str::random(6).'.png';
             $relativePath = 'qr/'.$basename;
             $absolutePath = public_path($relativePath);
 
-            // logo (opsional)
-            $logoPath = public_path('logo_qr.png');
-            $logoAbs  = is_file($logoPath) ? $logoPath : null;
-
-            // Buat QR + logo
-            $ok = $this->makeQrWithLogo($qrContent, $absolutePath, $logoAbs, 420);
+            // Simpan QR + logo
+            $ok = $this->saveQrWithLogo($qrContent, $absolutePath, 600, public_path('logo_qr.png'));
             if (!$ok) {
-                Log::warning('[absensi-qr] gagal membuat QR berlogo: rapat '.$rapat->id.' user '.$user->id);
+                Log::warning('[absensi-qr] gagal membuat QR: rapat '.$rapat->id.' user '.$user->id);
                 continue;
             }
 
@@ -386,7 +289,7 @@ private function makeQrWithLogo(string $qrContent, string $savePathAbs, ?string 
                     'doc_type'          => 'absensi',
                     'approver_user_id'  => $user->id,
                     'order_index'       => $idx + 1,
-                    'status'            => 'approved', // otomatis
+                    'status'            => 'approved', // langsung approved otomatis
                     'sign_token'        => Str::random(32),
                     'signature_qr_path' => $relativePath,
                     'signature_payload' => $payloadJson,
@@ -407,5 +310,82 @@ private function makeQrWithLogo(string $qrContent, string $savePathAbs, ?string 
                     ]);
             }
         }
+    }
+
+    /**
+     * Helper: buat & simpan QR dengan logo (opsional).
+     * - $qrContent   : string yang akan di-encode (di kita: URL verifikasi)
+     * - $absolutePath: path file output PNG
+     * - $sizePx      : ukuran QR (px)
+     * - $logoPath    : path logo PNG transparan (opsional)
+     *
+     * Menggunakan Google Chart (fallback ke qrserver) + overlay logo via GD jika tersedia.
+     * ECC diset High (H) agar logo aman.
+     */
+    private function saveQrWithLogo(string $qrContent, string $absolutePath, int $sizePx = 600, string $logoPath = null): bool
+    {
+        $encoded = urlencode($qrContent);
+        $qrUrl   = "https://chart.googleapis.com/chart?chs={$sizePx}x{$sizePx}&cht=qr&chl={$encoded}&chld=H|0";
+
+        $png = @file_get_contents($qrUrl);
+        if ($png === false) {
+            $qrUrl2 = "https://api.qrserver.com/v1/create-qr-code/?size={$sizePx}x{$sizePx}&data={$encoded}&ecc=H&margin=0";
+            $png = @file_get_contents($qrUrl2);
+            if ($png === false) return false;
+        }
+
+        $saved = false;
+
+        // Jika GD tersedia, tempel logo
+        if (function_exists('imagecreatefromstring') && function_exists('imagepng')) {
+            $qrImg = @imagecreatefromstring($png);
+            if ($qrImg !== false) {
+                if ($logoPath && is_file($logoPath)) {
+                    $logoImg = @imagecreatefrompng($logoPath); // harus PNG (transparan)
+                    if ($logoImg !== false) {
+                        // jaga alpha
+                        imagealphablending($logoImg, true);
+                        imagesavealpha($logoImg, true);
+
+                        $qrW = imagesx($qrImg); $qrH = imagesy($qrImg);
+                        $lw  = imagesx($logoImg); $lh = imagesy($logoImg);
+
+                        // target lebar logo ~18% lebar QR (aman untuk ECC H)
+                        $targetW = (int) round($qrW * 0.18);
+                        $targetH = (int) round($lh * ($targetW / $lw));
+                        $dstX = (int) round(($qrW - $targetW) / 2);
+                        $dstY = (int) round(($qrH - $targetH) / 2);
+
+                        // resize logo dengan alpha
+                        $logoResized = imagecreatetruecolor($targetW, $targetH);
+                        imagealphablending($logoResized, false);
+                        imagesavealpha($logoResized, true);
+                        imagecopyresampled($logoResized, $logoImg, 0, 0, 0, 0, $targetW, $targetH, $lw, $lh);
+
+                        // tumpuk ke QR
+                        imagecopy($qrImg, $logoResized, $dstX, $dstY, 0, 0, $targetW, $targetH);
+
+                        imagepng($qrImg, $absolutePath);
+                        imagedestroy($logoResized);
+                        imagedestroy($logoImg);
+                        imagedestroy($qrImg);
+                        $saved = true;
+                    }
+                }
+                if (!$saved) {
+                    imagepng($qrImg, $absolutePath);
+                    imagedestroy($qrImg);
+                    $saved = true;
+                }
+            }
+        }
+
+        if (!$saved) {
+            // fallback: simpan PNG apa adanya
+            @file_put_contents($absolutePath, $png);
+            $saved = true;
+        }
+
+        return $saved;
     }
 }
