@@ -128,7 +128,7 @@ class PesertaController extends Controller
         $userId = Auth::id();
         $today  = Carbon::today()->toDateString();
 
-        $jenis   = $request->get('jenis', 'upcoming'); // upcoming | past | all
+        $jenis   = $request->get('jenis', 'all'); // upcoming | past | all
         $keyword = trim((string) $request->get('q', ''));
         $from    = $request->get('from');
         $to      = $request->get('to');
@@ -182,7 +182,7 @@ class PesertaController extends Controller
             $q->orderBy('rapat.tanggal', 'desc')->orderBy('rapat.waktu_mulai', 'desc');
         }
 
-        $rapat = $q->paginate(10)->appends($request->query());
+        $rapat = $q->paginate(6)->appends($request->query());
 
         return view('peserta.rapat', [
             'rapat'  => $rapat,
