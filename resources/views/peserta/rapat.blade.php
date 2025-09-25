@@ -10,7 +10,9 @@
             <i class="fas fa-home mr-1"></i> Dashboard
         </a>
     </div>
+
     <div class="card-body">
+        {{-- Filter --}}
         <form method="get" class="mb-3">
             <div class="form-row">
                 <div class="col-md-3 mb-2">
@@ -39,28 +41,40 @@
             </div>
         </form>
 
+        {{-- Tabel --}}
         <div class="table-responsive">
-            <table class="table table-hover">
+            <table class="table table-hover mb-0">
                 <thead>
                 <tr>
-                    <th style="min-width:220px;">Judul</th>
+                    <th style="min-width:240px;">Judul</th>
                     <th>Nomor</th>
-                    <th class="text-center">Tanggal</th>
-                    <th class="text-center">Waktu</th>
+                    <th class="text-center" style="min-width:160px;">Tanggal & Waktu</th>
                     <th>Tempat</th>
                     <th class="text-center">Absensi</th>
                     <th class="text-center">Notulensi</th>
-                    <th class="text-center" style="width:110px;">Aksi</th>
+                    <th class="text-center" style="width:120px;">Aksi</th>
                 </tr>
                 </thead>
                 <tbody>
                 @forelse($rapat as $r)
                     <tr>
-                        <td><a class="text-light" href="{{ url('rapat/'.$r->id) }}">{{ $r->judul }}</a></td>
+                        <td>
+                            <a class="text-light" href="{{ route('peserta.rapat.show', $r->id) }}">{{ $r->judul }}</a>
+                            @if(!empty($r->nama_kategori))
+                                <div class="text-muted small">{{ $r->nama_kategori }}</div>
+                            @endif
+                        </td>
                         <td>{{ $r->nomor_undangan ?? '—' }}</td>
-                        <td class="text-center">{{ \Carbon\Carbon::parse($r->tanggal)->isoFormat('D MMM Y') }}</td>
-                        <td class="text-center">{{ $r->waktu_mulai }} WIT</td>
+
+                        {{-- Gabung tanggal & waktu --}}
+                        <td class="text-center">
+                            {{ \Carbon\Carbon::parse($r->tanggal)->isoFormat('D/MM/Y') }}
+                            <div class="text-muted small">{{ $r->waktu_mulai }} WIT</div>
+                        </td>
+
                         <td>{{ $r->tempat }}</td>
+
+                        {{-- Absensi: badge jika sudah, tombol Konfirmasi jika belum (prioritas ke absensi.scan bila ada token_qr) --}}
                         <td class="text-center">
                             @php $s = $r->status_absensi; @endphp
                             @if($s === 'hadir')
@@ -70,30 +84,44 @@
                             @elseif($s === 'alfa')
                                 <span class="badge badge-danger">ALFA</span>
                             @else
-                                <span class="badge badge-secondary">—</span>
+                                @if(!empty($r->token_qr))
+                                    <a href="{{ route('absensi.scan', $r->token_qr) }}"
+                                       class="btn btn-sm btn-outline-light">
+                                        Konfirmasi
+                                    </a>
+                                @else
+                                    <a href="{{ route('peserta.absensi', $r->id) }}"
+                                       class="btn btn-sm btn-outline-light">
+                                        Konfirmasi
+                                    </a>
+                                @endif
                             @endif
                         </td>
+
+                        {{-- Notulensi: tombol Lihat jika ada, sama seperti di dashboard --}}
                         <td class="text-center">
-                            @if($r->id_notulensi)
-                                <a href="{{ url('notulensi/'.$r->id_notulensi) }}" class="badge badge-info">Lihat</a>
+                            @if(!empty($r->id_notulensi))
+                                <a href="{{ route('peserta.notulensi.show', $r->id) }}" class="btn btn-sm btn-info">Lihat</a>
                             @else
-                                <span class="badge badge-secondary">Belum</span>
+                                <span class="badge badge-secondary">Belum ada</span>
                             @endif
                         </td>
+
+                        {{-- Aksi --}}
                         <td class="text-center">
-                            <a href="{{ url('rapat/'.$r->id) }}" class="btn btn-sm btn-outline-light">
+                            <a href="{{ route('peserta.rapat.show', $r->id) }}" class="btn btn-sm btn-outline-light">
                                 Detail
                             </a>
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="8" class="text-center text-muted">Tidak ada data.</td></tr>
+                    <tr><td colspan="7" class="text-center text-muted">Tidak ada data.</td></tr>
                 @endforelse
                 </tbody>
             </table>
         </div>
 
-        <div class="d-flex justify-content-end">
+        <div class="d-flex justify-content-end mt-3">
             {{ $rapat->links() }}
         </div>
     </div>

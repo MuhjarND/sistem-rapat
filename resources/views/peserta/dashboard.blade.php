@@ -155,7 +155,6 @@
               <tr>
                 <th>Judul</th>
                 <th>Tanggal</th>
-                <th>Waktu</th>
                 <th>Tempat</th>
                 <th style="width:120px">Aksi</th>
               </tr>
@@ -164,8 +163,7 @@
               @forelse($rapat_akan_datang as $r)
                 <tr>
                   <td>{{ $r->judul }}</td>
-                  <td class="text-center">{{ \Carbon\Carbon::parse($r->tanggal)->format('d/m/Y') }}</td>
-                  <td class="text-center">{{ $r->waktu_mulai }}</td>
+                  <td class="text-center">{{ \Carbon\Carbon::parse($r->tanggal)->format('d/m/Y') }} <br>{{ $r->waktu_mulai }}</td>
                   <td class="text-center">{{ $r->tempat }}</td>
                   <td class="text-center">
                     <a href="{{ route('peserta.rapat.show', $r->id) }}" class="btn btn-sm btn-primary">Detail</a>
@@ -187,8 +185,7 @@
           <table class="table table-mini table-hover mb-0">
             <thead>
               <tr>
-                <th>Judul</th>
-                <th>Tanggal</th>
+                <th>Judul</th>  
                 <th class="text-center">Absensi</th>
                 <th class="text-center">Notulensi</th>
               </tr>
@@ -196,8 +193,7 @@
             <tbody>
               @forelse($riwayat_rapat as $r)
                 <tr>
-                  <td>{{ $r->judul }}</td>
-                  <td class="text-center">{{ \Carbon\Carbon::parse($r->tanggal)->format('d/m/Y') }}</td>
+                  <td>{{ $r->judul }} <br> {{ \Carbon\Carbon::parse($r->tanggal)->format('d/m/Y') }}</td>
                   <td class="text-center">
                     @if($r->absensi_status)
                       <span class="badge badge-success">{{ strtoupper($r->absensi_status) }}</span>

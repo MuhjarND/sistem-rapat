@@ -23,8 +23,8 @@
             --shadow:0 10px 30px rgba(2,6,23,.35);--radius:14px;
 
             /* layout */
-            --nav-h: 56px;      /* tinggi navbar */
-            --sidebar-w: 260px; /* lebar sidebar desktop */
+            --nav-h: 56px;
+            --sidebar-w: 260px;
         }
 
         html,body{height:100%}
@@ -44,9 +44,7 @@
 
         /* NAVBAR (fixed) */
         .navbar{
-            position: fixed;
-            top: 0; left: 0; right: 0;
-            z-index: 1030;
+            position: fixed; top: 0; left: 0; right: 0; z-index: 1030;
             height: var(--nav-h);
             background:linear-gradient(180deg, rgba(17,24,39,.75) 0%, rgba(17,24,39,.35) 100%);
             backdrop-filter:saturate(180%) blur(10px);
@@ -54,17 +52,16 @@
         }
         .navbar-brand{color:#fff!important;font-weight:800;letter-spacing:.2px}
         .navbar .btn-danger{border-radius:999px;padding:.35rem .75rem}
+        .btn-hamburger{border-color:rgba(255,255,255,.25);color:#fff}
+        .btn-hamburger i{font-size:1rem}
 
         /* WRAPPER */
         .container-fluid{padding-left:0;padding-right:0}
 
-        /* SIDEBAR (fixed di desktop) */
+        /* ==== SIDEBAR (desktop default: fixed terlihat) ==== */
         .sidebar{
-            position:fixed;
-            top: var(--nav-h);
-            left:0;
-            width: var(--sidebar-w);
-            height: calc(100vh - var(--nav-h));
+            position:fixed; top: var(--nav-h); left:0;
+            width: var(--sidebar-w); height: calc(100vh - var(--nav-h));
             overflow-y:auto;
             background:
                 linear-gradient(180deg, rgba(99,102,241,.12), rgba(14,165,233,.08)),
@@ -72,7 +69,9 @@
             border-right:1px solid rgba(99,102,241,.18);
             box-shadow:var(--shadow);
             padding:24px 16px;
-            z-index: 1020;
+            z-index: 1040; /* di atas backdrop */
+            transform: none; /* desktop: selalu terlihat */
+            transition: transform .2s ease;
         }
         .sidebar::-webkit-scrollbar{width:6px}
         .sidebar::-webkit-scrollbar-thumb{background:rgba(255,255,255,.15);border-radius:10px}
@@ -85,8 +84,16 @@
         .submenu{margin-left:6px;padding-left:10px;border-left:1px dashed rgba(99,102,241,.25)}
         .badge-ping{background:var(--danger);color:#fff;border-radius:999px;padding:.25rem .5rem;font-size:.75rem;box-shadow:var(--shadow)}
 
-        /* ===== CONTENT =====
-           Full width menggunakan container-fluid, digeser kanan sebesar sidebar */
+        /* BACKDROP untuk mobile */
+        .sidebar-backdrop{
+            position:fixed; inset:0;
+            background:rgba(0,0,0,.45);
+            z-index:1035;
+            display:none;
+        }
+        .sidebar-backdrop.show{display:block}
+
+        /* ===== CONTENT ===== */
         .content-area{
             margin-left: var(--sidebar-w);
             width: calc(100vw - var(--sidebar-w));
@@ -94,23 +101,21 @@
             padding: 32px 28px 36px 28px;
         }
 
-        /* Samakan tinggi card dalam kolom Bootstrap */
         .row > [class*="col-"] > .card{height:100%}
-
-        /* Scroll util untuk list/ tabel panjang dalam card */
         .scroll-y{max-height: 340px; overflow-y:auto}
         .scroll-y::-webkit-scrollbar{width:6px}
         .scroll-y::-webkit-scrollbar-thumb{background:rgba(255,255,255,.15);border-radius:10px}
 
-        /* Responsive (≤992px): sidebar non-fixed & konten full width */
+        /* ====== RESPONSIVE: Mobile (off-canvas) ====== */
         @media (max-width: 991.98px){
-            body{ padding-top: var(--nav-h); }
+            /* sidebar: awalnya tersembunyi, slide-in saat .is-open */
             .sidebar{
-                position: static;
-                width:auto;height:auto;overflow:visible;
-                border-right:none; box-shadow:none;
-                padding: 16px;
+                padding:16px;
+                transform: translateX(-100%);
+                height: calc(100vh - var(--nav-h));
             }
+            .sidebar.is-open{ transform: translateX(0); }
+
             .content-area{
                 margin-left: 0;
                 width: 100%;
@@ -129,7 +134,14 @@
             background:rgba(79,70,229,.12);border-top:none;border-bottom:1px solid var(--border)
         }
         .table td{vertical-align:middle;font-size:.86rem}
-        .table-hover tbody tr:hover{background:rgba(14,165,233,.06)}
+        .table-hover tbody tr:hover{background:rgba(148,163,184,.08)!important;color:var(--text)!important}
+        .table-hover tbody tr:hover td,
+        .table-hover tbody tr:hover th{color:var(--text)!important}
+        .table-hover tbody tr:hover a,
+        .table-hover tbody tr:hover i,
+        .table-hover tbody tr:hover .badge,
+        .table-hover tbody tr:hover .btn{color:var(--text)!important;filter:none!important;opacity:1!important}
+
         .table .badge{border-radius:999px;padding:.35rem .6rem;font-weight:700;letter-spacing:.3px}
 
         /* BUTTONS */
@@ -158,7 +170,6 @@
         .modal-header{border-bottom:1px solid var(--border)}
         .modal-footer{border-top:1px solid var(--border)}
 
-        /* Modal SOLID */
         .modal-content.modal-solid{background:#0f1533!important;border:1px solid var(--border);border-radius:calc(var(--radius) - 6px);color:var(--text)}
         .modal-solid .modal-header,.modal-solid .modal-footer{background:#0f1533!important;border-color:var(--border)}
         .modal-solid .form-control,.modal-solid .custom-select,.modal-solid textarea{background:#0d1330!important;border:1px solid rgba(226,232,240,.2);color:var(--text)}
@@ -178,7 +189,6 @@
         .page-item.disabled .page-link{color:var(--muted)}
         .form-control[readonly],.form-control:disabled{background:rgba(255,255,255,.06)!important;border:1px solid rgba(226,232,240,.15)!important;color:var(--text)!important;opacity:1}
 
-        /* CKEditor theming (fallback) */
         .ck-editor__editable{background:rgba(255,255,255,.06)!important;color:var(--text)!important;border:1px solid rgba(226,232,240,.2)!important;border-radius:8px!important;padding:10px!important;min-height:140px}
         .ck.ck-toolbar{background:#1e293b!important;border:1px solid rgba(226,232,240,.2)!important;border-radius:8px 8px 0 0!important}
         .ck.ck-toolbar .ck-button .ck-icon,.ck.ck-toolbar .ck-button .ck-label{color:var(--text)!important}
@@ -191,13 +201,21 @@
 <body>
     <!-- Navbar (fixed) -->
     <nav class="navbar navbar-expand-lg navbar-dark shadow-sm">
-        <a class="navbar-brand d-flex align-items-center" href="{{ url('/') }}">
-            <span class="mr-2 d-inline-flex align-items-center justify-content-center"
-                  style="width:34px;height:34px;border-radius:8px;background:linear-gradient(180deg, rgba(79,70,229,.9), rgba(14,165,233,.9));box-shadow:var(--shadow);">
-                <i class="fas fa-cogs"></i>
-            </span>
-            Manajemen Rapat
-        </a>
+        <div class="d-flex align-items-center">
+            <!-- Hamburger: tampil hanya di mobile -->
+            <button class="btn btn-outline-light btn-sm d-inline-flex d-md-none btn-hamburger mr-2" id="btnSidebarToggle" type="button" aria-label="Buka menu">
+                <i class="fas fa-bars"></i>
+            </button>
+
+            <a class="navbar-brand d-flex align-items-center mb-0" href="{{ url('/') }}">
+                <span class="mr-2 d-inline-flex align-items-center justify-content-center"
+                      style="width:34px;height:34px;border-radius:8px;background:linear-gradient(180deg, rgba(79,70,229,.9), rgba(14,165,233,.9));box-shadow:var(--shadow);">
+                    <i class="fas fa-cogs"></i>
+                </span>
+                Manajemen Rapat
+            </a>
+        </div>
+
         <div class="ml-auto d-flex align-items-center">
             <span class="mr-3 text-muted"><i class="far fa-user mr-1"></i>{{ Auth::user()->name ?? '' }}</span>
             <form action="{{ route('logout') }}" method="POST" class="d-inline">
@@ -210,7 +228,7 @@
     <div class="container-fluid">
         <div class="row no-gutters">
             <!-- Sidebar -->
-            <div class="sidebar d-none d-md-block">
+            <div id="appSidebar" class="sidebar">
                 @php $isPeserta = (Auth::user()->role ?? null) === 'peserta'; @endphp
 
                 @if($isPeserta)
@@ -355,7 +373,10 @@
                 @endif
             </div>
 
-            <!-- Content Area (FULL-WIDTH) -->
+            <!-- Backdrop untuk mobile -->
+            <div id="sidebarBackdrop" class="sidebar-backdrop"></div>
+
+            <!-- Content Area -->
             <main class="content-area container-fluid">
                 @yield('content')
             </main>
@@ -370,6 +391,36 @@
     <script defer src="https://cdn.jsdelivr.net/npm/select2@4.0.13/dist/js/select2.min.js"></script>
 
     <script>
+    (function(){
+        // Toggle sidebar (mobile)
+        var btn = document.getElementById('btnSidebarToggle');
+        var sidebar = document.getElementById('appSidebar');
+        var backdrop = document.getElementById('sidebarBackdrop');
+
+        function openSidebar(){
+            sidebar.classList.add('is-open');
+            backdrop.classList.add('show');
+            document.body.style.overflow = 'hidden';
+        }
+        function closeSidebar(){
+            sidebar.classList.remove('is-open');
+            backdrop.classList.remove('show');
+            document.body.style.overflow = '';
+        }
+        if(btn){
+            btn.addEventListener('click', function(e){
+                e.preventDefault();
+                if(sidebar.classList.contains('is-open')) closeSidebar(); else openSidebar();
+            });
+        }
+        if(backdrop){ backdrop.addEventListener('click', closeSidebar); }
+        // Tutup setelah pilih menu (khusus mobile)
+        Array.prototype.forEach.call(document.querySelectorAll('#appSidebar a.nav-link'), function(a){
+            a.addEventListener('click', function(){ if (window.innerWidth < 992) closeSidebar(); });
+        });
+    })();
+
+    // Select2 init helper (tetap seperti sebelumnya)
     $(function() {
         function initSelect2In($container){
             var $selects = $container.find('.js-example-basic-multiple');
@@ -381,12 +432,7 @@
                 var $parent = parentSelector ? $(parentSelector) : $container;
                 if (!$parent.length) $parent = $('body');
 
-                $sel.select2({
-                    width: '100%',
-                    dropdownParent: $parent,
-                    placeholder: 'Pilih peserta rapat',
-                    allowClear: true
-                });
+                $sel.select2({ width:'100%', dropdownParent:$parent, placeholder:'Pilih peserta rapat', allowClear:true });
             });
         }
 
