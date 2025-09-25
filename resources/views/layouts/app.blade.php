@@ -10,8 +10,7 @@
 
     {{-- Bootstrap 4 + FontAwesome --}}
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
-    <link rel="stylesheet"
-          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
 
     {{-- Select2 (v4.0.13 stabil) --}}
     <link href="https://cdn.jsdelivr.net/npm/select2@4.0.13/dist/css/select2.min.css" rel="stylesheet" />
@@ -22,17 +21,16 @@
             --primary:#4f46e5;--primary-700:#4338ca;--accent:#22c55e;
             --danger:#ef4444;--warning:#f59e0b;--info:#0ea5e9;--border:#1f2a4d;
             --shadow:0 10px 30px rgba(2,6,23,.35);--radius:14px;
-            /* tinggi navbar (Bootstrap 4 default = 56px) */
-            --nav-h: 56px;
-            /* lebar sidebar fixed (desktop) */
-            --sidebar-w: 260px;
+
+            /* layout */
+            --nav-h: 56px;      /* tinggi navbar */
+            --sidebar-w: 260px; /* lebar sidebar desktop */
         }
 
         html,body{height:100%}
         body{
             background:var(--bg);color:var(--text);font-family:"Inter",system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial,"Noto Sans";
             -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;position:relative;min-height:100vh;
-            /* beri ruang di atas untuk navbar fixed */
             padding-top: var(--nav-h);
         }
         body::before{
@@ -46,9 +44,9 @@
 
         /* NAVBAR (fixed) */
         .navbar{
-            position: fixed;           /* <— fixed */
+            position: fixed;
             top: 0; left: 0; right: 0;
-            z-index: 1030;             /* di atas sidebar & konten */
+            z-index: 1030;
             height: var(--nav-h);
             background:linear-gradient(180deg, rgba(17,24,39,.75) 0%, rgba(17,24,39,.35) 100%);
             backdrop-filter:saturate(180%) blur(10px);
@@ -63,7 +61,7 @@
         /* SIDEBAR (fixed di desktop) */
         .sidebar{
             position:fixed;
-            top: var(--nav-h);                /* tepat di bawah navbar */
+            top: var(--nav-h);
             left:0;
             width: var(--sidebar-w);
             height: calc(100vh - var(--nav-h));
@@ -87,22 +85,37 @@
         .submenu{margin-left:6px;padding-left:10px;border-left:1px dashed rgba(99,102,241,.25)}
         .badge-ping{background:var(--danger);color:#fff;border-radius:999px;padding:.25rem .5rem;font-size:.75rem;box-shadow:var(--shadow)}
 
-        /* CONTENT (geser kanan supaya tidak ketimpa sidebar) */
+        /* ===== CONTENT =====
+           Full width menggunakan container-fluid, digeser kanan sebesar sidebar */
         .content-area{
             margin-left: var(--sidebar-w);
-            padding:32px 28px;
+            width: calc(100vw - var(--sidebar-w));
+            max-width: 100%;
+            padding: 32px 28px 36px 28px;
         }
 
-        /* Responsive (≤992px): sidebar kembali normal (non-fixed) */
+        /* Samakan tinggi card dalam kolom Bootstrap */
+        .row > [class*="col-"] > .card{height:100%}
+
+        /* Scroll util untuk list/ tabel panjang dalam card */
+        .scroll-y{max-height: 340px; overflow-y:auto}
+        .scroll-y::-webkit-scrollbar{width:6px}
+        .scroll-y::-webkit-scrollbar-thumb{background:rgba(255,255,255,.15);border-radius:10px}
+
+        /* Responsive (≤992px): sidebar non-fixed & konten full width */
         @media (max-width: 991.98px){
-            body{ padding-top: var(--nav-h); } /* tetap sisakan ruang utk navbar fixed */
+            body{ padding-top: var(--nav-h); }
             .sidebar{
                 position: static;
                 width:auto;height:auto;overflow:visible;
                 border-right:none; box-shadow:none;
                 padding: 16px;
             }
-            .content-area{ margin-left: 0; padding:24px 16px; }
+            .content-area{
+                margin-left: 0;
+                width: 100%;
+                padding: 24px 16px;
+            }
         }
 
         /* CARD */
@@ -167,10 +180,9 @@
 
         /* CKEditor theming (fallback) */
         .ck-editor__editable{background:rgba(255,255,255,.06)!important;color:var(--text)!important;border:1px solid rgba(226,232,240,.2)!important;border-radius:8px!important;padding:10px!important;min-height:140px}
-        .ck-editor__editable:focus{border-color:rgba(99,102,241,.6)!important;box-shadow:0 0 0 2px rgba(99,102,241,.3)!important}
         .ck.ck-toolbar{background:#1e293b!important;border:1px solid rgba(226,232,240,.2)!important;border-radius:8px 8px 0 0!important}
         .ck.ck-toolbar .ck-button .ck-icon,.ck.ck-toolbar .ck-button .ck-label{color:var(--text)!important}
-        .ck.ck-toolbar .ck-button:hover{background:rgba(99,102,241,.2)!important}
+        .ck.ck-toolbar .ck-button:hover{background:rgba(99,70,229,.2)!important}
     </style>
 
     @yield('style')
@@ -199,125 +211,154 @@
         <div class="row no-gutters">
             <!-- Sidebar -->
             <div class="sidebar d-none d-md-block">
-                @php
-                    $openKelola  = request()->is('user*') || request()->is('pimpinan*') || request()->is('kategori*');
+                @php $isPeserta = (Auth::user()->role ?? null) === 'peserta'; @endphp
 
-                    $openNotulensi = request()->routeIs('notulensi.*') || request()->is('notulensi*');
-                    $countBelum = \DB::table('rapat')
-                                    ->leftJoin('notulensi','notulensi.id_rapat','=','rapat.id')
-                                    ->whereNull('notulensi.id')->count();
-                    $countSudah = \DB::table('rapat')
-                                    ->join('notulensi','notulensi.id_rapat','=','rapat.id')
-                                    ->count();
+                @if($isPeserta)
+                    {{-- ===================== SIDEBAR KHUSUS PESERTA ===================== --}}
+                    @php
+                        $userId = Auth::id();
+                        $absensiPendingCount = \DB::table('undangan')
+                            ->join('rapat','undangan.id_rapat','=','rapat.id')
+                            ->leftJoin('absensi', function($q) use ($userId){
+                                $q->on('absensi.id_rapat','=','rapat.id')->where('absensi.id_user','=',$userId);
+                            })
+                            ->where('undangan.id_user',$userId)
+                            ->whereDate('rapat.tanggal','<=', now()->toDateString())
+                            ->whereNull('absensi.id')
+                            ->count();
 
-                    $openLaporan = request()->routeIs('laporan.index') || request()->routeIs('laporan.arsip') || request()->is('laporan/*');
+                        $upcomingCount = \DB::table('undangan')
+                            ->join('rapat','undangan.id_rapat','=','rapat.id')
+                            ->where('undangan.id_user',$userId)
+                            ->whereDate('rapat.tanggal','>=', now()->toDateString())
+                            ->count();
+                    @endphp
 
-                    $countRapatAktif = \DB::table('rapat')
-                        ->leftJoin('laporan_archived_meetings as lam','lam.rapat_id','=','rapat.id')
-                        ->whereNull('lam.id')
-                        ->count();
+                    <nav class="nav flex-column">
+                        <a class="nav-link {{ request()->routeIs('peserta.dashboard') ? 'active' : '' }}"
+                           href="{{ route('peserta.dashboard') }}">
+                            <i class="fas fa-chart-pie"></i> Dashboard
+                            @if($absensiPendingCount>0)
+                              <span class="badge-ping ml-auto">{{ $absensiPendingCount }}</span>
+                            @endif
+                        </a>
 
-                    $countUploadsAktif = \DB::table('laporan_files')
-                        ->where('is_archived',0)
-                        ->count();
+                        <a class="nav-link d-flex align-items-center {{ request()->routeIs('peserta.rapat') ? 'active' : '' }}"
+                           href="{{ route('peserta.rapat') }}">
+                            <i class="fas fa-calendar-alt"></i> Rapat
+                            @if($upcomingCount>0)
+                              <span class="badge-ping ml-auto">{{ $upcomingCount }}</span>
+                            @endif
+                        </a>
+                    </nav>
+                @else
+                    {{-- ===================== SIDEBAR DEFAULT (ADMIN/DLL) ===================== --}}
+                    @php
+                        $openKelola  = request()->is('user*') || request()->is('pimpinan*') || request()->is('kategori*');
 
-                    $badgeLaporan = $countRapatAktif + $countUploadsAktif;
+                        $openNotulensi = request()->routeIs('notulensi.*') || request()->is('notulensi*');
+                        $countBelum = \DB::table('rapat')
+                                        ->leftJoin('notulensi','notulensi.id_rapat','=','rapat.id')
+                                        ->whereNull('notulensi.id')->count();
+                        $countSudah = \DB::table('rapat')
+                                        ->join('notulensi','notulensi.id_rapat','=','rapat.id')
+                                        ->count();
 
-                    $badgeArsip = \DB::table('laporan_files')->where('is_archived',1)->count();
-                @endphp
+                        $openLaporan = request()->routeIs('laporan.index') || request()->routeIs('laporan.arsip') || request()->is('laporan/*');
 
-                <nav class="nav flex-column">
-                    <a class="nav-link {{ request()->is('dashboard') ? 'active' : '' }}" href="{{ url('/dashboard') }}">
-                        <i class="fas fa-home"></i> Dashboard
-                    </a>
-                    <a class="nav-link {{ request()->is('rapat*') ? 'active' : '' }}" href="{{ route('rapat.index') }}">
-                        <i class="fas fa-calendar-alt"></i> Rapat
-                    </a>
-                    <a class="nav-link {{ request()->is('absensi*') ? 'active' : '' }}" href="{{ route('absensi.index') }}">
-                        <i class="fas fa-clipboard-list"></i> Absensi
-                    </a>
+                        $countRapatAktif = \DB::table('rapat')
+                            ->leftJoin('laporan_archived_meetings as lam','lam.rapat_id','=','rapat.id')
+                            ->whereNull('lam.id')->count();
 
-                    {{-- ================== Notulensi (DROPDOWN) ================== --}}
-                    <a class="nav-link d-flex align-items-center {{ $openNotulensi ? '' : 'collapsed' }}"
-                       data-toggle="collapse" href="#menuNotulensi" role="button"
-                       aria-expanded="{{ $openNotulensi ? 'true' : 'false' }}" aria-controls="menuNotulensi">
-                        <i class="fas fa-book-open"></i> Notulensi
-                        <i class="ml-auto fas fa-angle-down"></i>
-                    </a>
-                    <div class="collapse {{ $openNotulensi ? 'show' : '' }}" id="menuNotulensi">
-                        <div class="nav flex-column submenu">
-                            <a class="nav-link d-flex justify-content-between align-items-center {{ request()->routeIs('notulensi.belum') ? 'active' : '' }}"
-                               href="{{ route('notulensi.belum') }}">
-                                <span><i class="fas fa-circle mr-2" style="font-size:8px;"></i> Belum Ada</span>
-                                @if($countBelum>0)
-                                    <span class="badge-ping">{{ $countBelum }}</span>
-                                @endif
-                            </a>
-                            <a class="nav-link d-flex justify-content-between align-items-center {{ request()->routeIs('notulensi.sudah') ? 'active' : '' }}"
-                               href="{{ route('notulensi.sudah') }}">
-                                <span><i class="fas fa-circle mr-2" style="font-size:8px;"></i> Sudah Ada</span>
-                                @if($countSudah>0)
-                                    <span class="badge-ping">{{ $countSudah }}</span>
-                                @endif
-                            </a>
+                        $countUploadsAktif = \DB::table('laporan_files')->where('is_archived',0)->count();
+
+                        $badgeLaporan = $countRapatAktif + $countUploadsAktif;
+                        $badgeArsip   = \DB::table('laporan_files')->where('is_archived',1)->count();
+                    @endphp
+
+                    <nav class="nav flex-column">
+                        <a class="nav-link {{ request()->is('dashboard') ? 'active' : '' }}" href="{{ url('/dashboard') }}">
+                            <i class="fas fa-home"></i> Dashboard
+                        </a>
+                        <a class="nav-link {{ request()->is('rapat*') ? 'active' : '' }}" href="{{ route('rapat.index') }}">
+                            <i class="fas fa-calendar-alt"></i> Rapat
+                        </a>
+                        <a class="nav-link {{ request()->is('absensi*') ? 'active' : '' }}" href="{{ route('absensi.index') }}">
+                            <i class="fas fa-clipboard-list"></i> Absensi
+                        </a>
+
+                        {{-- Notulensi --}}
+                        <a class="nav-link d-flex align-items-center {{ $openNotulensi ? '' : 'collapsed' }}"
+                           data-toggle="collapse" href="#menuNotulensi" role="button"
+                           aria-expanded="{{ $openNotulensi ? 'true' : 'false' }}" aria-controls="menuNotulensi">
+                            <i class="fas fa-book-open"></i> Notulensi
+                            <i class="ml-auto fas fa-angle-down"></i>
+                        </a>
+                        <div class="collapse {{ $openNotulensi ? 'show' : '' }}" id="menuNotulensi">
+                            <div class="nav flex-column submenu">
+                                <a class="nav-link d-flex justify-content-between align-items-center {{ request()->routeIs('notulensi.belum') ? 'active' : '' }}"
+                                   href="{{ route('notulensi.belum') }}">
+                                    <span><i class="fas fa-circle mr-2" style="font-size:8px;"></i> Belum Ada</span>
+                                    @if($countBelum>0) <span class="badge-ping">{{ $countBelum }}</span> @endif
+                                </a>
+                                <a class="nav-link d-flex justify-content-between align-items-center {{ request()->routeIs('notulensi.sudah') ? 'active' : '' }}"
+                                   href="{{ route('notulensi.sudah') }}">
+                                    <span><i class="fas fa-circle mr-2" style="font-size:8px;"></i> Sudah Ada</span>
+                                    @if($countSudah>0) <span class="badge-ping">{{ $countSudah }}</span> @endif
+                                </a>
+                            </div>
                         </div>
-                    </div>
-                    {{-- ========================================================== --}}
 
-                    {{-- ================== Laporan (DROPDOWN) ================== --}}
-                    <a class="nav-link d-flex align-items-center {{ $openLaporan ? '' : 'collapsed' }}"
-                       data-toggle="collapse" href="#menuLaporan" role="button"
-                       aria-expanded="{{ $openLaporan ? 'true' : 'false' }}" aria-controls="menuLaporan">
-                        <i class="fas fa-folder-open"></i> Laporan
-                        <i class="ml-auto fas fa-angle-down"></i>
-                    </a>
-                    <div class="collapse {{ $openLaporan ? 'show' : '' }}" id="menuLaporan">
-                        <div class="nav flex-column submenu">
-                            <a class="nav-link d-flex justify-content-between align-items-center {{ request()->routeIs('laporan.index') ? 'active' : '' }}"
-                               href="{{ route('laporan.index') }}">
-                                <span><i class="fas fa-circle mr-2" style="font-size:8px;"></i> Laporan</span>
-                                @if($badgeLaporan>0)
-                                  <span class="badge-ping">{{ $badgeLaporan }}</span>
-                                @endif
-                            </a>
-                            <a class="nav-link d-flex justify-content-between align-items-center {{ request()->routeIs('laporan.arsip') ? 'active' : '' }}"
-                               href="{{ route('laporan.arsip') }}">
-                                <span><i class="fas fa-circle mr-2" style="font-size:8px;"></i> Arsip Laporan</span>
-                                @if($badgeArsip>0)
-                                  <span class="badge-ping">{{ $badgeArsip }}</span>
-                                @endif
-                            </a>
+                        {{-- Laporan --}}
+                        <a class="nav-link d-flex align-items-center {{ $openLaporan ? '' : 'collapsed' }}"
+                           data-toggle="collapse" href="#menuLaporan" role="button"
+                           aria-expanded="{{ $openLaporan ? 'true' : 'false' }}" aria-controls="menuLaporan">
+                            <i class="fas fa-folder-open"></i> Laporan
+                            <i class="ml-auto fas fa-angle-down"></i>
+                        </a>
+                        <div class="collapse {{ $openLaporan ? 'show' : '' }}" id="menuLaporan">
+                            <div class="nav flex-column submenu">
+                                <a class="nav-link d-flex justify-content-between align-items-center {{ request()->routeIs('laporan.index') ? 'active' : '' }}"
+                                   href="{{ route('laporan.index') }}">
+                                    <span><i class="fas fa-circle mr-2" style="font-size:8px;"></i> Laporan</span>
+                                    @if($badgeLaporan>0) <span class="badge-ping">{{ $badgeLaporan }}</span> @endif
+                                </a>
+                                <a class="nav-link d-flex justify-content-between align-items-center {{ request()->routeIs('laporan.arsip') ? 'active' : '' }}"
+                                   href="{{ route('laporan.arsip') }}">
+                                    <span><i class="fas fa-circle mr-2" style="font-size:8px;"></i> Arsip Laporan</span>
+                                    @if($badgeArsip>0) <span class="badge-ping">{{ $badgeArsip }}</span> @endif
+                                </a>
+                            </div>
                         </div>
-                    </div>
-                    {{-- ======================================================== --}}
 
-                    {{-- Kelola Data (dropdown) --}}
-                    <a class="nav-link d-flex align-items-center {{ $openKelola ? '' : 'collapsed' }}"
-                       data-toggle="collapse" href="#menuKelolaData" role="button"
-                       aria-expanded="{{ $openKelola ? 'true' : 'false' }}" aria-controls="menuKelolaData">
-                        <i class="fas fa-database"></i> Kelola Data
-                        <i class="ml-auto fas fa-angle-down"></i>
-                    </a>
-                    <div class="collapse {{ $openKelola ? 'show' : '' }}" id="menuKelolaData">
-                        <div class="nav flex-column submenu">
-                            <a class="nav-link {{ request()->is('user*') ? 'active' : '' }}" href="{{ route('user.index') }}">
-                                <i class="fas fa-users"></i> User
-                            </a>
-                            <a class="nav-link {{ request()->is('pimpinan*') ? 'active' : '' }}" href="{{ route('pimpinan.index') }}">
-                                <i class="fas fa-user-tie"></i> Pimpinan
-                            </a>
-                            <a class="nav-link {{ request()->is('kategori*') ? 'active' : '' }}" href="{{ route('kategori.index') }}">
-                                <i class="fas fa-layer-group"></i> Kategori Rapat
-                            </a>
+                        {{-- Kelola Data --}}
+                        <a class="nav-link d-flex align-items-center {{ $openKelola ? '' : 'collapsed' }}"
+                           data-toggle="collapse" href="#menuKelolaData" role="button"
+                           aria-expanded="{{ $openKelola ? 'true' : 'false' }}" aria-controls="menuKelolaData">
+                            <i class="fas fa-database"></i> Kelola Data
+                            <i class="ml-auto fas fa-angle-down"></i>
+                        </a>
+                        <div class="collapse {{ $openKelola ? 'show' : '' }}" id="menuKelolaData">
+                            <div class="nav flex-column submenu">
+                                <a class="nav-link {{ request()->is('user*') ? 'active' : '' }}" href="{{ route('user.index') }}">
+                                    <i class="fas fa-users"></i> User
+                                </a>
+                                <a class="nav-link {{ request()->is('pimpinan*') ? 'active' : '' }}" href="{{ route('pimpinan.index') }}">
+                                    <i class="fas fa-user-tie"></i> Pimpinan
+                                </a>
+                                <a class="nav-link {{ request()->is('kategori*') ? 'active' : '' }}" href="{{ route('kategori.index') }}">
+                                    <i class="fas fa-layer-group"></i> Kategori Rapat
+                                </a>
+                            </div>
                         </div>
-                    </div>
-                </nav>
+                    </nav>
+                @endif
             </div>
 
-            <!-- Content Area -->
-            <div class="content-area">
+            <!-- Content Area (FULL-WIDTH) -->
+            <main class="content-area container-fluid">
                 @yield('content')
-            </div>
+            </main>
         </div>
     </div>
 
@@ -329,7 +370,6 @@
     <script defer src="https://cdn.jsdelivr.net/npm/select2@4.0.13/dist/js/select2.min.js"></script>
 
     <script>
-    // Init Select2: hanya saat modal tampil (stabil di Bootstrap 4)
     $(function() {
         function initSelect2In($container){
             var $selects = $container.find('.js-example-basic-multiple');
@@ -350,7 +390,6 @@
             });
         }
 
-        // Modal Tambah
         $('#modalTambahRapat')
           .on('shown.bs.modal', function(){ initSelect2In($(this)); })
           .on('hidden.bs.modal', function(){
@@ -358,7 +397,6 @@
               if ($sel.data('select2')) $sel.select2('destroy');
           });
 
-        // Semua Modal Edit
         $('[id^="modalEditRapat-"]')
           .on('shown.bs.modal', function(){ initSelect2In($(this)); })
           .on('hidden.bs.modal', function(){
@@ -366,12 +404,10 @@
               if ($sel.data('select2')) $sel.select2('destroy');
           });
 
-        // Tooltip (opsional)
         $('[data-toggle="tooltip"]').tooltip();
     });
     </script>
 
-    {{-- pastikan dropdown Select2 selalu di atas modal backdrop --}}
     <style>
       .select2-container .select2-dropdown { z-index: 2000 !important; }
       .select2-container { width: 100% !important; }

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\LaporanController;
+use App\Http\Controllers\RapatController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
@@ -79,6 +80,14 @@ Route::middleware(['auth', 'cekrole:admin,peserta'])->group(function () {
     Route::post('absensi/isi', 'AbsensiController@isiAbsensi')->name('absensi.isi');
     Route::get('absensi/scan/{token}', 'AbsensiController@scan')->name('absensi.scan');        
     Route::post('absensi/scan/{token}', 'AbsensiController@simpanScan')->name('absensi.scan.save'); 
+    
+    Route::get('/peserta/dashboard', 'PesertaController@dashboard')->name('peserta.dashboard');
+    Route::get('/peserta/rapat', 'PesertaController@rapat')->name('peserta.rapat');
+
+    // >>> tambahan untuk tombol yang kamu minta
+    Route::get('/peserta/rapat/{id}', 'PesertaController@showRapat')->name('peserta.rapat.show');          // Detail Rapat
+    Route::get('/peserta/rapat/{id}/absensi', 'PesertaController@absensi')->name('peserta.absensi');        // Konfirmasi (form isi)
+    Route::get('/peserta/notulensi/{id}', 'PesertaController@showNotulensi')->name('peserta.notulensi.show'); // Lihat Notulensi
 });
 
 Route::middleware(['auth', 'cekrole:approval'])->group(function () {

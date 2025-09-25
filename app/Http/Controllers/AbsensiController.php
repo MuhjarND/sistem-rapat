@@ -163,78 +163,110 @@ class AbsensiController extends Controller
         return view('absensi.saya', compact('absensi', 'undangan'));
     }
 
-    public function scan($token)
-    {
-        $rapat = DB::table('rapat')->where('token_qr', $token)->first();
-        if (!$rapat) abort(404);
+public function scan($token)
+{
+    $rapat = DB::table('rapat')->where('token_qr', $token)->first();
+    if (!$rapat) abort(404);
 
-        if (!Auth::check()) {
-            return redirect()->route('login')->with('error', 'Silakan login untuk absen.');
-        }
-
-        $diundang = DB::table('undangan')
-            ->where('id_rapat', $rapat->id)
-            ->where('id_user', Auth::id())
-            ->exists();
-
-        if (!$diundang) {
-            return redirect()->route('home')->with('error', 'Anda tidak terdaftar pada rapat ini.');
-        }
-
-        $sudah_absen = DB::table('absensi')
-            ->where('id_rapat', $rapat->id)
-            ->where('id_user', Auth::id())
-            ->exists();
-
-        return view('absensi.scan', compact('rapat', 'sudah_absen'));
+    if (!Auth::check()) {
+        return redirect()->route('login')->with('error', 'Silakan login untuk absen.');
     }
 
-    public function simpanScan(Request $request, $token)
-    {
-        $rapat = DB::table('rapat')->where('token_qr', $token)->first();
-        if (!$rapat) abort(404);
+    $diundang = DB::table('undangan')
+        ->where('id_rapat', $rapat->id)
+        ->where('id_user', Auth::id())
+        ->exists();
 
-        if (!Auth::check()) {
-            return redirect()->route('login')->with('error', 'Silakan login untuk absen.');
-        }
-
-        $diundang = DB::table('undangan')
-            ->where('id_rapat', $rapat->id)
-            ->where('id_user', Auth::id())
-            ->exists();
-
-        if (!$diundang) {
-            return redirect()->route('home')->with('error', 'Anda tidak terdaftar pada rapat ini.');
-        }
-
-        $ada = DB::table('absensi')
-            ->where('id_rapat', $rapat->id)
-            ->where('id_user', Auth::id())
-            ->exists();
-
-        if ($ada) {
-            DB::table('absensi')
-                ->where('id_rapat', $rapat->id)
-                ->where('id_user', Auth::id())
-                ->update([
-                    'status'      => 'hadir',
-                    'waktu_absen' => now(),
-                    'updated_at'  => now(),
-                ]);
-        } else {
-            DB::table('absensi')->insert([
-                'id_rapat'    => $rapat->id,
-                'id_user'     => Auth::id(),
-                'status'      => 'hadir',
-                'waktu_absen' => now(),
-                'created_at'  => now(),
-                'updated_at'  => now(),
-            ]);
-        }
-
-        return redirect()->route('absensi.scan', $token)->with('success', 'Absensi berhasil direkam. Terima kasih!');
+    if (!$diundang) {
+        return redirect()->route('home')->with('error', 'Anda tidak terdaftar pada rapat ini.');
     }
 
+    $sudah_absen = DB::table('absensi')
+        ->where('id_rapat', $rapat->id)
+        ->where('id_user', Auth::id())
+        ->exists();
+
+    return view('absensi.scan', compact('rapat','sudah_absen'));
+}
+
+public function simpanScan(Request $request, $token)
+{
+    $rapat = DB::table('rapat')->where('token_qr', $token)->first();
+    if (!$rapat) abort(404);
+
+    if (!Auth::check()) {
+        return redirect()->route('login')->with('error', 'Silakan login untuk absen.');
+    }
+
+    $diundang = DB::table('undangan')
+        ->where('id_rapat', $rapat->id)
+        ->where('id_user', Auth::id())
+        ->exists();
+
+    if (!$diundang) {
+        return redirect()->route('home')->with('error', 'Anda tidak terdaftar pada rapat ini.');
+    }
+
+    // === VALIDASI SIGNATURE ===
+    $request->validate([
+        'signature_data' => 'required|string' // data:image/png;base64,....
+    ],[
+        'signature_data.required' => 'Tanda tangan belum diisi.'
+    ]);
+
+    $dataUrl = $request->input('signature_data');
+    if (!preg_match('#^data:image/png;base64,#', $dataUrl)) {
+        return back()->with('error','Format tanda tangan tidak valid.');
+    }
+    $base64 = substr($dataUrl, strpos($dataUrl, ',')+1);
+    $bin = base64_decode($base64, true);
+    if ($bin === false || strlen($bin) < 2000) { // minimal ~2KB biar tidak kosong
+        return back()->with('error','Data tanda tangan tidak valid/terlalu kecil.');
+    }
+
+    // === SIMPAN FILE PNG ===
+    $dir = public_path('uploads/ttd');
+    if (!is_dir($dir)) @mkdir($dir, 0775, true);
+
+    $filename = 'ttd_r'.$rapat->id.'_u'.Auth::id().'_'.date('Ymd_His').'_'.Str::random(6).'.png';
+    $pathRel  = 'uploads/ttd/'.$filename;
+    $pathAbs  = public_path($pathRel);
+    file_put_contents($pathAbs, $bin);
+
+    // hash untuk audit
+    $hash = hash('sha256', $bin);
+
+    // === UPSERT ABSENSI ===
+    $exists = DB::table('absensi')
+        ->where('id_rapat', $rapat->id)
+        ->where('id_user',  Auth::id())
+        ->exists();
+
+    $payloadUpdate = [
+        'status'        => 'hadir',
+        'waktu_absen'   => now(),
+        'ttd_path'      => $pathRel,
+        'ttd_hash'      => $hash,
+        'ttd_user_agent'=> substr($request->input('ua',''), 0, 255),
+        'ttd_timezone'  => substr($request->input('tz',''), 0, 64),
+        'updated_at'    => now(),
+    ];
+
+    if ($exists) {
+        DB::table('absensi')
+            ->where('id_rapat', $rapat->id)
+            ->where('id_user',  Auth::id())
+            ->update($payloadUpdate);
+    } else {
+        DB::table('absensi')->insert(array_merge($payloadUpdate, [
+            'id_rapat'   => $rapat->id,
+            'id_user'    => Auth::id(),
+            'created_at' => now(),
+        ]));
+    }
+
+    return redirect()->route('absensi.scan', $token)->with('success', 'Absensi (TTD) berhasil direkam. Terima kasih!');
+}
     /**
      * Jika semua approval undangan sudah approved, buat 1 QR ABSENSI (unik & beda).
      * QR disimpan ke public/qr dan di-embed logo (PNG transparan) di tengah tanpa package.
@@ -409,64 +441,87 @@ class AbsensiController extends Controller
     /**
      * Export PDF Laporan Absensi 1 rapat
      */
-    public function exportPdf($id_rapat)
-    {
-        $this->ensureAbsensiQrMirrorsUndangan((int) $id_rapat);
+public function exportPdf($id_rapat)
+{
+    // Pastikan QR absensi sudah ada & up-to-date
+    $this->ensureAbsensiQrMirrorsUndangan((int) $id_rapat);
 
-        $rapat = DB::table('rapat')
-            ->leftJoin('kategori_rapat', 'rapat.id_kategori', '=', 'kategori_rapat.id')
-            ->select('rapat.*', 'kategori_rapat.nama as nama_kategori')
-            ->where('rapat.id', $id_rapat)
-            ->first();
+    // Data rapat + kategori
+    $rapat = DB::table('rapat')
+        ->leftJoin('kategori_rapat', 'rapat.id_kategori', '=', 'kategori_rapat.id')
+        ->select('rapat.*', 'kategori_rapat.nama as nama_kategori')
+        ->where('rapat.id', $id_rapat)
+        ->first();
 
-        if (!$rapat) abort(404);
+    if (!$rapat) abort(404);
 
-        $peserta = DB::table('undangan')
-            ->join('users', 'undangan.id_user', '=', 'users.id')
-            ->leftJoin('absensi', function ($q) use ($id_rapat) {
-                $q->on('absensi.id_user', '=', 'undangan.id_user')
-                  ->where('absensi.id_rapat', '=', $id_rapat);
-            })
-            ->where('undangan.id_rapat', $id_rapat)
-            ->select('users.name', 'users.jabatan', 'users.unit', 'absensi.status', 'absensi.waktu_absen')
-            ->orderBy('users.name')
-            ->get();
+    // Daftar peserta + status absensi + TTD  // <<< add ttd_path & ttd_hash
+    $peserta = DB::table('undangan')
+        ->join('users', 'undangan.id_user', '=', 'users.id')
+        ->leftJoin('absensi', function ($q) use ($id_rapat) {
+            $q->on('absensi.id_user', '=', 'undangan.id_user')
+              ->where('absensi.id_rapat', '=', $id_rapat);
+        })
+        ->where('undangan.id_rapat', $id_rapat)
+        ->select(
+            'users.id as user_id',
+            'users.name',
+            'users.jabatan',
+            'users.unit',
+            'absensi.status',
+            'absensi.waktu_absen',
+            'absensi.ttd_path',     // <<< add
+            'absensi.ttd_hash'      // <<< optional, buat audit
+        )
+        ->orderBy('users.name')
+        ->get();
 
-        $absensiReq = DB::table('approval_requests')
-            ->where('rapat_id', $id_rapat)
-            ->where('doc_type', 'absensi')
-            ->where('approver_user_id', $rapat->approval1_user_id)
-            ->first();
-
-        $absensi_qr_data = null;
-        $absensi_qr_web  = null;
-        $absensi_qr_fs   = null;
-
-        if ($absensiReq && $absensiReq->signature_qr_path) {
-            $absensi_qr_fs = public_path($absensiReq->signature_qr_path);
-            if (is_file($absensi_qr_fs)) {
-                $absensi_qr_data = 'data:image/png;base64,' . base64_encode(file_get_contents($absensi_qr_fs));
-                $absensi_qr_web  = url($absensiReq->signature_qr_path);
+    // Siapkan base64 untuk tiap TTD agar DomPDF stabil
+    foreach ($peserta as $p) {
+        $p->ttd_data = null; // data URI base64 PNG
+        if (!empty($p->ttd_path)) {
+            $fs = public_path($p->ttd_path);
+            if (is_file($fs)) {
+                $p->ttd_data = 'data:image/png;base64,' . base64_encode(@file_get_contents($fs));
             }
         }
-
-        $approverFinal = DB::table('users')->where('id', $rapat->approval1_user_id)->first();
-        $approver_final_nama    = $approverFinal->name ?? null;
-        $approver_final_jabatan = $approverFinal->jabatan ?? 'Penanggung Jawab';
-
-        $pdf = Pdf::loadView('absensi.laporan_pdf', [
-            'rapat'                  => $rapat,
-            'peserta'                => $peserta,
-            'absensi_qr_data'        => $absensi_qr_data,
-            'absensi_qr_web'         => $absensi_qr_web,
-            'absensi_qr_fs'          => $absensi_qr_fs,
-            'absensi_req'            => $absensiReq,
-            'approver_final_nama'    => $approver_final_nama,
-            'approver_final_jabatan' => $approver_final_jabatan,
-            'kop'                    => public_path('kop_absen.jpg'),
-        ])->setPaper('A4', 'portrait');
-
-        $filename = 'Laporan-Absensi-' . str_replace(' ', '-', $rapat->judul) . '.pdf';
-        return $pdf->download($filename);
     }
+
+    // Ambil QR ABSENSI (logo di tengah sudah kamu pasang sebelumnya)
+    $absensiReq = DB::table('approval_requests')
+        ->where('rapat_id', $id_rapat)
+        ->where('doc_type', 'absensi')
+        ->where('approver_user_id', $rapat->approval1_user_id)
+        ->first();
+
+    $absensi_qr_data = null; $absensi_qr_web = null; $absensi_qr_fs = null;
+    if ($absensiReq && $absensiReq->signature_qr_path) {
+        $absensi_qr_fs = public_path($absensiReq->signature_qr_path);
+        if (is_file($absensi_qr_fs)) {
+            $absensi_qr_data = 'data:image/png;base64,' . base64_encode(file_get_contents($absensi_qr_fs));
+            $absensi_qr_web  = url($absensiReq->signature_qr_path);
+        }
+    }
+
+    // Approver final (approval1_user_id)
+    $approverFinal = DB::table('users')->where('id', $rapat->approval1_user_id)->first();
+    $approver_final_nama    = $approverFinal->name ?? null;
+    $approver_final_jabatan = $approverFinal->jabatan ?? 'Penanggung Jawab';
+
+    $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('absensi.laporan_pdf', [
+        'rapat'                  => $rapat,
+        'peserta'                => $peserta,          // <<< sudah include ttd_data per baris
+        'absensi_qr_data'        => $absensi_qr_data,
+        'absensi_qr_web'         => $absensi_qr_web,
+        'absensi_qr_fs'          => $absensi_qr_fs,
+        'absensi_req'            => $absensiReq,
+        'approver_final_nama'    => $approver_final_nama,
+        'approver_final_jabatan' => $approver_final_jabatan,
+        'kop'                    => public_path('kop_absen.jpg'),
+    ])->setPaper('A4', 'portrait');
+
+    $filename = 'Laporan-Absensi-' . str_replace(' ', '-', $rapat->judul) . '.pdf';
+    return $pdf->download($filename);
+}
+
 }

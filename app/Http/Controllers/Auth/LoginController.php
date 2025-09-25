@@ -32,11 +32,11 @@ protected function redirectTo()
 
     switch ($role) {
         case 'admin':
-            return '/dashboard/admin';
+            return '/dashboard';
         case 'notulis':
             return '/dashboard/notulis';
         case 'peserta':
-            return '/dashboard/peserta';
+            return '/peserta/dashboard';
         default:
             return '/home';
     }
