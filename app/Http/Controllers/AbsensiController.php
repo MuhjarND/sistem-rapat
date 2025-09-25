@@ -189,7 +189,7 @@ public function scan($token)
     return view('absensi.scan', compact('rapat','sudah_absen'));
 }
 
-public function simpanScan(Request $request, $token)
+public function simpanScan(Request $request, $token) 
 {
     $rapat = DB::table('rapat')->where('token_qr', $token)->first();
     if (!$rapat) abort(404);
@@ -243,13 +243,13 @@ public function simpanScan(Request $request, $token)
         ->exists();
 
     $payloadUpdate = [
-        'status'        => 'hadir',
-        'waktu_absen'   => now(),
-        'ttd_path'      => $pathRel,
-        'ttd_hash'      => $hash,
-        'ttd_user_agent'=> substr($request->input('ua',''), 0, 255),
-        'ttd_timezone'  => substr($request->input('tz',''), 0, 64),
-        'updated_at'    => now(),
+        'status'         => 'hadir',
+        'waktu_absen'    => now(),
+        'ttd_path'       => $pathRel,
+        'ttd_hash'       => $hash,
+        'ttd_user_agent' => substr($request->input('ua', $request->header('User-Agent', '')), 0, 255),
+        'ttd_timezone'   => substr($request->input('tz',''), 0, 64),
+        'updated_at'     => now(),
     ];
 
     if ($exists) {
@@ -265,8 +265,12 @@ public function simpanScan(Request $request, $token)
         ]));
     }
 
+    // === NOTIFIKASI WA ===
+    $this->notifyAbsensiWa(Auth::id(), $rapat, 'hadir');
+
     return redirect()->route('absensi.scan', $token)->with('success', 'Absensi (TTD) berhasil direkam. Terima kasih!');
 }
+
     /**
      * Jika semua approval undangan sudah approved, buat 1 QR ABSENSI (unik & beda).
      * QR disimpan ke public/qr dan di-embed logo (PNG transparan) di tengah tanpa package.
@@ -522,6 +526,72 @@ public function exportPdf($id_rapat)
 
     $filename = 'Laporan-Absensi-' . str_replace(' ', '-', $rapat->judul) . '.pdf';
     return $pdf->download($filename);
+}
+
+private function normalizeMsisdn(?string $raw): ?string
+{
+    if (!$raw) return null;
+    $d = preg_replace('/\D+/', '', $raw);
+    if ($d === '') return null;
+    if (strpos($d, '62') === 0) return $d;
+    if (strpos($d, '0') === 0)  return '62'.substr($d, 1);
+    if (strpos($d, '8') === 0)  return '62'.$d;
+    return $d;
+}
+
+// ——— Kirim via Fonnte
+private function sendWaFonnte(string $phone, string $message): bool
+{
+    if (!filter_var(env('FONNTE_ENABLED', true), FILTER_VALIDATE_BOOLEAN)) return false;
+    $token = env('FONNTE_TOKEN');
+    if (!$token) return false;
+
+    $ch = curl_init();
+    curl_setopt_array($ch, [
+        CURLOPT_URL            => 'https://api.fonnte.com/send',
+        CURLOPT_POST           => true,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_HTTPHEADER     => ["Authorization: {$token}"],
+        CURLOPT_POSTFIELDS     => [
+            'target'  => $phone,
+            'message' => $message,
+        ],
+        CURLOPT_TIMEOUT        => 10,
+        CURLOPT_CONNECTTIMEOUT => 5,
+    ]);
+    $resp = curl_exec($ch);
+    $ok   = !curl_errno($ch) && $resp !== false;
+    curl_close($ch);
+    return $ok;
+}
+
+// ——— Rakit & kirim pesan absensi
+private function notifyAbsensiWa(int $userId, \stdClass $rapat, string $status): void
+{
+    $user = DB::table('users')->where('id', $userId)->select('name','no_hp')->first();
+    if (!$user) return;
+
+    $msisdn = $this->normalizeMsisdn($user->no_hp ?? null);
+    if (!$msisdn) return;
+
+    \Carbon\Carbon::setLocale('id');
+    $tgl = \Carbon\Carbon::parse($rapat->tanggal)->isoFormat('dddd, D MMMM Y');
+    $sender = env('FONNTE_SENDER', 'Sistem Rapat');
+
+    $msg = "*{$sender}*\n"
+         . "Hai *{$user->name}*, terima kasih sudah mengisi absensi.\n\n"
+         . "*Rapat*   : {$rapat->judul}\n"
+         . "*Tanggal* : {$tgl}\n"
+         . "*Waktu*   : {$rapat->waktu_mulai} WIT\n"
+         . "*Tempat*  : {$rapat->tempat}\n"
+         . "*Status*  : *".strtoupper($status)."*\n\n"
+         . "_Pesan otomatis dari sistem._";
+
+    try { 
+        $this->sendWaFonnte($msisdn, $msg); 
+    } catch (\Throwable $e) { 
+        // log error jika mau
+    }
 }
 
 }
