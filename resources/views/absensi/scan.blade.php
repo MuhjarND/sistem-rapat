@@ -7,6 +7,7 @@
   .sig-canvas{width:100%;height:280px;background:#fff;border-radius:10px;touch-action:none;display:block}
   .sig-toolbar .btn{margin-right:8px;margin-bottom:8px}
   .hint{color:var(--muted);font-size:.9rem}
+  .countdown{font-weight:700; letter-spacing:.3px}
 </style>
 @endpush
 
@@ -15,17 +16,13 @@
   <div class="card-header d-flex align-items-center">
     <strong>Konfirmasi Kehadiran</strong>
 
-    {{-- Tombol navigasi yang jelas --}}
     <div class="ml-auto d-flex">
-      {{-- 1) Kembali ke halaman sebelumnya (fallback) --}}
       <a href="{{ url()->previous() }}" class="btn btn-sm btn-outline-light mr-2">
         <i class="fas fa-arrow-left mr-1"></i> Kembali
       </a>
-      {{-- 2) Ke Dashboard Peserta --}}
       <a href="{{ route('peserta.dashboard') }}" class="btn btn-sm btn-outline-light mr-2">
         <i class="fas fa-home mr-1"></i> Dashboard
       </a>
-      {{-- 3) Ke Daftar Rapat Peserta --}}
       <a href="{{ route('peserta.rapat') }}" class="btn btn-sm btn-outline-light">
         <i class="fas fa-calendar-alt mr-1"></i> Daftar Rapat
       </a>
@@ -33,38 +30,67 @@
   </div>
 
   <div class="card-body">
+    {{-- Flash message --}}
+    @if(session('success'))
+      <div class="alert alert-success">{{ session('success') }}</div>
+    @endif
+    @if(session('error'))
+      <div class="alert alert-danger">{{ session('error') }}</div>
+    @endif
+    @if($errors->any())
+      <div class="alert alert-danger mb-2">
+        @foreach($errors->all() as $e) <div>{{ $e }}</div> @endforeach
+      </div>
+    @endif
+
     <h4 class="mb-1">{{ $rapat->judul }}</h4>
     <div class="text-muted mb-2">
       {{ \Carbon\Carbon::parse($rapat->tanggal)->isoFormat('dddd, D MMMM Y') }}
       • {{ $rapat->waktu_mulai }} WIT • {{ $rapat->tempat }}
     </div>
 
-    {{-- Info jendela absensi (jika variabel dikirim dari controller) --}}
-    @isset($abs_start, $abs_end, $abs_open)
+    {{-- Info jendela absensi --}}
+    @isset($abs_start, $abs_end, $abs_open, $abs_before, $abs_after)
       <div class="mb-3">
         @if($abs_open)
-          <span class="badge badge-success">Jendela absensi sedang DIBUKA</span>
-        @else
-          <span class="badge badge-secondary">Jendela absensi TERTUTUP</span>
+          <span class="badge badge-success">Jendela absensi SEDANG DIBUKA</span>
+          <div class="hint mt-1">
+            Tutup pada: <b>{{ $abs_end->isoFormat('D MMM Y HH:mm') }}</b> (WIT).
+          </div>
+        @elseif($abs_before)
+          <span class="badge badge-info">Belum Dibuka</span>
+          <div class="hint mt-1">
+            Dibuka pada: <b>{{ $abs_start->isoFormat('D MMM Y HH:mm') }}</b> (WIT)
+            — <span id="cdOpen" class="countdown" 
+                    data-start="{{ $abs_start->toIso8601String() }}"></span>
+          </div>
+        @elseif($abs_after)
+          <span class="badge badge-secondary">Sudah Ditutup</span>
+          <div class="hint mt-1">
+            Ditutup pada: <b>{{ $abs_end->isoFormat('D MMM Y HH:mm') }}</b> (WIT).
+          </div>
         @endif
-        <div class="hint mt-1">
-          Rentang: <b>{{ $abs_start->isoFormat('D MMM Y HH:mm') }}</b> s/d
-          <b>{{ $abs_end->isoFormat('D MMM Y HH:mm') }}</b> (WIT).
-        </div>
       </div>
     @endisset
 
+    {{-- Sudah absen? --}}
     @if(!empty($sudah_absen) && $sudah_absen===true)
       <div class="alert alert-success mb-0">
-        Anda sudah tercatat <b>hadir</b> pada rapat ini. Terima kasih. 
+        Anda sudah tercatat <b>hadir</b> pada rapat ini. Terima kasih.
       </div>
     @else
-      @if(isset($abs_open) && !$abs_open)
+      {{-- Jika jendela tertutup / belum dibuka, tampilkan peringatan jelas --}}
+      @if(isset($abs_before) && $abs_before)
         <div class="alert alert-warning">
-          Absensi belum/bukan waktunya. Silakan kembali pada rentang di atas.
+          Absensi <b>belum dibuka</b>. Silakan kembali saat waktu yang ditentukan.
+        </div>
+      @elseif(isset($abs_after) && $abs_after)
+        <div class="alert alert-danger">
+          Absensi <b>sudah ditutup</b>. Pengisian tanda tangan tidak tersedia.
         </div>
       @endif
 
+      {{-- Form tanda tangan --}}
       <p class="hint mb-2">
         Silakan tanda tangani di area berikut (gunakan mouse / jari). Pastikan tanda tangan jelas, lalu klik <b>Simpan</b>.
       </p>
@@ -100,34 +126,55 @@
 @push('scripts')
 <script>
 (function(){
-  const canvas = document.getElementById('sigCanvas');
-  const ctx    = canvas.getContext('2d');
-  const submitBtn = document.getElementById('btnSubmit');
-  const sigInput  = document.getElementById('signature_data');
-  const warnEl    = document.getElementById('sigEmptyWarn');
-  const tzInput   = document.getElementById('tz');
-  tzInput.value = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+  const canvas   = document.getElementById('sigCanvas');
+  const ctx      = canvas.getContext('2d');
+  const submitBtn= document.getElementById('btnSubmit');
+  const sigInput = document.getElementById('signature_data');
+  const warnEl   = document.getElementById('sigEmptyWarn');
+  const tzInput  = document.getElementById('tz');
+  tzInput.value  = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
 
-  // Nonaktifkan interaksi jika jendela absensi tertutup
-  const absOpen = {{ isset($abs_open) && $abs_open ? 'true' : 'false' }};
-  const already = {{ !empty($sudah_absen) && $sudah_absen===true ? 'true' : 'false' }};
+  // Status dari server
+  const absOpen  = {{ isset($abs_open)  && $abs_open  ? 'true' : 'false' }};
+  const absBefore= {{ isset($abs_before)&& $abs_before? 'true' : 'false' }};
+  const absAfter = {{ isset($abs_after) && $abs_after ? 'true' : 'false' }};
+  const already  = {{ !empty($sudah_absen) && $sudah_absen===true ? 'true' : 'false' }};
 
-  // Konfigurasi ketebalan
-  const PEN = {
-    displayWidth: 3.2,
-    exportWidth : 3.6,
-    dotRadius   : 1.6
-  };
+  // Countdown "dibuka dalam ..."
+  (function initCountdown(){
+    if (!absBefore) return;
+    const el = document.getElementById('cdOpen');
+    if (!el) return;
+    const startIso = el.getAttribute('data-start');
+    const startAt  = startIso ? new Date(startIso) : null;
+    if (!startAt) return;
+
+    function pad(n){ return (n<10?'0':'')+n; }
+    function tick(){
+      const now = new Date();
+      let diff = Math.max(0, startAt - now);
+      const d = Math.floor(diff / (24*3600*1000)); diff -= d*24*3600*1000;
+      const h = Math.floor(diff / (3600*1000));    diff -= h*3600*1000;
+      const m = Math.floor(diff / (60*1000));      diff -= m*60*1000;
+      const s = Math.floor(diff / 1000);
+      el.textContent = d>0 ? `${d}h ${pad(h)}:${pad(m)}:${pad(s)}` : `${pad(h)}:${pad(m)}:${pad(s)}`;
+      if (startAt - now <= 0) location.reload();
+    }
+    tick();
+    setInterval(tick, 1000);
+  })();
+
+  // Pena
+  const PEN = { displayWidth: 3.2, exportWidth: 3.6, dotRadius: 1.6 };
 
   function resizeCanvas(){
-    const dpr = Math.max(window.devicePixelRatio || 1, 2);
+    const dpr  = Math.max(window.devicePixelRatio || 1, 2);
     const rect = canvas.getBoundingClientRect();
     canvas.width  = Math.floor(rect.width * dpr);
     canvas.height = Math.floor(rect.height * dpr);
 
     ctx.setTransform(1,0,0,1,0,0);
     ctx.scale(dpr, dpr);
-
     ctx.lineWidth   = PEN.displayWidth;
     ctx.lineCap     = 'round';
     ctx.lineJoin    = 'round';
@@ -137,71 +184,41 @@
   }
   window.addEventListener('resize', resizeCanvas);
 
-  let drawing = false;
-  let paths = [];
-  let curr  = [];
-
+  let drawing = false, paths = [], curr = [];
   function getPos(e){
     const rect = canvas.getBoundingClientRect();
-    const isTouch = e.touches && e.touches.length;
-    const clientX = isTouch ? e.touches[0].clientX : e.clientX;
-    const clientY = isTouch ? e.touches[0].clientY : e.clientY;
-    return { x: clientX - rect.left, y: clientY - rect.top };
+    const t    = e.touches && e.touches.length;
+    const x    = t ? e.touches[0].clientX : e.clientX;
+    const y    = t ? e.touches[0].clientY : e.clientY;
+    return { x: x - rect.left, y: y - rect.top };
   }
 
-  function start(e){
-    if(!absOpen || already) return;
-    e.preventDefault();
-    drawing = true;
-    curr = [];
-    curr.push(getPos(e));
-    redraw();
-  }
-  function move(e){
-    if(!drawing) return;
-    e.preventDefault();
-    curr.push(getPos(e));
-    redraw();
-  }
-  function end(e){
-    if(!drawing) return;
-    drawing = false;
-    if(curr.length>0){ paths.push(curr); curr = []; }
-    redraw();
-  }
+  function start(e){ if(!absOpen || already){return;} e.preventDefault(); drawing=true; curr=[]; curr.push(getPos(e)); redraw(); }
+  function move(e){ if(!drawing) return; e.preventDefault(); curr.push(getPos(e)); redraw(); }
+  function end(e){  if(!drawing) return; drawing=false; if(curr.length>0){ paths.push(curr); curr=[]; } redraw(); }
 
   function drawLine(ctxLocal, arr, width, dotRadius){
     ctxLocal.lineWidth = width;
     if(arr.length<2){
-      const p = arr[0];
-      ctxLocal.beginPath();
-      ctxLocal.arc(p.x, p.y, dotRadius, 0, Math.PI*2);
-      ctxLocal.fillStyle = '#000';
-      ctxLocal.fill();
-      return;
+      const p = arr[0]; ctxLocal.beginPath(); ctxLocal.arc(p.x, p.y, dotRadius, 0, Math.PI*2); ctxLocal.fillStyle='#000'; ctxLocal.fill(); return;
     }
-    ctxLocal.beginPath();
-    ctxLocal.moveTo(arr[0].x, arr[0].y);
-    for(let i=1;i<arr.length;i++){
-      ctxLocal.lineTo(arr[i].x, arr[i].y);
-    }
+    ctxLocal.beginPath(); ctxLocal.moveTo(arr[0].x, arr[0].y);
+    for(let i=1;i<arr.length;i++){ ctxLocal.lineTo(arr[i].x, arr[i].y); }
     ctxLocal.stroke();
   }
 
   function redraw(){
     const rect = canvas.getBoundingClientRect();
     ctx.clearRect(0,0,rect.width,rect.height);
-
-    paths.forEach(arr => drawLine(ctx, arr, PEN.displayWidth, PEN.dotRadius));
+    paths.forEach(a => drawLine(ctx, a, PEN.displayWidth, PEN.dotRadius));
     if(curr.length) drawLine(ctx, curr, PEN.displayWidth, PEN.dotRadius);
 
     const hasInk = paths.length>0 || curr.length>0;
     const enable = hasInk && absOpen && !already;
     if (submitBtn) submitBtn.disabled = !enable;
-    if (warnEl) warnEl.style.display = hasInk ? 'none' : 'inline';
+    if (warnEl)    warnEl.style.display = hasInk ? 'none' : 'inline';
 
-    // Visual disable saat tertutup/sudah absen
-    if (!absOpen || already) {
+    if (!absOpen || already){
       canvas.style.opacity = 0.6;
       canvas.style.pointerEvents = 'none';
       const undo = document.getElementById('btnUndo');
@@ -224,7 +241,7 @@
   // toolbar
   const btnClear = document.getElementById('btnClear');
   const btnUndo  = document.getElementById('btnUndo');
-  if (btnClear) btnClear.addEventListener('click', function(){ if(!absOpen||already) return; paths = []; curr = []; redraw(); });
+  if (btnClear) btnClear.addEventListener('click', function(){ if(!absOpen||already) return; paths=[]; curr=[]; redraw(); });
   if (btnUndo)  btnUndo.addEventListener('click',  function(){ if(!absOpen||already) return; paths.pop(); redraw(); });
 
   // init
@@ -240,48 +257,30 @@
     const exportH = Math.max(260, Math.floor(rect.height));
 
     const tmp = document.createElement('canvas');
-    tmp.width = exportW;
-    tmp.height= exportH;
+    tmp.width = exportW; tmp.height = exportH;
 
     const tctx = tmp.getContext('2d');
-    tctx.fillStyle = '#fff';
-    tctx.fillRect(0,0,tmp.width,tmp.height);
-    tctx.lineCap = 'round';
-    tctx.lineJoin= 'round';
-    tctx.strokeStyle = '#000';
+    tctx.fillStyle = '#fff'; tctx.fillRect(0,0,tmp.width,tmp.height);
+    tctx.lineCap='round'; tctx.lineJoin='round'; tctx.strokeStyle='#000';
 
     const sx = exportW/rect.width, sy = exportH/rect.height;
 
     function drawScaled(arr, width, dotRadius){
       if(arr.length<2){
-        const p = arr[0];
-        tctx.beginPath();
-        tctx.arc(p.x*sx, p.y*sy, dotRadius, 0, Math.PI*2);
-        tctx.fillStyle='#000'; tctx.fill(); return;
+        const p = arr[0]; tctx.beginPath(); tctx.arc(p.x*sx, p.y*sy, dotRadius, 0, Math.PI*2); tctx.fillStyle='#000'; tctx.fill(); return;
       }
-      tctx.beginPath();
-      tctx.moveTo(arr[0].x*sx, arr[0].y*sy);
-      for(let i=1;i<arr.length;i++){
-        tctx.lineTo(arr[i].x*sx, arr[i].y*sy);
-      }
-      tctx.lineWidth = width;
-      tctx.stroke();
+      tctx.beginPath(); tctx.moveTo(arr[0].x*sx, arr[0].y*sy);
+      for(let i=1;i<arr.length;i++){ tctx.lineTo(arr[i].x*sx, arr[i].y*sy); }
+      tctx.lineWidth = width; tctx.stroke();
     }
 
-    paths.forEach(arr => drawScaled(arr, PEN.exportWidth, PEN.dotRadius));
-
+    paths.forEach(a => drawScaled(a, PEN.exportWidth, PEN.dotRadius));
     tctx.globalAlpha = 0.6;
-    const boldWidth = PEN.exportWidth + 0.8;
-    paths.forEach(arr => drawScaled(arr, boldWidth, PEN.dotRadius));
+    paths.forEach(a => drawScaled(a, PEN.exportWidth+0.8, PEN.dotRadius));
     tctx.globalAlpha = 1;
 
-    const dataUrl = tmp.toDataURL('image/png');
-    sigInput.value = dataUrl;
-
-    if (submitBtn) {
-      submitBtn.disabled = true;
-      submitBtn.innerText = 'Menyimpan...';
-    }
+    sigInput.value = tmp.toDataURL('image/png');
+    if (submitBtn){ submitBtn.disabled = true; submitBtn.innerText = 'Menyimpan...'; }
     return true;
   };
 })();

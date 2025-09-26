@@ -28,16 +28,26 @@ class AbsensiController extends Controller
      * end   = start + ABSENSI_DURATION_HOURS
      * open  = sekarang berada di antara start..end (inklusif)
      */
-    private function getAbsensiWindow(object $rapat): array
+    private function getAbsensiWindow(\stdClass $rapat): array
     {
-        // pastikan timezone aplikasi sudah benar (mis. Asia/Jayapura untuk WIT)
-        $start = Carbon::parse("{$rapat->tanggal} {$rapat->waktu_mulai}");
-        $end   = (clone $start)->addHours($this->getAbsensiDurationHours());
+        $window = (int) (config('absensi.window_minutes', env('ABSENSI_WINDOW_MINUTES', 180)));
+        if ($window <= 0) $window = 180;
+
+        $start = \Carbon\Carbon::parse($rapat->tanggal . ' ' . $rapat->waktu_mulai);
+        $end   = (clone $start)->addMinutes($window);
+        $now   = now();
+
+        $before = $now->lt($start);
+        $after  = $now->gt($end);
+        $open   = !$before && !$after;
 
         return [
-            'start' => $start,
-            'end'   => $end,
-            'open'  => now()->between($start, $end),
+            'start'          => $start,
+            'end'            => $end,
+            'open'           => $open,
+            'before'         => $before,
+            'after'          => $after,
+            'window_minutes' => $window,
         ];
     }
 
@@ -193,41 +203,43 @@ class AbsensiController extends Controller
         return view('absensi.saya', compact('absensi', 'undangan'));
     }
 
-    public function scan($token)
-    {
-        $rapat = DB::table('rapat')->where('token_qr', $token)->first();
-        if (!$rapat) abort(404);
+public function scan($token)
+{
+    $rapat = DB::table('rapat')->where('token_qr', $token)->first();
+    if (!$rapat) abort(404);
 
-        if (!Auth::check()) {
-            return redirect()->route('login')->with('error', 'Silakan login untuk absen.');
-        }
-
-        $diundang = DB::table('undangan')
-            ->where('id_rapat', $rapat->id)
-            ->where('id_user', Auth::id())
-            ->exists();
-
-        if (!$diundang) {
-            return redirect()->route('home')->with('error', 'Anda tidak terdaftar pada rapat ini.');
-        }
-
-        $sudah_absen = DB::table('absensi')
-            ->where('id_rapat', $rapat->id)
-            ->where('id_user', Auth::id())
-            ->exists();
-
-        // >>> jendela absensi
-        $win = $this->getAbsensiWindow($rapat);
-
-        return view('absensi.scan', [
-            'rapat'       => $rapat,
-            'sudah_absen' => $sudah_absen,
-            'abs_start'   => $win['start'],
-            'abs_end'     => $win['end'],
-            'abs_open'    => $win['open'],
-        ]);
+    if (!Auth::check()) {
+        return redirect()->route('login')->with('error', 'Silakan login untuk absen.');
     }
 
+    $diundang = DB::table('undangan')
+        ->where('id_rapat', $rapat->id)
+        ->where('id_user', Auth::id())
+        ->exists();
+
+    if (!$diundang) {
+        return redirect()->route('home')->with('error', 'Anda tidak terdaftar pada rapat ini.');
+    }
+
+    $sudah_absen = DB::table('absensi')
+        ->where('id_rapat', $rapat->id)
+        ->where('id_user', Auth::id())
+        ->exists();
+
+    // === status jendela absensi (mulai-selesai) ===
+    $win = $this->getAbsensiWindow($rapat);
+
+    return view('absensi.scan', [
+        'rapat'               => $rapat,
+        'sudah_absen'         => $sudah_absen,
+        'abs_start'           => $win['start'],           // Carbon
+        'abs_end'             => $win['end'],             // Carbon
+        'abs_open'            => $win['open'],            // bool
+        'abs_before'          => $win['before'],          // bool
+        'abs_after'           => $win['after'],           // bool
+        'abs_window_minutes'  => $win['window_minutes'],  // int (menit)
+    ]);
+}
     public function simpanScan(Request $request, $token)
     {
         $rapat = DB::table('rapat')->where('token_qr', $token)->first();

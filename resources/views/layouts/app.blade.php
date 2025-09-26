@@ -58,7 +58,7 @@
         /* WRAPPER */
         .container-fluid{padding-left:0;padding-right:0}
 
-        /* ==== SIDEBAR (desktop default: fixed terlihat) ==== */
+        /* ==== SIDEBAR ==== */
         .sidebar{
             position:fixed; top: var(--nav-h); left:0;
             width: var(--sidebar-w); height: calc(100vh - var(--nav-h));
@@ -69,20 +69,41 @@
             border-right:1px solid rgba(99,102,241,.18);
             box-shadow:var(--shadow);
             padding:24px 16px;
-            z-index: 1040; /* di atas backdrop */
-            transform: none; /* desktop: selalu terlihat */
+            z-index: 1040;
+            transform: none;
             transition: transform .2s ease;
         }
         .sidebar::-webkit-scrollbar{width:6px}
         .sidebar::-webkit-scrollbar-thumb{background:rgba(255,255,255,.15);border-radius:10px}
         .sidebar::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.25)}
 
-        .sidebar .nav-link{color:var(--muted);font-weight:600;border-radius:12px;padding:.55rem .7rem;transition:all .18s ease}
+        .sidebar .nav-link{
+            color:var(--muted);font-weight:600;border-radius:12px;padding:.55rem .7rem;transition:all .18s ease;
+            display:flex;align-items:center;gap:10px;
+        }
         .sidebar .nav-link i{width:22px;text-align:center;margin-right:8px}
         .sidebar .nav-link:hover{color:#fff;background:rgba(79,70,229,.18)}
-        .sidebar .nav-link.active{color:#fff;background:linear-gradient(90deg, rgba(79,70,229,.35), rgba(14,165,233,.25));box-shadow:inset 0 0 0 1px rgba(79,70,229,.25)}
+        .sidebar .nav-link.active{
+            color:#fff;background:linear-gradient(90deg, rgba(79,70,229,.35), rgba(14,165,233,.25));
+            box-shadow:inset 0 0 0 1px rgba(79,70,229,.25)
+        }
         .submenu{margin-left:6px;padding-left:10px;border-left:1px dashed rgba(99,102,241,.25)}
-        .badge-ping{background:var(--danger);color:#fff;border-radius:999px;padding:.25rem .5rem;font-size:.75rem;box-shadow:var(--shadow)}
+
+        /* Badge CHIP */
+        .badge-chip{
+          margin-left:auto;
+          display:inline-flex;align-items:center;gap:.35rem;
+          background:#ef4444;color:#fff;
+          border-radius:999px;
+          padding:.22rem .55rem;
+          font-size:.72rem;font-weight:800;line-height:1;
+          letter-spacing:.2px;white-space:nowrap;
+          border:1px solid rgba(255,255,255,.25);
+          box-shadow:var(--shadow);
+        }
+        .badge-chip.info{background:#0ea5e9;}
+        .badge-chip.success{background:#22c55e;}
+        .badge-chip.warn{background:#f59e0b;}
 
         /* BACKDROP untuk mobile */
         .sidebar-backdrop{
@@ -108,7 +129,6 @@
 
         /* ====== RESPONSIVE: Mobile (off-canvas) ====== */
         @media (max-width: 991.98px){
-            /* sidebar: awalnya tersembunyi, slide-in saat .is-open */
             .sidebar{
                 padding:16px;
                 transform: translateX(-100%);
@@ -189,6 +209,7 @@
         .page-item.disabled .page-link{color:var(--muted)}
         .form-control[readonly],.form-control:disabled{background:rgba(255,255,255,.06)!important;border:1px solid rgba(226,232,240,.15)!important;color:var(--text)!important;opacity:1}
 
+        /* CKEditor */
         .ck-editor__editable{background:rgba(255,255,255,.06)!important;color:var(--text)!important;border:1px solid rgba(226,232,240,.2)!important;border-radius:8px!important;padding:10px!important;min-height:140px}
         .ck.ck-toolbar{background:#1e293b!important;border:1px solid rgba(226,232,240,.2)!important;border-radius:8px 8px 0 0!important}
         .ck.ck-toolbar .ck-button .ck-icon,.ck.ck-toolbar .ck-button .ck-label{color:var(--text)!important}
@@ -257,15 +278,14 @@
                            href="{{ route('peserta.dashboard') }}">
                             <i class="fas fa-chart-pie"></i> Dashboard
                             @if($absensiPendingCount>0)
-                              <span class="badge-ping ml-auto">{{ $absensiPendingCount }}</span>
+                              <span class="badge-chip warn">{{ $absensiPendingCount }}<span class="hint">Pending</span></span>
                             @endif
-                        </a>
 
                         <a class="nav-link d-flex align-items-center {{ request()->routeIs('peserta.rapat') ? 'active' : '' }}"
                            href="{{ route('peserta.rapat') }}">
                             <i class="fas fa-calendar-alt"></i> Rapat
                             @if($upcomingCount>0)
-                              <span class="badge-ping ml-auto">{{ $upcomingCount }}</span>
+                              <span class="badge-chip info">{{ $upcomingCount }}<span class="hint">Akan Datang</span></span>
                             @endif
                         </a>
                     </nav>
@@ -316,13 +336,17 @@
                             <div class="nav flex-column submenu">
                                 <a class="nav-link d-flex justify-content-between align-items-center {{ request()->routeIs('notulensi.belum') ? 'active' : '' }}"
                                    href="{{ route('notulensi.belum') }}">
-                                    <span><i class="fas fa-circle mr-2" style="font-size:8px;"></i> Belum Ada</span>
-                                    @if($countBelum>0) <span class="badge-ping">{{ $countBelum }}</span> @endif
+                                    <span class="d-inline-flex align-items-center">
+                                      <i class="fas fa-times-circle mr-2"></i> Belum Ada
+                                    </span>
+                                    @if($countBelum>0) <span class="badge-chip">{{ $countBelum }}</span> @endif
                                 </a>
                                 <a class="nav-link d-flex justify-content-between align-items-center {{ request()->routeIs('notulensi.sudah') ? 'active' : '' }}"
                                    href="{{ route('notulensi.sudah') }}">
-                                    <span><i class="fas fa-circle mr-2" style="font-size:8px;"></i> Sudah Ada</span>
-                                    @if($countSudah>0) <span class="badge-ping">{{ $countSudah }}</span> @endif
+                                    <span class="d-inline-flex align-items-center">
+                                      <i class="fas fa-check-circle mr-2"></i> Sudah Ada
+                                    </span>
+                                    @if($countSudah>0) <span class="badge-chip success">{{ $countSudah }}</span> @endif
                                 </a>
                             </div>
                         </div>
@@ -338,13 +362,17 @@
                             <div class="nav flex-column submenu">
                                 <a class="nav-link d-flex justify-content-between align-items-center {{ request()->routeIs('laporan.index') ? 'active' : '' }}"
                                    href="{{ route('laporan.index') }}">
-                                    <span><i class="fas fa-circle mr-2" style="font-size:8px;"></i> Laporan</span>
-                                    @if($badgeLaporan>0) <span class="badge-ping">{{ $badgeLaporan }}</span> @endif
+                                    <span class="d-inline-flex align-items-center">
+                                      <i class="fas fa-file-invoice mr-2"></i> Laporan
+                                    </span>
+                                    @if($badgeLaporan>0) <span class="badge-chip info">{{ $badgeLaporan }}</span> @endif
                                 </a>
                                 <a class="nav-link d-flex justify-content-between align-items-center {{ request()->routeIs('laporan.arsip') ? 'active' : '' }}"
                                    href="{{ route('laporan.arsip') }}">
-                                    <span><i class="fas fa-circle mr-2" style="font-size:8px;"></i> Arsip Laporan</span>
-                                    @if($badgeArsip>0) <span class="badge-ping">{{ $badgeArsip }}</span> @endif
+                                    <span class="d-inline-flex align-items-center">
+                                      <i class="fas fa-archive mr-2"></i> Arsip Laporan
+                                    </span>
+                                    @if($badgeArsip>0) <span class="badge-chip">{{ $badgeArsip }}</span> @endif
                                 </a>
                             </div>
                         </div>
@@ -420,7 +448,7 @@
         });
     })();
 
-    // Select2 init helper (tetap seperti sebelumnya)
+    // Select2 init helper
     $(function() {
         function initSelect2In($container){
             var $selects = $container.find('.js-example-basic-multiple');
