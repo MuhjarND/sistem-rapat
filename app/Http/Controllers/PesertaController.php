@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Route; // <-- tambah ini untuk cek nama route
 use Carbon\Carbon;
 
 class PesertaController extends Controller
@@ -18,7 +19,7 @@ class PesertaController extends Controller
      * - Absensi yang harus segera dikonfirmasi (rapat <= hari ini & belum absen)
      *
      * Tombol "Konfirmasi" diarahkan ke route absensi.scan (GET) berbasis token_qr.
-     * Proses simpan dilakukan oleh AbsensiController@simpanScan (POST) sesuai route Anda.
+     * Proses simpan dilakukan oleh AbsensiController@simpanScan (POST).
      */
     public function dashboard()
     {
@@ -89,7 +90,7 @@ class PesertaController extends Controller
             ->orderBy('rapat.waktu_mulai')
             ->get();
 
-        // ===== Riwayat rapat terbaru (beserta status absensi & ketersediaan notulensi)
+        // ===== Riwayat rapat terbaru (status absensi & ketersediaan notulensi)
         $riwayat_rapat = DB::table('undangan')
             ->join('rapat', 'undangan.id_rapat', '=', 'rapat.id')
             ->leftJoin('absensi', function ($q) use ($userId) {
@@ -195,7 +196,7 @@ class PesertaController extends Controller
         ]);
     }
 
-    /** Detail rapat untuk peserta (show) */
+    /** Detail rapat untuk peserta (show) + URL preview PDF undangan (inline) */
     public function showRapat($id)
     {
         $rapat = DB::table('rapat')
@@ -212,14 +213,45 @@ class PesertaController extends Controller
 
         if (!$rapat) abort(404);
 
+        // pastikan user memang diundang
         $diundang = DB::table('undangan')
             ->where('id_rapat', $id)
             ->where('id_user', Auth::id())
             ->exists();
-
         if (!$diundang) abort(403, 'Anda tidak terdaftar pada rapat ini.');
 
-        return view('peserta.rapat.show', compact('rapat'));
+        // daftar penerima undangan (untuk fallback non-PDF)
+        $penerima = DB::table('undangan')
+            ->join('users', 'undangan.id_user', '=', 'users.id')
+            ->where('undangan.id_rapat', $id)
+            ->select('users.name', 'users.jabatan', 'users.unit')
+            ->orderBy('users.name')
+            ->get();
+
+        // cek notulensi (untuk tombol "Lihat Notulensi")
+        $notulensi = DB::table('notulensi')->where('id_rapat', $id)->first();
+        $notulensi_id = $notulensi->id ?? null;
+
+        // ===== URL PDF Undangan untuk preview (controller: undanganPdf) =====
+        // Sesuaikan dengan nama route yang sudah Anda daftarkan.
+        // Kita coba beberapa kemungkinan agar fleksibel.
+        $undangan_pdf_url = null;
+        if (Route::has('rapat.undangan.pdf')) {
+            $undangan_pdf_url = route('rapat.undangan.pdf', $id);
+        } elseif (Route::has('undangan.pdf')) {
+            $undangan_pdf_url = route('undangan.pdf', $id);
+        } elseif (Route::has('undangan.show.pdf')) {
+            $undangan_pdf_url = route('undangan.show.pdf', $id);
+        }
+        // Jika Anda sudah pasti nama rutenya, boleh langsung:
+        // $undangan_pdf_url = route('rapat.undangan.pdf', $id);
+
+        return view('peserta.rapat.show', compact(
+            'rapat',
+            'penerima',
+            'notulensi_id',
+            'undangan_pdf_url'
+        ));
     }
 
     /** Form konfirmasi / isi absensi (GET) — fallback bila token_qr kosong */

@@ -1,7 +1,5 @@
 <?php
 
-use App\Http\Controllers\LaporanController;
-use App\Http\Controllers\RapatController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
@@ -33,8 +31,7 @@ Route::middleware(['auth', 'cekrole:admin'])->group(function () {
     //RAPAT
     Route::resource('rapat', 'RapatController');
     Route::resource('undangan', 'UndanganController');
-    Route::get('rapat/{id}/undangan-pdf', 'RapatController@undanganPdf')->name('rapat.undangan.pdf');
-    Route::post('rapat/{id}/batal', 'RapatController@batalkan')->name('rapat.batal');
+
     //ABSENSI
     Route::resource('absensi', 'AbsensiController');
     //INPUT DATA
@@ -80,6 +77,8 @@ Route::middleware(['auth', 'cekrole:admin,peserta'])->group(function () {
     Route::post('absensi/isi', 'AbsensiController@isiAbsensi')->name('absensi.isi');
     Route::get('absensi/scan/{token}', 'AbsensiController@scan')->name('absensi.scan');        
     Route::post('absensi/scan/{token}', 'AbsensiController@simpanScan')->name('absensi.scan.save'); 
+
+    Route::get('rapat/{id}/undangan-pdf', 'RapatController@undanganPdf')->name('rapat.undangan.pdf');
     
     Route::get('/peserta/dashboard', 'PesertaController@dashboard')->name('peserta.dashboard');
     Route::get('/peserta/rapat', 'PesertaController@rapat')->name('peserta.rapat');
