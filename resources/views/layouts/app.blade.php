@@ -250,10 +250,14 @@
         <div class="row no-gutters">
             <!-- Sidebar -->
             <div id="appSidebar" class="sidebar">
-                @php $isPeserta = (Auth::user()->role ?? null) === 'peserta'; @endphp
+                @php
+                  $role = Auth::user()->role ?? null;
+                  $isPeserta = $role === 'peserta';
+                  $isNotulis = in_array($role, ['notulis','notulensi']); // << ganti sesuai role notulensi kamu
+                @endphp
 
                 @if($isPeserta)
-                    {{-- ===================== SIDEBAR KHUSUS PESERTA ===================== --}}
+                    {{-- =================== SIDEBAR KHUSUS PESERTA =================== --}}
                     @php
                         $userId = Auth::id();
                         $absensiPendingCount = \DB::table('undangan')
@@ -278,19 +282,65 @@
                            href="{{ route('peserta.dashboard') }}">
                             <i class="fas fa-chart-pie"></i> Dashboard
                             @if($absensiPendingCount>0)
-                              <span class="badge-chip warn">{{ $absensiPendingCount }}<span class="hint">Pending</span></span>
+                              <span class="badge-chip warn">{{ $absensiPendingCount }} <span class="sr-only">Pending</span></span>
                             @endif
+                        </a>
 
                         <a class="nav-link d-flex align-items-center {{ request()->routeIs('peserta.rapat') ? 'active' : '' }}"
                            href="{{ route('peserta.rapat') }}">
                             <i class="fas fa-calendar-alt"></i> Rapat
                             @if($upcomingCount>0)
-                              <span class="badge-chip info">{{ $upcomingCount }}<span class="hint">Akan Datang</span></span>
+                              <span class="badge-chip info">{{ $upcomingCount }}</span>
                             @endif
                         </a>
                     </nav>
+
+                @elseif($isNotulis)
+                    {{-- =================== SIDEBAR KHUSUS NOTULENSI =================== --}}
+                    @php
+                        $openNotu = request()->routeIs('notulensi.*') || request()->is('notulensi*');
+                        $countBelum = \DB::table('rapat')
+                                        ->leftJoin('notulensi','notulensi.id_rapat','=','rapat.id')
+                                        ->whereNull('notulensi.id')->count();
+                        $countSudah = \DB::table('rapat')
+                                        ->join('notulensi','notulensi.id_rapat','=','rapat.id')
+                                        ->count();
+                    @endphp
+
+                    <nav class="nav flex-column">
+                        <a class="nav-link {{ request()->routeIs('notulensi.dashboard') ? 'active' : '' }}"
+                           href="{{ route('notulensi.dashboard') }}">
+                            <i class="fas fa-tachometer-alt"></i> Dashboard
+                        </a>
+
+                        <a class="nav-link d-flex align-items-center {{ $openNotu ? '' : 'collapsed' }}"
+                           data-toggle="collapse" href="#menuNotu" role="button"
+                           aria-expanded="{{ $openNotu ? 'true' : 'false' }}" aria-controls="menuNotu">
+                            <i class="fas fa-book-open"></i> Notulensi
+                            <i class="ml-auto fas fa-angle-down"></i>
+                        </a>
+                        <div class="collapse {{ $openNotu ? 'show' : '' }}" id="menuNotu">
+                            <div class="nav flex-column submenu">
+                                <a class="nav-link d-flex justify-content-between align-items-center {{ request()->routeIs('notulensi.belum') ? 'active' : '' }}"
+                                   href="{{ route('notulensi.belum') }}">
+                                    <span class="d-inline-flex align-items-center">
+                                      <i class="fas fa-times-circle mr-2"></i> Belum Ada
+                                    </span>
+                                    @if($countBelum>0) <span class="badge-chip">{{ $countBelum }}</span> @endif
+                                </a>
+                                <a class="nav-link d-flex justify-content-between align-items-center {{ request()->routeIs('notulensi.sudah') ? 'active' : '' }}"
+                                   href="{{ route('notulensi.sudah') }}">
+                                    <span class="d-inline-flex align-items-center">
+                                      <i class="fas fa-check-circle mr-2"></i> Sudah Ada
+                                    </span>
+                                    @if($countSudah>0) <span class="badge-chip success">{{ $countSudah }}</span> @endif
+                                </a>
+                            </div>
+                        </div>
+                    </nav>
+
                 @else
-                    {{-- ===================== SIDEBAR DEFAULT (ADMIN/DLL) ===================== --}}
+                    {{-- =================== SIDEBAR DEFAULT (ADMIN/DLL) =================== --}}
                     @php
                         $openKelola  = request()->is('user*') || request()->is('pimpinan*') || request()->is('kategori*');
 

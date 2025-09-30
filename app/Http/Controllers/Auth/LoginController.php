@@ -34,7 +34,7 @@ protected function redirectTo()
         case 'admin':
             return '/dashboard';
         case 'notulis':
-            return '/dashboard/notulis';
+            return 'notulensi/dashboard';
         case 'peserta':
             return '/peserta/dashboard';
         default:

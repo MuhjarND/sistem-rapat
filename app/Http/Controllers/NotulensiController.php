@@ -611,4 +611,53 @@ class NotulensiController extends Controller
             ]);
         }
     }
+
+        public function dashboard()
+    {
+        // ===== METRICS
+        $totalRapat       = DB::table('rapat')->count();
+        $totalNotulensi   = DB::table('notulensi')->count();
+        $belumAda         = DB::table('rapat')
+                                ->leftJoin('notulensi','notulensi.id_rapat','=','rapat.id')
+                                ->whereNull('notulensi.id')
+                                ->count();
+        $sudahAda         = $totalNotulensi;
+
+        // ===== PENDING (10 terbaru, rapat tanpa notulensi)
+        $pending = DB::table('rapat')
+            ->leftJoin('notulensi','notulensi.id_rapat','=','rapat.id')
+            ->whereNull('notulensi.id')
+            ->select('rapat.id','rapat.judul','rapat.tanggal','rapat.waktu_mulai','rapat.tempat')
+            ->orderBy('rapat.tanggal','desc')->orderBy('rapat.waktu_mulai','desc')
+            ->limit(10)->get();
+
+        // ===== SUDAH (10 terbaru, rapat dengan notulensi)
+        $selesai = DB::table('notulensi')
+            ->join('rapat','notulensi.id_rapat','=','rapat.id')
+            ->select('notulensi.id as id_notulensi','rapat.id as id_rapat','rapat.judul','rapat.tanggal','rapat.waktu_mulai','rapat.tempat')
+            ->orderBy('rapat.tanggal','desc')->orderBy('rapat.waktu_mulai','desc')
+            ->limit(10)->get();
+
+        // ===== PRODUKTIVITAS 6 BULAN (opsional untuk ringkas tren)
+        $byMonth = DB::table('notulensi')
+            ->join('rapat','notulensi.id_rapat','=','rapat.id')
+            ->select(DB::raw("DATE_FORMAT(rapat.tanggal,'%Y-%m') as ym"), DB::raw('COUNT(*) as total'))
+            ->groupBy('ym')
+            ->orderBy('ym','desc')
+            ->limit(6)
+            ->pluck('total','ym') // ['2025-10'=>5, ...]
+            ->reverse();          // urut dari lama ke baru
+
+        return view('notulensi.dashboard', [
+            'metrics'  => [
+                'totalRapat'     => $totalRapat,
+                'totalNotulensi' => $totalNotulensi,
+                'belumAda'       => $belumAda,
+                'sudahAda'       => $sudahAda,
+            ],
+            'pending'  => $pending,
+            'selesai'  => $selesai,
+            'byMonth'  => $byMonth,
+        ]);
+    }
 }
