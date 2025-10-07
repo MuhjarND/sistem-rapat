@@ -22,4 +22,14 @@ class FonnteWa
 
         return $response->json();
     }
+
+    public static function normalizeNumber($number)
+    {
+        if (!$number) return null;
+        $num = preg_replace('/\D+/', '', $number);
+
+        if (strpos($num, '62') === 0) return $num;
+        if (strpos($num, '0') === 0) return '62' . substr($num, 1);
+        return $num;
+    }
 }

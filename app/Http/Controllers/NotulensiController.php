@@ -6,9 +6,15 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\URL;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Carbon\Carbon;
 use iio\libmergepdf\Merger;
 use Illuminate\Support\Str;
+
+// Helper Fonnte
+use App\Helpers\FonnteWa;
 
 class NotulensiController extends Controller
 {
@@ -103,7 +109,7 @@ class NotulensiController extends Controller
         $hari_tanggal = Carbon::parse($rapat->tanggal)->isoFormat('dddd, D MMMM Y');
         $jam = $rapat->waktu_mulai;
 
-        // Select2 akan pakai AJAX (route('users.search')), jadi tidak perlu kirim daftar users di sini
+        // Select2 pakai AJAX (route('users.search'))
         return view('notulensi.create', compact('rapat','jumlah_peserta','hari_tanggal','jam'));
     }
 
@@ -138,8 +144,11 @@ class NotulensiController extends Controller
                 'updated_at' => now(),
             ]);
 
-            // detail + tugas
+            // === antrian penerima WA (kumpulkan dulu; kirim setelah commit)
+            $notifQueue = [];
             $urut = 1;
+
+            // detail + tugas
             foreach ($request->baris as $r) {
                 $idDetail = DB::table('notulensi_detail')->insertGetId([
                     'id_notulensi'     => $id_notulensi,
@@ -163,6 +172,11 @@ class NotulensiController extends Controller
                             'status'              => 'pending',
                             'created_at'          => now(),
                             'updated_at'          => now(),
+                        ];
+                        // masukkan antrian notifikasi
+                        $notifQueue[] = [
+                            'user_id'    => (int)$uid,
+                            'tgl_selesai'=> $r['tgl_penyelesaian'] ?? null,
                         ];
                     }
                     DB::table('notulensi_tugas')->insert($bulk);
@@ -244,8 +258,61 @@ class NotulensiController extends Controller
             }
 
             DB::commit();
+
+            // ================== KIRIM NOTIFIKASI WA (setelah commit) ==================
+            if (!empty($notifQueue)) {
+                $rapatInfo = DB::table('rapat')
+                    ->where('id', $request->id_rapat)
+                    ->select('id','judul','tanggal','tempat')
+                    ->first();
+
+                $userIds = array_values(array_unique(array_map(function($x){ return (int)$x['user_id']; }, $notifQueue)));
+                if (!empty($userIds)) {
+                    $phoneExpr = $this->usersPhoneExpr(); // gunakan kolom yang memang ada
+                    $users = DB::table('users')
+                        ->whereIn('id', $userIds)
+                        ->select('id','name', DB::raw("{$phoneExpr} as phone"))
+                        ->get()->keyBy('id');
+
+                    $urlTugas = URL::route('peserta.tugas.index');
+
+                    foreach ($notifQueue as $item) {
+                        $uid  = (int)$item['user_id'];
+                        $user = $users->get($uid);
+                        if (!$user) continue;
+
+                        $phoneRaw = $user->phone ?? null;
+                        $phone    = $this->normalizeMsisdn($phoneRaw);
+                        if (!$phone) {
+                            Log::warning('WA skip: nomor kosong/tidak valid', ['user_id'=>$uid, 'name'=>$user->name ?? null, 'raw'=>$phoneRaw]);
+                            continue;
+                        }
+
+                        $tglRapat   = $rapatInfo && $rapatInfo->tanggal ? Carbon::parse($rapatInfo->tanggal)->isoFormat('D MMM Y') : '-';
+                        $tglSelesai = !empty($item['tgl_selesai']) ? Carbon::parse($item['tgl_selesai'])->isoFormat('D MMM Y') : '-';
+
+                        $msg = $this->buildTaskAssignedMessage(
+                            $user->name ?? '-',
+                            $rapatInfo->judul ?? '-',
+                            $tglRapat,
+                            $rapatInfo->tempat ?? '-',
+                            $tglSelesai,
+                            $urlTugas
+                        );
+
+                        $res = FonnteWa::send($phone, $msg);
+                        if (!($res['status'] ?? false) && !($res['ok'] ?? false)) {
+                            Log::error('Gagal kirim WA tugas notulensi', [
+                                'user_id'=>$uid, 'phone'=>$phone, 'result'=>$res
+                            ]);
+                        }
+                    }
+                }
+            }
+            // ==========================================================================
+
             return redirect()->route('notulensi.show', $id_notulensi)
-                ->with('success', 'Notulensi berhasil dibuat. TTD Notulis dibuat otomatis & approval pimpinan disiapkan.');
+                ->with('success', 'Notulensi berhasil dibuat. TTD Notulis dibuat otomatis, approval pimpinan disiapkan, dan notifikasi tugas dikirim.');
         } catch (\Throwable $e) {
             DB::rollBack();
             report($e);
@@ -258,7 +325,7 @@ class NotulensiController extends Controller
         $notulensi = DB::table('notulensi')->where('id', $id)->first();
         if (!$notulensi) abort(404);
 
-        $rapat = DB::table('rapat')
+        $rapat = DB::table('rapat') 
             ->leftJoin('pimpinan_rapat', 'rapat.id_pimpinan', '=', 'pimpinan_rapat.id')
             ->leftJoin('kategori_rapat', 'rapat.id_kategori', '=', 'kategori_rapat.id')
             ->select(
@@ -727,5 +794,65 @@ class NotulensiController extends Controller
             'selesai'  => $selesai,
             'byMonth'  => $byMonth,
         ]);
+    }
+
+    /**
+     * Template pesan WA untuk penugasan notulensi.
+     */
+    private function buildTaskAssignedMessage(string $nama, string $judulRapat, string $tglRapat, string $tempat, string $tglSelesai, string $urlTugas): string
+    {
+        return "Halo {$nama},\n\n"
+            ."Anda mendapatkan *tugas notulensi* dari rapat:\n"
+            ."• *{$judulRapat}*\n"
+            ."• Tanggal: {$tglRapat}\n"
+            ."• Tempat: {$tempat}\n"
+            ."• Target selesai: {$tglSelesai}\n\n"
+            ."Silakan cek detail & update status tugas di sini:\n{$urlTugas}\n\n"
+            ."Terima kasih 🙏";
+    }
+
+    /**
+     * Ekspresi COALESCE nomor HP yang benar-benar ada di tabel users.
+     * Contoh hasil: "COALESCE(users.`no_hp`, users.`wa`)"
+     */
+    private function usersPhoneExpr(): string
+    {
+        $candidates = ['no_hp','phone','telp','telepon','hp','whatsapp','wa','no_telp','no_wa'];
+        $available  = [];
+
+        foreach ($candidates as $col) {
+            if (Schema::hasColumn('users', $col)) {
+                $available[] = "users.`{$col}`";
+            }
+        }
+
+        if (empty($available)) {
+            return "NULL";
+        }
+
+        return 'COALESCE('.implode(', ', $available).')';
+    }
+
+    /**
+     * Normalisasi MSISDN ke format internasional ID: 62xxxxxxxxxx
+     */
+    private function normalizeMsisdn(?string $num): ?string
+    {
+        if (!$num) return null;
+        $n = preg_replace('/[^0-9+]/', '', $num);
+
+        // +62xxxxxxxx -> 62xxxxxxxx
+        if (strpos($n, '+62') === 0) $n = '62'.substr($n, 3);
+
+        // 0xxxxxxxx -> 62xxxxxxxx
+        if (strpos($n, '0') === 0) $n = '62'.substr($n, 1);
+
+        // 8xxxxxxxx -> 62xxxxxxxx
+        if (strpos($n, '8') === 0) $n = '62'.$n;
+
+        // validasi sederhana
+        if (!preg_match('/^62[0-9]{8,15}$/', $n)) return null;
+
+        return $n;
     }
 }
