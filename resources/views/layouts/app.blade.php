@@ -306,17 +306,60 @@
                         href="{{ route('peserta.tugas.index') }}">
                             <i class="fas fa-tasks"></i> Tugas Saya
                             @if($tugasPendingCount>0)
-                            <span class="badge-chip warning" title="Tugas perlu diselesaikan">{{ $tugasPendingCount }}</span>
+                            <span class="badge-chip warn" title="Tugas perlu diselesaikan">{{ $tugasPendingCount }}</span>
                             @endif
                         </a>
+                    </nav>
+
+                @elseif($isNotulis)
+                    {{-- =================== SIDEBAR KHUSUS NOTULENSI =================== --}}
+                    @php
+                        $openNotu = true; /* dipaksa terbuka */
+                        $countBelum = \DB::table('rapat')
+                                        ->leftJoin('notulensi','notulensi.id_rapat','=','rapat.id')
+                                        ->whereNull('notulensi.id')->count();
+                        $countSudah = \DB::table('rapat')
+                                        ->join('notulensi','notulensi.id_rapat','=','rapat.id')
+                                        ->count();
+                    @endphp
+
+                    <nav class="nav flex-column">
+                        <a class="nav-link {{ request()->routeIs('notulensi.dashboard') ? 'active' : '' }}"
+                           href="{{ route('notulensi.dashboard') }}">
+                            <i class="fas fa-tachometer-alt"></i> Dashboard
+                        </a>
+
+                        <a class="nav-link d-flex align-items-center"
+                           data-toggle="collapse" href="#menuNotu" role="button"
+                           aria-expanded="true" aria-controls="menuNotu">
+                            <i class="fas fa-book-open"></i> Notulensi
+                            <i class="ml-auto fas fa-angle-down"></i>
+                        </a>
+                        <div class="collapse show" id="menuNotu">
+                            <div class="nav flex-column submenu">
+                                <a class="nav-link d-flex justify-content-between align-items-center {{ request()->routeIs('notulensi.belum') ? 'active' : '' }}"
+                                   href="{{ route('notulensi.belum') }}">
+                                    <span class="d-inline-flex align-items-center">
+                                      <i class="fas fa-times-circle mr-2"></i> Belum Ada
+                                    </span>
+                                    @if($countBelum>0) <span class="badge-chip">{{ $countBelum }}</span> @endif
+                                </a>
+                                <a class="nav-link d-flex justify-content-between align-items-center {{ request()->routeIs('notulensi.sudah') ? 'active' : '' }}"
+                                   href="{{ route('notulensi.sudah') }}">
+                                    <span class="d-inline-flex align-items-center">
+                                      <i class="fas fa-check-circle mr-2"></i> Sudah Ada
+                                    </span>
+                                    @if($countSudah>0) <span class="badge-chip success">{{ $countSudah }}</span> @endif
+                                </a>
+                            </div>
+                        </div>
                     </nav>
 
                 @else
                     {{-- =================== SIDEBAR DEFAULT (ADMIN/DLL) =================== --}}
                     @php
-                        $openKelola  = request()->is('user*') || request()->is('pimpinan*') || request()->is('kategori*');
-
-                        $openNotulensi = request()->routeIs('notulensi.*') || request()->is('notulensi*');
+                        $openKelola  = true; /* dipaksa terbuka */
+                        $openNotulensi = true; /* dipaksa terbuka */
                         $countBelum = \DB::table('rapat')
                                         ->leftJoin('notulensi','notulensi.id_rapat','=','rapat.id')
                                         ->whereNull('notulensi.id')->count();
@@ -324,7 +367,7 @@
                                         ->join('notulensi','notulensi.id_rapat','=','rapat.id')
                                         ->count();
 
-                        $openLaporan = request()->routeIs('laporan.index') || request()->routeIs('laporan.arsip') || request()->is('laporan/*');
+                        $openLaporan = true; /* dipaksa terbuka */
 
                         $countRapatAktif = \DB::table('rapat')
                             ->leftJoin('laporan_archived_meetings as lam','lam.rapat_id','=','rapat.id')
@@ -348,13 +391,13 @@
                         </a>
 
                         {{-- Notulensi --}}
-                        <a class="nav-link d-flex align-items-center {{ $openNotulensi ? '' : 'collapsed' }}"
+                        <a class="nav-link d-flex align-items-center"
                            data-toggle="collapse" href="#menuNotulensi" role="button"
-                           aria-expanded="{{ $openNotulensi ? 'true' : 'false' }}" aria-controls="menuNotulensi">
+                           aria-expanded="true" aria-controls="menuNotulensi">
                             <i class="fas fa-book-open"></i> Notulensi
                             <i class="ml-auto fas fa-angle-down"></i>
                         </a>
-                        <div class="collapse {{ $openNotulensi ? 'show' : '' }}" id="menuNotulensi">
+                        <div class="collapse show" id="menuNotulensi">
                             <div class="nav flex-column submenu">
                                 <a class="nav-link d-flex justify-content-between align-items-center {{ request()->routeIs('notulensi.belum') ? 'active' : '' }}"
                                    href="{{ route('notulensi.belum') }}">
@@ -374,13 +417,13 @@
                         </div>
 
                         {{-- Laporan --}}
-                        <a class="nav-link d-flex align-items-center {{ $openLaporan ? '' : 'collapsed' }}"
+                        <a class="nav-link d-flex align-items-center"
                            data-toggle="collapse" href="#menuLaporan" role="button"
-                           aria-expanded="{{ $openLaporan ? 'true' : 'false' }}" aria-controls="menuLaporan">
+                           aria-expanded="true" aria-controls="menuLaporan">
                             <i class="fas fa-folder-open"></i> Laporan
                             <i class="ml-auto fas fa-angle-down"></i>
                         </a>
-                        <div class="collapse {{ $openLaporan ? 'show' : '' }}" id="menuLaporan">
+                        <div class="collapse show" id="menuLaporan">
                             <div class="nav flex-column submenu">
                                 <a class="nav-link d-flex justify-content-between align-items-center {{ request()->routeIs('laporan.index') ? 'active' : '' }}"
                                    href="{{ route('laporan.index') }}">
@@ -400,13 +443,13 @@
                         </div>
 
                         {{-- Kelola Data --}}
-                        <a class="nav-link d-flex align-items-center {{ $openKelola ? '' : 'collapsed' }}"
+                        <a class="nav-link d-flex align-items-center"
                            data-toggle="collapse" href="#menuKelolaData" role="button"
-                           aria-expanded="{{ $openKelola ? 'true' : 'false' }}" aria-controls="menuKelolaData">
+                           aria-expanded="true" aria-controls="menuKelolaData">
                             <i class="fas fa-database"></i> Kelola Data
                             <i class="ml-auto fas fa-angle-down"></i>
                         </a>
-                        <div class="collapse {{ $openKelola ? 'show' : '' }}" id="menuKelolaData">
+                        <div class="collapse show" id="menuKelolaData">
                             <div class="nav flex-column submenu">
                                 <a class="nav-link {{ request()->is('user*') ? 'active' : '' }}" href="{{ route('user.index') }}">
                                     <i class="fas fa-users"></i> User
@@ -469,7 +512,35 @@
             a.addEventListener('click', function(){ if (window.innerWidth < 992) closeSidebar(); });
         });
     })();
+    </script>
 
+    <script>
+    // ====== Paksa semua DROPDOWN & COLLAPSE SELALU TERBUKA ======
+    $(function(){
+      // 1) Selalu buka semua Bootstrap dropdown
+      $('.dropdown').each(function(){
+        var $dd = $(this);
+        var $toggle = $dd.find('> .dropdown-toggle');
+        var $menu   = $dd.find('> .dropdown-menu');
+        $dd.addClass('show');
+        if ($toggle.length) $toggle.attr('aria-expanded','true');
+        if ($menu.length)   $menu.addClass('show');
+      });
+
+      // 2) Selalu buka semua Bootstrap collapse (submenu sidebar)
+      $('.collapse').each(function(){
+        var $col = $(this);
+        $col.addClass('show');
+        var targetId = $col.attr('id');
+        if (targetId){
+          var $toggle = $('[data-toggle="collapse"][href="#'+targetId+'"], [data-toggle="collapse"][data-target="#'+targetId+'"]');
+          $toggle.removeClass('collapsed').attr('aria-expanded','true');
+        }
+      });
+    });
+    </script>
+
+    <script>
     // Select2 init helper
     $(function() {
         function initSelect2In($container){
