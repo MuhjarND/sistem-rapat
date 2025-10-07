@@ -70,6 +70,23 @@
 @endsection
 
 @section('content')
+@php
+  // Siapkan teks Approval 1
+  $approval1 = \DB::table('users')
+      ->where('id', $rapat->approval1_user_id ?? 0)
+      ->select('name','jabatan','unit')
+      ->first();
+  $approval1_text = $approval1
+      ? trim(($approval1->name ?? '-') . ' — ' . ($approval1->jabatan ?? '-') . (($approval1->unit ?? '') ? ' · '.$approval1->unit : ''))
+      : '-';
+
+  // Hitung jumlah peserta rapat
+  $jumlah_peserta = \DB::table('undangan')->where('id_rapat', $rapat->id)->count();
+
+  // Pastikan assigneesMap ada (controller sudah kirim)
+  $assigneesMap = $assigneesMap ?? []; // [detail_id => [ {id,text}, ... ]]
+@endphp
+
 <div class="container">
   <h3 class="mb-3">Edit Notulensi</h3>
 
@@ -101,11 +118,20 @@
           <label>Tempat</label>
           <input type="text" class="form-control" value="{{ $rapat->tempat }}" readonly>
         </div>
+
+        {{-- === Tambahan: Approval 1 === --}}
         <div class="form-group col-md-6">
-          <label>Pimpinan Rapat</label>
-          <input type="text" class="form-control" value="{{ $rapat->jabatan_pimpinan ?? '-' }}" readonly>
+          <label>Pemimpin Rapat</label>
+          <input type="text" class="form-control" value="{{ $approval1_text }}" readonly>
         </div>
-        <div class="form-group col-md-12">
+
+        {{-- === Tambahan: Jumlah Peserta === --}}
+        <div class="form-group col-md-6">
+          <label>Jumlah Peserta</label>
+          <input type="text" class="form-control" value="{{ $jumlah_peserta }} Orang" readonly>
+        </div>
+
+        <div class="form-group col-md-6">
           <label>Agenda Rapat</label>
           <input type="text" class="form-control" value="{{ $rapat->deskripsi ?: $rapat->judul }}" readonly>
         </div>
@@ -146,13 +172,12 @@
             <tbody>
             @php
               $countDetail = count($detail);
-              $assigneesMap = $assigneesMap ?? []; // [detail_id => [ {id,text}, ... ]]
             @endphp
 
             @forelse($detail as $i => $row)
               @php
+                // preload assignees untuk Select2
                 $initAssignees = $assigneesMap[$row->id] ?? []; // array of {id,text}
-                $initIds = collect($initAssignees)->pluck('id')->all();
               @endphp
               <tr>
                 <td class="no">{{ $loop->iteration }}</td>
@@ -347,11 +372,10 @@
     renumber();
   }
 
-  // Submit: commit CKEditor data
+  // Submit: commit CKEditor data + validasi basic
   document.getElementById('form-notulensi').addEventListener('submit',function(e){
     editors.forEach((ed,el)=>{ el.value = ed.getData(); });
 
-    // validasi minimal
     let invalid=false;
     this.querySelectorAll('textarea.required-rich').forEach(el=>{
       const plain=(editors.get(el)?.getData()||'').replace(/<[^>]*>/g,'').trim();

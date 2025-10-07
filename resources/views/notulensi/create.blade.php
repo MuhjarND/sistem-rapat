@@ -81,6 +81,17 @@
 @endsection
 
 @section('content')
+@php
+  // Ambil Approval 1 (opsional jika controller belum mengirim)
+  $approval1 = \DB::table('users')
+      ->where('id', $rapat->approval1_user_id ?? 0)
+      ->select('name','jabatan','unit')
+      ->first();
+  $approval1_text = $approval1
+      ? trim(($approval1->name ?? '-') . ' — ' . ($approval1->jabatan ?? '-') . (($approval1->unit ?? '') ? ' · '.$approval1->unit : ''))
+      : '-';
+@endphp
+
 <div class="container">
   <h3 class="mb-3">Notulensi Rapat</h3>
 
@@ -124,10 +135,12 @@
           <label>Tempat</label>
           <input type="text" class="form-control" value="{{ $rapat->tempat }}" readonly>
         </div>
+
         <div class="form-group col-md-6">
-          <label>Pimpinan Rapat</label>
-          <input type="text" class="form-control" value="{{ $rapat->jabatan_pimpinan ?? '-' }}" readonly>
+          <label>Pemimpin Rapat</label>
+          <input type="text" class="form-control" value="{{ $approval1_text }}" readonly>
         </div>
+
         <div class="form-group col-md-6">
           <label>Jumlah Peserta</label>
           <input type="text" class="form-control" value="{{ $jumlah_peserta }} Orang" readonly>

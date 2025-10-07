@@ -60,10 +60,32 @@
     box-shadow: var(--shadow);
   }
   .table.tight td, .table.tight th{ padding:.65rem .8rem; }
+
+  .assignee-chip{
+    display:inline-flex;align-items:center;gap:.4rem;
+    background:rgba(79,70,229,.18);
+    border:1px solid rgba(79,70,229,.35);
+    color:#fff;border-radius:999px;padding:.15rem .55rem;margin:.12rem .18rem .12rem 0;
+    font-size:.82rem;font-weight:700;white-space:nowrap;
+  }
+  .muted{color:var(--muted)}
 </style>
 @endsection
 
 @section('content')
+@php
+  // ambil data approval 1 dan jumlah hadir
+  $approval1 = \DB::table('users')
+      ->where('id', $rapat->approval1_user_id)
+      ->select('name','jabatan','unit')
+      ->first();
+
+  // jumlah peserta yang mengikuti (hadir) rapat -> dihitung dari absensi
+  $pesertaHadirCount = \DB::table('absensi')
+      ->where('id_rapat', $rapat->id)
+      ->count();
+@endphp
+
 <div class="container">
 
   <div class="d-flex justify-content-between align-items-center mb-3">
@@ -109,8 +131,21 @@
             <td>{{ $rapat->tempat }}</td>
           </tr>
           <tr>
-            <td class="info-key">Pimpinan Rapat</td>
-            <td>{{ $rapat->jabatan_pimpinan ?? '-' }}</td>
+            <td class="info-key">Pemimpin Rapat</td>
+            <td>
+              @if($approval1)
+                <strong>{{ $approval1->name }}</strong>
+                <span class="muted">
+                  — {{ $approval1->jabatan ?: '—' }}{{ $approval1->unit ? ' · '.$approval1->unit : '' }}
+                </span>
+              @else
+                <span class="muted">-</span>
+              @endif
+            </td>
+          </tr>
+          <tr>
+            <td class="info-key">Jumlah Peserta Hadir</td>
+            <td><strong>{{ $pesertaHadirCount }}</strong> orang</td>
           </tr>
           <tr>
             <td class="info-key">Agenda</td>
@@ -131,17 +166,37 @@
             <th style="width:5%;">No</th>
             <th>Hasil Monitoring &amp; Evaluasi / Rangkaian Acara</th>
             <th style="width:26%;">Rekomendasi Tindak Lanjut</th>
-            <th style="width:16%;">Penanggung Jawab</th>
+            <th style="width:24%;">Penanggung Jawab</th>
             <th style="width:16%;">Tgl. Penyelesaian</th>
           </tr>
         </thead>
         <tbody>
           @forelse($detail as $row)
+            @php
+              // daftar peserta yang ditugaskan untuk baris detail ini
+              $assignees = \DB::table('notulensi_tugas')
+                  ->join('users','users.id','=','notulensi_tugas.user_id')
+                  ->where('id_notulensi_detail', $row->id)
+                  ->select('users.name','users.jabatan','users.unit')
+                  ->get();
+            @endphp
             <tr>
               <td class="text-center">{{ $row->urut }}</td>
               <td>{!! $row->hasil_pembahasan !!}</td>
               <td>{!! $row->rekomendasi !!}</td>
-              <td>{{ $row->penanggung_jawab ?? '-' }}</td>
+              <td>
+                @if($assignees->count())
+                  @foreach($assignees as $a)
+                    <span class="assignee-chip">
+                      {{ $a->name }}
+                      @if($a->jabatan) <span class="muted">— {{ $a->jabatan }}</span>@endif
+                      @if($a->unit) <span class="muted">· {{ $a->unit }}</span>@endif
+                    </span><br>
+                  @endforeach
+                @else
+                  {{ $row->penanggung_jawab ?: '-' }}
+                @endif
+              </td>
               <td>{{ $row->tgl_penyelesaian ? \Carbon\Carbon::parse($row->tgl_penyelesaian)->format('d/m/Y') : '-' }}</td>
             </tr>
           @empty

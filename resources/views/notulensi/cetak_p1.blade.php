@@ -1,7 +1,25 @@
 @php
     use Carbon\Carbon;
+
+    // Tanggal
     $tgl = Carbon::parse($rapat->tanggal)->translatedFormat('l, d F Y');
+
+    // KOP
     $kop = public_path('kop_notulensi.jpg');
+
+    // === Ambil Approval 1 dari users ===
+    $approval1 = \DB::table('users')
+        ->where('id', $rapat->approval1_user_id ?? 0)
+        ->select('name','jabatan','unit')
+        ->first();
+
+    $approval1Text = $approval1
+        ? trim(
+            ($approval1->name ?? '-') .
+            ' — ' . ($approval1->jabatan ?? '-') .
+            (($approval1->unit ?? '') ? ' · '.$approval1->unit : '')
+          )
+        : '-';
 @endphp
 <!DOCTYPE html>
 <html>
@@ -39,13 +57,33 @@
 
 {{-- INFORMASI RAPAT --}}
 <table class="tbl-info">
-    <tr><td class="hd">Jenis Kegiatan</td><td>{{ $rapat->nama_kategori ?? '-' }}</td></tr>
-    <tr><td class="hd">Hari/Tanggal/Jam</td><td>{{ ucfirst($tgl) }}, {{ $rapat->waktu_mulai }}</td></tr>
-    <tr><td class="hd">Tempat</td><td>{{ $rapat->tempat }}</td></tr>
-    <tr><td class="hd">Pimpinan Rapat</td><td>{{ $rapat->jabatan_pimpinan ?? '-' }}</td></tr>
-    <tr><td class="hd">Peserta</td><td>{{ $jumlah_peserta }} Orang</td></tr>
-    <tr><td class="agenda" colspan="2">Agenda Rapat</td></tr>
-    <tr><td colspan="2" class="agenda-content">- {{ $rapat->deskripsi ?: $rapat->judul }}</td></tr>
+    <tr>
+        <td class="hd">Jenis Kegiatan</td>
+        <td>{{ $rapat->nama_kategori ?? '-' }}</td>
+    </tr>
+    <tr>
+        <td class="hd">Hari/Tanggal/Jam</td>
+        <td>{{ ucfirst($tgl) }}, {{ $rapat->waktu_mulai }}</td>
+    </tr>
+    <tr>
+        <td class="hd">Tempat</td>
+        <td>{{ $rapat->tempat }}</td>
+    </tr>
+    {{-- Ganti Pimpinan Rapat -> Approval 1 --}}
+    <tr>
+        <td class="hd">Pemimpin Rapat</td>
+        <td>{{ $approval1Text }}</td>
+    </tr>
+    <tr>
+        <td class="hd">Peserta</td>
+        <td>{{ $jumlah_peserta }} Orang</td>
+    </tr>
+    <tr>
+        <td class="agenda" colspan="2">Agenda Rapat</td>
+    </tr>
+    <tr>
+        <td colspan="2" class="agenda-content">- {{ $rapat->deskripsi ?: $rapat->judul }}</td>
+    </tr>
 </table>
 
 </body>
