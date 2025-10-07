@@ -4,15 +4,13 @@
 @section('style')
 <style>
   /* ====== INPUTS & FORM THEME ====== */
-  .form-control,
-  .custom-select{
+  .form-control,.custom-select{
     background: rgba(255,255,255,.06);
     border: 1px solid var(--border);
     color: var(--text);
     border-radius: 10px;
   }
-  .form-control:focus,
-  .custom-select:focus{
+  .form-control:focus,.custom-select:focus{
     background: rgba(255,255,255,.08);
     border-color: rgba(79,70,229,.55);
     box-shadow: 0 0 0 .15rem rgba(79,70,229,.25);
@@ -37,27 +35,11 @@
   #tabel-detail .no{ text-align:center; font-weight:700; }
 
   /* ====== CKEditor DARK ====== */
-  .ck.ck-editor{
-    border-radius: 12px;
-    border: 1px solid var(--border);
-    background: #0f1533;
-    box-shadow: var(--shadow);
-  }
-  .ck.ck-editor .ck.ck-toolbar{
-    background: linear-gradient(180deg, rgba(17,24,39,.85), rgba(17,24,39,.65));
-    border-bottom: 1px solid var(--border);
-  }
+  .ck.ck-editor{ border-radius: 12px; border: 1px solid var(--border); background: #0f1533; box-shadow: var(--shadow); }
+  .ck.ck-editor .ck.ck-toolbar{ background: linear-gradient(180deg, rgba(17,24,39,.85), rgba(17,24,39,.65)); border-bottom: 1px solid var(--border); }
   .ck.ck-editor .ck.ck-toolbar .ck-button{ color: var(--text); }
-  .ck.ck-editor .ck.ck-toolbar .ck-button:hover{
-    background: rgba(79,70,229,.18);
-    color:#fff;
-    border-radius: 8px;
-  }
-  .ck.ck-editor__editable_inline{
-    background: #0d1330;
-    color: var(--text);
-    min-height: 160px;
-  }
+  .ck.ck-editor .ck.ck-toolbar .ck-button:hover{ background: rgba(79,70,229,.18); color:#fff; border-radius: 8px; }
+  .ck.ck-editor__editable_inline{ background: #0d1330; color: var(--text); min-height: 160px; }
   .ck-content a{ color:#93c5fd; }
 
   .btn-sm{ border-radius: 8px; padding:.25rem .55rem; font-weight:600; }
@@ -70,16 +52,31 @@
     color: var(--text);
   }
 
-  /* ===== Draft bar ===== */
+  /* ====== Draft bar ====== */
   #draftBar{
     display:none;
     border:1px dashed rgba(255,255,255,.25);
     background:rgba(79,70,229,.12);
     color:#e6eefc;
     border-radius:12px;
-    padding:.55rem .75rem;
+    padding:.55rem .75rem
   }
-  #draftBar .btn{ padding:.2rem .55rem; }
+  #draftBar .btn{padding:.2rem .55rem}
+
+  /* ====== Select2 (dark) ====== */
+  .select2-container--default .select2-selection--multiple{
+    background:rgba(255,255,255,.06);
+    border:1px solid var(--border);
+    min-height:38px;
+    border-radius:10px
+  }
+  .select2-container--default .select2-selection--multiple .select2-selection__choice{
+    background:rgba(79,70,229,.25);
+    border:1px solid rgba(79,70,229,.4);
+    color:#fff;border-radius:999px
+  }
+  .select2-dropdown{background:#0f1533;color:#fff;border:1px solid var(--border)}
+  .select2-results__option--highlighted{background:rgba(79,70,229,.45)!important}
 </style>
 @endsection
 
@@ -168,7 +165,7 @@
                 <th style="width:60px">NO</th>
                 <th>HASIL MONITORING & EVALUASI / RANGKAIAN ACARA</th>
                 <th style="width:25%;">REKOMENDASI TINDAK LANJUT</th>
-                <th style="width:16%;">PENANGGUNG JAWAB</th>
+                <th style="width:22%;">PENANGGUNG JAWAB (Tag User)</th>
                 <th style="width:16%;">TGL. PENYELESAIAN</th>
                 <th style="width:90px;">AKSI</th>
               </tr>
@@ -178,7 +175,15 @@
                 <td class="no">1</td>
                 <td><textarea name="baris[0][hasil_pembahasan]" class="form-control rich required-rich"></textarea></td>
                 <td><textarea name="baris[0][rekomendasi]" class="form-control rich"></textarea></td>
-                <td><input type="text" name="baris[0][penanggung_jawab]" class="form-control" placeholder="Kesekretariatan"></td>
+
+                {{-- TAG USER (Select2 multiple AJAX) + catatan opsional --}}
+                <td>
+                  <select name="baris[0][pj_ids][]" class="form-control js-user-tags" multiple
+                          data-placeholder="Pilih penanggung jawab"></select>
+                  <input type="text" name="baris[0][penanggung_jawab]" class="form-control mt-1"
+                         placeholder="Catatan PJ (opsional)">
+                </td>
+
                 <td><input type="date" name="baris[0][tgl_penyelesaian]" class="form-control"></td>
                 <td class="text-center">
                   <button type="button" class="btn btn-danger btn-sm" onclick="hapusBaris(this)">Hapus</button>
@@ -215,239 +220,251 @@
 <script src="https://cdn.ckeditor.com/ckeditor5/41.2.0/classic/ckeditor.js"></script>
 <script>
 (function(){
-  // ========= State & Helpers =========
   let idxBaris = 1;
   const editors = new Map();
   const DRAFT_KEY = 'notulensi_draft_rapat_{{ $rapat->id }}';
 
   const draftBar  = document.getElementById('draftBar');
-  const msg       = document.getElementById('draftMsg');
+  const draftMsg  = document.getElementById('draftMsg');
   const btnRestore= document.getElementById('btnRestoreDraft');
   const btnDiscard= document.getElementById('btnDiscardDraft');
 
-  function showBar(){ draftBar.style.display = 'flex'; }
-  function hideBar(){ draftBar.style.display = 'none'; }
+  function showBar(){ draftBar.style.display='flex'; }
+  function fmt(ts){ const d=new Date(ts); return d.toLocaleString('id-ID',{hour12:false}); }
+  function escapeHtml(s=''){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+  function debounce(fn,wait){let t;return (...a)=>{clearTimeout(t);t=setTimeout(()=>fn(...a),wait)}}
 
-  function fmt(ts){
-    const d = new Date(ts); return d.toLocaleString('id-ID', { hour12:false });
+  // ====== Select2 tag user (AJAX) ======
+  const USER_SEARCH_URL = @json(route('users.search'));
+  function initUserTags(scope=document){
+    $(scope).find('.js-user-tags').select2({
+      width:'100%',
+      placeholder: function(){ return $(this).data('placeholder') || 'Pilih penanggung jawab'; },
+      minimumInputLength: 0,
+      ajax:{
+        url: USER_SEARCH_URL,
+        dataType:'json',
+        delay:220,
+        cache:true,
+        data: params => ({ q: params.term || '' }),
+        processResults: data => ({ results: data }),
+        transport: function (params, success, failure) {
+          const req = $.ajax(params);
+          req.then(success);
+          req.fail(function(xhr){
+            if (xhr.status === 401) { alert('Sesi berakhir. Silakan login ulang.'); location.reload(); return failure(); }
+            if (xhr.status === 419) { alert('Sesi kedaluwarsa (419). Muat ulang halaman.'); return failure(); }
+            failure();
+          });
+          return req;
+        }
+      },
+      language:{
+        inputTooShort: ()=>'Ketik untuk mencari…',
+        errorLoading:   ()=>'Gagal memuat hasil.'
+      }
+    }).on('change', scheduleSave);
   }
 
-  function escapeHtml(s=''){
-    return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-  }
-
-  function debounce(fn, wait){
-    let t; return function(...args){ clearTimeout(t); t = setTimeout(() => fn.apply(this,args), wait); };
-  }
-
-  // ========= CKEditor init/destroy (PROMISIFIED) =========
-  function initEditors(scope = document){
+  // ====== CKEditor init ======
+  function initEditors(scope=document){
     const areas = Array.from(scope.querySelectorAll('textarea.rich:not(.ck-ready)'));
-    const promises = areas.map(el =>
-      ClassicEditor.create(el, {
-        toolbar: [
-          'undo','redo','|','bold','italic','underline','|',
-          'bulletedList','numberedList','outdent','indent','|',
-          'link','insertTable'
-        ]
-      }).then(editor => {
-        editors.set(el, editor);
+    return Promise.all(areas.map(el =>
+      ClassicEditor.create(el,{
+        toolbar:['undo','redo','|','bold','italic','underline','|','bulletedList','numberedList','outdent','indent','|','link','insertTable']
+      }).then(ed=>{
+        editors.set(el,ed);
         el.classList.add('ck-ready');
-        // Auto-save ketika ada perubahan
-        editor.model.document.on('change:data', debounce(scheduleSave, 800));
+        ed.model.document.on('change:data', debounce(scheduleSave,800));
       })
-    );
-    return Promise.all(promises);
+    ));
   }
-
   function destroyEditorsInside(node){
-    node.querySelectorAll('textarea.rich.ck-ready').forEach(el => {
-      const inst = editors.get(el);
-      if (inst) { inst.destroy().catch(()=>{}); editors.delete(el); }
+    node.querySelectorAll('textarea.rich.ck-ready').forEach(el=>{
+      const inst=editors.get(el);
+      if(inst){ inst.destroy().catch(()=>{}); editors.delete(el); }
       el.classList.remove('ck-ready');
     });
   }
 
-  // ========= Draft (collect / save / restore) =========
+  // ====== Draft ======
   function collectDraft(){
-    const rows = [];
-    document.querySelectorAll('#tabel-detail tbody tr').forEach((tr, i) => {
+    const rows=[];
+    document.querySelectorAll('#tabel-detail tbody tr').forEach((tr,i)=>{
       const hasilEl = tr.querySelector(`textarea[name="baris[${i}][hasil_pembahasan]"]`);
       const rekomEl = tr.querySelector(`textarea[name="baris[${i}][rekomendasi]"]`);
-      const pjEl    = tr.querySelector(`input[name="baris[${i}][penanggung_jawab]"]`);
+      const pjTxtEl = tr.querySelector(`input[name="baris[${i}][penanggung_jawab]"]`);
+      const pjSelEl = $(tr).find(`select[name="baris\\[${i}\\]\\[pj_ids\\]\\[\\]"]`);
       const tglEl   = tr.querySelector(`input[name="baris[${i}][tgl_penyelesaian]"]`);
 
-      const hasil = hasilEl && editors.get(hasilEl) ? editors.get(hasilEl).getData() : (hasilEl?.value || '');
-      const rekom = rekomEl && editors.get(rekomEl) ? editors.get(rekomEl).getData() : (rekomEl?.value || '');
-      const pj    = pjEl ? pjEl.value : '';
+      const hasil = hasilEl && editors.get(hasilEl) ? editors.get(hasilEl).getData() : (hasilEl?.value||'');
+      const rekom = rekomEl && editors.get(rekomEl) ? editors.get(rekomEl).getData() : (rekomEl?.value||'');
+      const pjTxt = pjTxtEl ? pjTxtEl.value : '';
+      const pjIds = pjSelEl.length ? (pjSelEl.val() || []) : [];
       const tgl   = tglEl ? tglEl.value : '';
 
-      rows.push({ hasil, rekom, pj, tgl });
+      rows.push({ hasil, rekom, pjTxt, pjIds, tgl });
     });
     return { rows };
   }
-
   function saveDraft(){
-    const payload = { ts: Date.now(), data: collectDraft() };
+    const payload={ ts: Date.now(), data: collectDraft() };
     localStorage.setItem(DRAFT_KEY, JSON.stringify(payload));
     showBar();
-    msg.textContent = `Draf tersimpan otomatis (${fmt(payload.ts)})`;
-    btnRestore.style.display = 'inline';
-    btnDiscard.style.display = 'inline';
+    draftMsg.textContent = `Draf tersimpan otomatis (${fmt(payload.ts)})`;
+    btnRestore.style.display='inline';
+    btnDiscard.style.display='inline';
   }
   const scheduleSave = debounce(saveDraft, 800);
 
   function clearDraft(){
     localStorage.removeItem(DRAFT_KEY);
-    msg.textContent = 'Draf dihapus.';
-    btnRestore.style.display = 'none';
-    btnDiscard.style.display = 'none';
+    draftMsg.textContent='Draf dihapus.';
+    btnRestore.style.display='none';
+    btnDiscard.style.display='none';
   }
 
   function applyDraft(data){
-    const tbody = document.querySelector('#tabel-detail tbody');
+    const tbody=document.querySelector('#tabel-detail tbody');
+    // kosongkan
+    [...tbody.querySelectorAll('tr')].forEach(tr=>{ destroyEditorsInside(tr); tr.remove(); });
 
-    // kosongkan & hancurkan editor lama
-    Array.from(tbody.querySelectorAll('tr')).forEach(tr => {
-      destroyEditorsInside(tr);
-      tr.remove();
-    });
-
-    // render baris dari draft
-    (data.rows || []).forEach((r, i) => {
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
+    // render ulang
+    (data.rows||[]).forEach((r,i)=>{
+      const tr=document.createElement('tr');
+      tr.innerHTML=`
         <td class="no"></td>
         <td><textarea name="baris[${i}][hasil_pembahasan]" class="form-control rich required-rich"></textarea></td>
         <td><textarea name="baris[${i}][rekomendasi]" class="form-control rich"></textarea></td>
-        <td><input type="text" name="baris[${i}][penanggung_jawab]" class="form-control" value="${escapeHtml(r.pj||'')}" placeholder="Kesekretariatan"></td>
+        <td>
+          <select name="baris[${i}][pj_ids][]" class="form-control js-user-tags" multiple data-placeholder="Pilih penanggung jawab"></select>
+          <input type="text" name="baris[${i}][penanggung_jawab]" class="form-control mt-1" value="${escapeHtml(r.pjTxt||'')}" placeholder="Catatan PJ (opsional)">
+        </td>
         <td><input type="date" name="baris[${i}][tgl_penyelesaian]" class="form-control" value="${escapeHtml(r.tgl||'')}"></td>
-        <td class="text-center"><button type="button" class="btn btn-danger btn-sm" onclick="hapusBaris(this)">Hapus</button></td>
-      `;
+        <td class="text-center"><button type="button" class="btn btn-danger btn-sm" onclick="hapusBaris(this)">Hapus</button></td>`;
       tbody.appendChild(tr);
     });
-
-    // jika draft kosong, buat 1 baris default
-    if (!(data.rows && data.rows.length)){
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
+    if(!(data.rows&&data.rows.length)){
+      const tr=document.createElement('tr');
+      tr.innerHTML=`
         <td class="no">1</td>
         <td><textarea name="baris[0][hasil_pembahasan]" class="form-control rich required-rich"></textarea></td>
         <td><textarea name="baris[0][rekomendasi]" class="form-control rich"></textarea></td>
-        <td><input type="text" name="baris[0][penanggung_jawab]" class="form-control" placeholder="Kesekretariatan"></td>
+        <td>
+          <select name="baris[0][pj_ids][]" class="form-control js-user-tags" multiple data-placeholder="Pilih penanggung jawab"></select>
+          <input type="text" name="baris[0][penanggung_jawab]" class="form-control mt-1" placeholder="Catatan PJ (opsional)">
+        </td>
         <td><input type="date" name="baris[0][tgl_penyelesaian]" class="form-control"></td>
-        <td class="text-center"><button type="button" class="btn btn-danger btn-sm" onclick="hapusBaris(this)">Hapus</button></td>
-      `;
+        <td class="text-center"><button type="button" class="btn btn-danger btn-sm" onclick="hapusBaris(this)">Hapus</button></td>`;
       tbody.appendChild(tr);
     }
 
-    // INIT editor lalu SET DATA ketika semua siap
-    initEditors(tbody).then(() => {
-      (data.rows || []).forEach((r, i) => {
+    // init CK + Select2 lalu set data
+    Promise.all([initEditors(tbody)]).then(()=>{
+      initUserTags(tbody);
+      // preload pilihan select2 berdasarkan pjIds
+      (data.rows||[]).forEach((r,i)=>{
+        const $sel = $(`select[name="baris[${i}][pj_ids][]"]`);
+        if($sel.length && r.pjIds && r.pjIds.length){
+          r.pjIds.forEach(id=>{
+            if(!$sel.find(`option[value="${id}"]`).length){
+              $sel.append(new Option(`User #${id}`, id, true, true));
+            }
+          });
+          $sel.val(r.pjIds).trigger('change');
+        }
         const hasil = document.querySelector(`textarea[name="baris[${i}][hasil_pembahasan]"]`);
         const rekom = document.querySelector(`textarea[name="baris[${i}][rekomendasi]"]`);
-        if (hasil && editors.get(hasil)) editors.get(hasil).setData(r.hasil || '');
-        if (rekom && editors.get(rekom)) editors.get(rekom).setData(r.rekom || '');
+        if(hasil && editors.get(hasil)) editors.get(hasil).setData(r.hasil||'');
+        if(rekom && editors.get(rekom)) editors.get(rekom).setData(r.rekom||'');
       });
       renumber();
-      msg.textContent = 'Draf dipulihkan.';
+      draftMsg.textContent='Draf dipulihkan.';
     });
   }
 
-  // ========= Row ops =========
   function renumber(){
-    const rows = document.querySelectorAll('#tabel-detail tbody tr');
-    rows.forEach((tr, i) => {
-      tr.querySelector('.no').textContent = i + 1;
-      tr.querySelectorAll('textarea, input').forEach(input => {
-        if (!input.name) return;
-        input.name = input.name.replace(/baris\[\d+\]/, 'baris[' + i + ']');
+    const rows=document.querySelectorAll('#tabel-detail tbody tr');
+    rows.forEach((tr,i)=>{
+      tr.querySelector('.no').textContent = i+1;
+      tr.querySelectorAll('textarea,input,select').forEach(inp=>{
+        if(!inp.name) return;
+        inp.name = inp.name.replace(/baris\[\d+\]/, 'baris['+i+']');
       });
     });
     idxBaris = rows.length;
   }
 
-  document.getElementById('btn-tambah-baris').addEventListener('click', () => {
-    const tbody = document.querySelector('#tabel-detail tbody');
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
+  document.getElementById('btn-tambah-baris').addEventListener('click',()=>{
+    const tbody=document.querySelector('#tabel-detail tbody');
+    const tr=document.createElement('tr');
+    tr.innerHTML=`
       <td class="no"></td>
       <td><textarea name="baris[${idxBaris}][hasil_pembahasan]" class="form-control rich required-rich"></textarea></td>
       <td><textarea name="baris[${idxBaris}][rekomendasi]" class="form-control rich"></textarea></td>
-      <td><input type="text" name="baris[${idxBaris}][penanggung_jawab]" class="form-control" placeholder="Kesekretariatan"></td>
+      <td>
+        <select name="baris[${idxBaris}][pj_ids][]" class="form-control js-user-tags" multiple data-placeholder="Pilih penanggung jawab"></select>
+        <input type="text" name="baris[${idxBaris}][penanggung_jawab]" class="form-control mt-1" placeholder="Catatan PJ (opsional)">
+      </td>
       <td><input type="date" name="baris[${idxBaris}][tgl_penyelesaian]" class="form-control"></td>
-      <td class="text-center"><button type="button" class="btn btn-danger btn-sm" onclick="hapusBaris(this)">Hapus</button></td>
-    `;
+      <td class="text-center"><button type="button" class="btn btn-danger btn-sm" onclick="hapusBaris(this)">Hapus</button></td>`;
     tbody.appendChild(tr);
-    initEditors(tr).then(() => {
-      // daftarkan change ke input biasa agar ikut auto-save
-      tr.querySelectorAll('input, textarea:not(.rich)').forEach(el => {
-        el.addEventListener('input', scheduleSave);
-        el.addEventListener('change', scheduleSave);
-      });
+    Promise.all([initEditors(tr)]).then(()=>{ initUserTags(tr); });
+    // autosave input biasa
+    tr.querySelectorAll('input, textarea:not(.rich), select').forEach(el=>{
+      el.addEventListener('input', scheduleSave);
+      el.addEventListener('change', scheduleSave);
     });
     renumber();
     scheduleSave();
   });
 
-  window.hapusBaris = function(btn){
-    const tr = btn.closest('tr');
+  window.hapusBaris=function(btn){
+    const tr=btn.closest('tr');
     destroyEditorsInside(tr);
     tr.remove();
     renumber();
     scheduleSave();
   }
 
-  // ========= Form submit =========
-  document.getElementById('form-notulensi').addEventListener('submit', function(e){
-    // flush data CKEditor ke textarea
-    editors.forEach((editor, el) => { el.value = editor.getData(); });
-
-    // validasi kolom wajib
-    let invalid = false;
-    this.querySelectorAll('textarea.required-rich').forEach(el => {
-      const html = (editors.get(el)?.getData() || '').replace(/<[^>]*>/g,'').trim();
-      if (!html) {
-        invalid = true;
-        const cell = el.closest('td');
-        if (cell) cell.style.boxShadow = 'inset 0 0 0 2px #dc3545';
-      }
+  // Submit: commit CK data & clear draft
+  document.getElementById('form-notulensi').addEventListener('submit',function(e){
+    editors.forEach((ed,el)=>{ el.value=ed.getData(); });
+    let invalid=false;
+    this.querySelectorAll('textarea.required-rich').forEach(el=>{
+      const html=(editors.get(el)?.getData()||'').replace(/<[^>]*>/g,'').trim();
+      if(!html){ invalid=true; const cell=el.closest('td'); if(cell) cell.style.boxShadow='inset 0 0 0 2px #dc3545'; }
     });
-    if (invalid){
+    if(invalid){
       e.preventDefault();
       alert('Mohon isi kolom "Hasil Monitoring & Evaluasi / Rangkaian Acara".');
       return false;
     }
-
-    // kalau submit, hapus draf agar tidak muncul lagi
-    clearDraft();
+    localStorage.removeItem(DRAFT_KEY);
   });
 
-  // ========= Init =========
-  document.addEventListener('DOMContentLoaded', () => {
-    // init editors pertama kali
-    initEditors().then(() => {
-      // daftarkan change input biasa
-      document.querySelectorAll('#tabel-detail input, #tabel-detail textarea:not(.rich)').forEach(el => {
+  // init awal
+  document.addEventListener('DOMContentLoaded',()=>{
+    Promise.all([initEditors()]).then(()=>{
+      initUserTags(document);
+      // autosave input biasa
+      document.querySelectorAll('#tabel-detail input, #tabel-detail textarea:not(.rich), #tabel-detail select').forEach(el=>{
         el.addEventListener('input', scheduleSave);
         el.addEventListener('change', scheduleSave);
       });
 
-      // tampilkan status autosave & opsi restore jika ada
       showBar();
-      msg.textContent = 'Auto-save aktif.';
-      const raw = localStorage.getItem(DRAFT_KEY);
-      if (raw){
+      draftMsg.textContent='Auto-save aktif.';
+      const raw=localStorage.getItem(DRAFT_KEY);
+      if(raw){
         try{
-          const parsed = JSON.parse(raw);
-          msg.textContent = `Draf tersimpan (${fmt(parsed.ts)})`;
-          btnRestore.style.display = 'inline';
-          btnDiscard.style.display = 'inline';
-          btnRestore.onclick = () => applyDraft(parsed.data || {});
-          btnDiscard.onclick = () => clearDraft();
-        }catch(e){
-          localStorage.removeItem(DRAFT_KEY);
-        }
+          const parsed=JSON.parse(raw);
+          draftMsg.textContent=`Draf tersimpan (${fmt(parsed.ts)})`;
+          btnRestore.style.display='inline';
+          btnDiscard.style.display='inline';
+          btnRestore.onclick=()=>applyDraft(parsed.data||{});
+          btnDiscard.onclick=()=>clearDraft();
+        }catch(e){ localStorage.removeItem(DRAFT_KEY); }
       }
     });
   });

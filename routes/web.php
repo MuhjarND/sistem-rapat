@@ -1,7 +1,9 @@
 <?php
 
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\UserLookupController;
 
 
 Route::get('/', function () {
@@ -16,6 +18,21 @@ Route::get('/home', 'HomeController@index')->name('home');
 
 //PUBLIK
 Route::get('/qr/verify', 'VerificationController@verify')->name('qr.verify');
+
+//HARUS LOGIN
+Route::get('/users/search', function(\Illuminate\Http\Request $r){
+    $q = trim($r->get('q',''));
+    return DB::table('users')
+        ->when($q, fn($qq)=>$qq->where('name','like',"%{$q}%"))
+        ->select('id','name','jabatan','unit')
+        ->orderBy('name')->limit(30)->get();
+})->name('users.search')->middleware('auth');
+
+
+Route::middleware(['auth'])->group(function () {
+    Route::get('/ajax/users/search', [UserLookupController::class, 'search'])
+         ->name('users.search');
+});
 
 
 //DASHBOARD
@@ -69,6 +86,8 @@ Route::middleware(['auth', 'cekrole:admin,notulis'])->group(function () {
     Route::put('notulensi/{id}',            'NotulensiController@update')->name('notulensi.update');
     Route::get('notulensi/{id}/cetak', 'NotulensiController@cetakGabung')->name('notulensi.cetak');
     Route::get('/notulensi/{id}/export', 'NotulensiController@exportPdf')->name('notulensi.export');
+    //tag user
+    Route::get('/users/search', 'UserController@search')->name('users.search');
 });
 
 // PESERTA
@@ -88,6 +107,11 @@ Route::middleware(['auth', 'cekrole:admin,peserta'])->group(function () {
     Route::get('/peserta/rapat/{id}', 'PesertaController@showRapat')->name('peserta.rapat.show');          // Detail Rapat
     Route::get('/peserta/rapat/{id}/absensi', 'PesertaController@absensi')->name('peserta.absensi');        // Konfirmasi (form isi)
     Route::get('/peserta/notulensi/{id}', 'PesertaController@showNotulensi')->name('peserta.notulensi.show'); // Lihat Notulensi
+
+    //tag tugas peserta
+    Route::put('/peserta/tugas/{id}', 'PesertaController@tugasUpdateStatus')->name('peserta.tugas.update');
+    Route::get('/peserta/tugas', 'PesertaController@tugasIndex')->name('peserta.tugas.index');
+    Route::put('/peserta/tugas/{id}', 'PesertaController@tugasUpdateStatus')->name('peserta.tugas.update');
 });
 
 Route::middleware(['auth', 'cekrole:approval'])->group(function () {

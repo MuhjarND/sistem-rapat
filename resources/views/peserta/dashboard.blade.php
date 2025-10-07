@@ -19,24 +19,37 @@
   .table-mini thead th{background:rgba(79,70,229,.12);border-top:none;border-bottom:1px solid var(--border);text-transform:uppercase;font-size:.75rem;letter-spacing:.3px;text-align:center}
   .table-mini td{vertical-align:middle}
   @media (min-width: 992px){ .gutter-tight>[class^="col-"]{padding-left:10px;padding-right:10px} }
+
+  /* badge chip agar konsisten */
+  .badge-chip{margin-left:.5rem}
+  .badge-chip.info{background:#162b44;border:1px solid #38bdf81a}
+
+  /* penanda item tugas */
+  .tg-item{border-left:4px solid transparent;border-radius:10px}
+  .tg-pending{border-left-color:#9ca3af}
 </style>
 @endpush
 
 @section('content')
 <div class="container-fluid p-0">
+
   {{-- ====== METRICS ====== --}}
   <div class="row gutter-tight">
     <div class="col-md-3 mb-3">
       <div class="card metric-card">
         <div class="card-body">
           <div class="metric-icon"><i class="fas fa-inbox"></i></div>
-          <div>
-            <p class="metric-val">{{ $stats['total_diundang'] ?? 0 }}</p>
-            <p class="metric-sub">Total Diundang
-              @if(($stats['upcoming_count'] ?? 0)>0)
-                <span class="badge badge-info ml-2">{{ $stats['upcoming_count'] }} upcoming</span>
-              @endif
-            </p>
+          <div class="d-flex align-items-center w-100">
+            <div>
+              <p class="metric-val">{{ $stats['total_diundang'] ?? 0 }}</p>
+              <p class="metric-sub mb-0">Total Diundang</p>
+            </div>
+            @if(($stats['upcoming_count'] ?? 0) > 0)
+              <span class="badge-chip info ml-auto">
+                {{ $stats['upcoming_count'] }}
+                <span class="hint">Akan Datang</span>
+              </span>
+            @endif
           </div>
         </div>
       </div>
@@ -55,10 +68,10 @@
     <div class="col-md-3 mb-3">
       <div class="card metric-card">
         <div class="card-body">
-          <div class="metric-icon"><i class="fas fa-user-clock"></i></div>
+          <div class="metric-icon"><i class="fas fa-clipboard-check"></i></div>
           <div>
-            <p class="metric-val">{{ $stats['izin'] ?? 0 }}</p>
-            <p class="metric-sub">Izin</p>
+            <p class="metric-val">{{ $stats['tugas_selesai'] ?? 0 }}</p>
+            <p class="metric-sub">Tugas Selesai</p>
           </div>
         </div>
       </div>
@@ -67,7 +80,7 @@
       <div class="card metric-card">
         <div class="card-body">
           <div class="metric-icon"><i class="fas fa-book-open"></i></div>
-          <div class="d-flex align-items-center">
+          <div class="d-flex align-items-center w-100">
             <div>
               <p class="metric-val">{{ $stats['notulensi_tersedia'] ?? 0 }}</p>
               <p class="metric-sub mb-0">Notulensi Tersedia</p>
@@ -75,6 +88,46 @@
             <a href="{{ route('peserta.rapat') }}#notulensi"
                class="btn btn-sm btn-outline-light ml-auto">Lihat</a>
           </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+    {{-- ====== (BARU) Daftar Tugas yang Harus Diselesaikan ====== --}}
+  @php
+    $tugasPending = ($tugas_saya ?? collect())->filter(fn($t)=> ($t->status ?? 'pending') === 'pending');
+    $pendingCount = $tugasPending->count();
+  @endphp
+  <div class="row gutter-tight">
+    <div class="col-12 mb-3">
+      <div class="card dash-card">
+        <div class="card-header d-flex align-items-center">
+          <i class="fas fa-tasks mr-2"></i> Tugas yang Harus Diselesaikan
+          <span class="badge-chip info ml-auto">{{ $pendingCount }} <span class="hint">Pending</span></span>
+          <a href="{{ route('peserta.tugas.index') }}" class="btn btn-sm btn-outline-light ml-2">Lihat Semua</a>
+        </div>
+        <div class="card-body p-0">
+          @if($pendingCount > 0)
+            <ul class="list-group list-group-flush">
+              @foreach($tugasPending->sortBy('tgl_penyelesaian')->take(5) as $t)
+                @php
+                  $due = $t->tgl_penyelesaian ? \Carbon\Carbon::parse($t->tgl_penyelesaian) : null;
+                @endphp
+                <li class="list-item tg-item tg-pending d-flex align-items-center">
+                  <div class="flex-fill">
+                    <div class="title">{{ $t->rapat_judul }}</div>
+                    <small class="d-flex align-items-center" style="gap:.5rem">
+                      {{ $due ? $due->isoFormat('D MMM Y') : '—' }} •
+                      <span class="badge badge-secondary">Pending</span>
+                    </small>
+                  </div>
+                  <a href="{{ route('peserta.rapat.show', $t->id_rapat) }}" class="btn btn-sm btn-outline-light ml-2">Detail</a>
+                </li>
+              @endforeach
+            </ul>
+          @else
+            <div class="p-3 text-muted">Tidak ada tugas yang perlu diselesaikan.</div>
+          @endif
         </div>
       </div>
     </div>
@@ -117,8 +170,11 @@
       <div class="card dash-card h-100">
         <div class="card-header d-flex align-items-center">
           <i class="fas fa-check-circle mr-2"></i> Absensi Perlu Konfirmasi
-          @if(($absensi_pending->count() ?? 0)>0)
-            <span class="badge badge-danger ml-2">{{ $absensi_pending->count() }}</span>
+          @php $pendingCt = ($absensi_pending->count() ?? 0); @endphp
+          @if($pendingCt>0)
+            <span class="badge-chip warn ml-auto">
+              {{ $pendingCt }} <span class="hint">Pending</span>
+            </span>
           @endif
         </div>
         <div class="card-body p-0">
@@ -132,7 +188,6 @@
                   • {{ $r->waktu_mulai }} WIT • {{ $r->tempat }}
                 </small>
               </div>
-              {{-- Arahkan ke scan token; fallback ke form peserta bila token_qr kosong --}}
               <a href="{{ $r->token_qr ? route('absensi.scan', $r->token_qr) : route('peserta.absensi', $r->id) }}"
                  class="btn btn-sm btn-outline-light">Konfirmasi</a>
             </div>
@@ -185,7 +240,7 @@
           <table class="table table-mini table-hover mb-0">
             <thead>
               <tr>
-                <th>Judul</th>  
+                <th>Judul</th>
                 <th class="text-center">Absensi</th>
                 <th class="text-center">Notulensi</th>
               </tr>
@@ -220,4 +275,31 @@
     </div>
   </div>
 </div>
+
+{{-- AJAX auto-save status tugas (biarkan default) --}}
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+  document.querySelectorAll('.btn-submit-fallback').forEach(b => b.style.display = 'none');
+  document.querySelectorAll('.frm-update-status').forEach(frm => {
+    const sel = frm.querySelector('.sel-status');
+    if (!sel) return;
+    sel.addEventListener('change', function(){
+      const formData = new FormData(frm);
+      fetch(frm.action, {
+        method: 'POST',
+        headers: { 'X-Requested-With':'XMLHttpRequest', 'X-CSRF-TOKEN': formData.get('_token') },
+        body: new URLSearchParams([...formData, ['_method','PUT']])
+      })
+      .then(async r => {
+        const ct = r.headers.get('content-type') || '';
+        if (!ct.includes('application/json')) { frm.submit(); return; }
+        const res = await r.json();
+        if (!r.ok) throw res;
+        console.log(res.message || 'Status tugas diperbarui');
+      })
+      .catch(() => frm.submit());
+    });
+  });
+});
+</script>
 @endsection

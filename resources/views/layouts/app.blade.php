@@ -260,6 +260,7 @@
                     {{-- =================== SIDEBAR KHUSUS PESERTA =================== --}}
                     @php
                         $userId = Auth::id();
+
                         $absensiPendingCount = \DB::table('undangan')
                             ->join('rapat','undangan.id_rapat','=','rapat.id')
                             ->leftJoin('absensi', function($q) use ($userId){
@@ -275,68 +276,39 @@
                             ->where('undangan.id_user',$userId)
                             ->whereDate('rapat.tanggal','>=', now()->toDateString())
                             ->count();
+
+                        // jumlah tugas yang harus diselesaikan (pending)
+                        $tugasPendingCount = \DB::table('notulensi_tugas')
+                            ->where('user_id', $userId)
+                            ->where('status', 'pending')
+                            ->count();
                     @endphp
 
                     <nav class="nav flex-column">
                         <a class="nav-link {{ request()->routeIs('peserta.dashboard') ? 'active' : '' }}"
-                           href="{{ route('peserta.dashboard') }}">
+                        href="{{ route('peserta.dashboard') }}">
                             <i class="fas fa-chart-pie"></i> Dashboard
                             @if($absensiPendingCount>0)
-                              <span class="badge-chip warn">{{ $absensiPendingCount }} <span class="sr-only">Pending</span></span>
+                            <span class="badge-chip warn" title="Absensi pending">{{ $absensiPendingCount }}</span>
                             @endif
                         </a>
 
                         <a class="nav-link d-flex align-items-center {{ request()->routeIs('peserta.rapat') ? 'active' : '' }}"
-                           href="{{ route('peserta.rapat') }}">
+                        href="{{ route('peserta.rapat') }}">
                             <i class="fas fa-calendar-alt"></i> Rapat
                             @if($upcomingCount>0)
-                              <span class="badge-chip info">{{ $upcomingCount }}</span>
+                            <span class="badge-chip info" title="Rapat akan datang">{{ $upcomingCount }}</span>
                             @endif
                         </a>
-                    </nav>
 
-                @elseif($isNotulis)
-                    {{-- =================== SIDEBAR KHUSUS NOTULENSI =================== --}}
-                    @php
-                        $openNotu = request()->routeIs('notulensi.*') || request()->is('notulensi*');
-                        $countBelum = \DB::table('rapat')
-                                        ->leftJoin('notulensi','notulensi.id_rapat','=','rapat.id')
-                                        ->whereNull('notulensi.id')->count();
-                        $countSudah = \DB::table('rapat')
-                                        ->join('notulensi','notulensi.id_rapat','=','rapat.id')
-                                        ->count();
-                    @endphp
-
-                    <nav class="nav flex-column">
-                        <a class="nav-link {{ request()->routeIs('notulensi.dashboard') ? 'active' : '' }}"
-                           href="{{ route('notulensi.dashboard') }}">
-                            <i class="fas fa-tachometer-alt"></i> Dashboard
+                        {{-- TAB: Tugas Saya (dengan notif pending) --}}
+                        <a class="nav-link d-flex align-items-center {{ request()->routeIs('peserta.tugas.*') ? 'active' : '' }}"
+                        href="{{ route('peserta.tugas.index') }}">
+                            <i class="fas fa-tasks"></i> Tugas Saya
+                            @if($tugasPendingCount>0)
+                            <span class="badge-chip warning" title="Tugas perlu diselesaikan">{{ $tugasPendingCount }}</span>
+                            @endif
                         </a>
-
-                        <a class="nav-link d-flex align-items-center {{ $openNotu ? '' : 'collapsed' }}"
-                           data-toggle="collapse" href="#menuNotu" role="button"
-                           aria-expanded="{{ $openNotu ? 'true' : 'false' }}" aria-controls="menuNotu">
-                            <i class="fas fa-book-open"></i> Notulensi
-                            <i class="ml-auto fas fa-angle-down"></i>
-                        </a>
-                        <div class="collapse {{ $openNotu ? 'show' : '' }}" id="menuNotu">
-                            <div class="nav flex-column submenu">
-                                <a class="nav-link d-flex justify-content-between align-items-center {{ request()->routeIs('notulensi.belum') ? 'active' : '' }}"
-                                   href="{{ route('notulensi.belum') }}">
-                                    <span class="d-inline-flex align-items-center">
-                                      <i class="fas fa-times-circle mr-2"></i> Belum Ada
-                                    </span>
-                                    @if($countBelum>0) <span class="badge-chip">{{ $countBelum }}</span> @endif
-                                </a>
-                                <a class="nav-link d-flex justify-content-between align-items-center {{ request()->routeIs('notulensi.sudah') ? 'active' : '' }}"
-                                   href="{{ route('notulensi.sudah') }}">
-                                    <span class="d-inline-flex align-items-center">
-                                      <i class="fas fa-check-circle mr-2"></i> Sudah Ada
-                                    </span>
-                                    @if($countSudah>0) <span class="badge-chip success">{{ $countSudah }}</span> @endif
-                                </a>
-                            </div>
-                        </div>
                     </nav>
 
                 @else

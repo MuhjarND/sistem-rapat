@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Route; // cek nama route
+use Illuminate\Support\Facades\Route;
 use Carbon\Carbon;
 
 class PesertaController extends Controller
@@ -15,12 +15,12 @@ class PesertaController extends Controller
      */
     public function dashboard()
     {
-        $userId = Auth::id();
-        $today  = now()->toDateString();
-        $nowTime = now()->format('H:i:s'); // <<< tambah: waktu saat ini (HH:MM:SS)
-        $limit  = 8;
+        $userId  = Auth::id();
+        $today   = now()->toDateString();
+        $nowTime = now()->format('H:i:s');
+        $limit   = 8;
 
-        // ===== Stats
+        // ===== Ringkasan statistik
         $stats = [
             'total_diundang' => DB::table('undangan')->where('id_user', $userId)->count(),
 
@@ -35,9 +35,9 @@ class PesertaController extends Controller
                 ->where('status','hadir')
                 ->count(),
 
-            'izin'  => DB::table('absensi')
-                ->where('id_user',$userId)
-                ->where('status','izin')
+            'tugas_selesai' => DB::table('notulensi_tugas')
+                ->where('user_id', $userId)
+                ->where('status', 'done')
                 ->count(),
 
             'notulensi_tersedia' => DB::table('undangan')
@@ -46,9 +46,7 @@ class PesertaController extends Controller
                 ->count(),
         ];
 
-        // ===== Rapat terdekat (>= SEKARANG)
-        // - Besok dst: ambil semua
-        // - Hari ini: hanya yang jam mulai >= sekarang
+        // ===== Rapat terdekat (yang belum lewat sekarang)
         $rapat_terdekat = DB::table('undangan')
             ->join('rapat','undangan.id_rapat','=','rapat.id')
             ->where('undangan.id_user', $userId)
@@ -80,7 +78,7 @@ class PesertaController extends Controller
             ->limit(10)
             ->get();
 
-        // ===== Rapat akan datang (7 hari ke depan termasuk hari ini)
+        // ===== Rapat akan datang (7 hari, termasuk hari ini)
         $end7 = now()->addDays(7)->toDateString();
         $rapat_akan_datang = DB::table('undangan')
             ->join('rapat','undangan.id_rapat','=','rapat.id')
@@ -91,7 +89,7 @@ class PesertaController extends Controller
             ->orderBy('rapat.waktu_mulai')
             ->get();
 
-        // ===== Riwayat rapat terbaru
+        // ===== Riwayat rapat terbaru (dengan status absensi & ketersediaan notulensi)
         $riwayat_rapat = DB::table('undangan')
             ->join('rapat','undangan.id_rapat','=','rapat.id')
             ->leftJoin('absensi', function($q) use ($userId){
@@ -112,12 +110,37 @@ class PesertaController extends Controller
             ->limit($limit)
             ->get();
 
+        // ===== Tugas Notulensi Saya (dari penandaan user pada notulensi_detail)
+        $tugas_saya = DB::table('notulensi_tugas as t')
+            ->join('notulensi_detail as d','d.id','=','t.id_notulensi_detail') // <- perbaiki nama kolom FK
+            ->join('notulensi as n','n.id','=','d.id_notulensi')
+            ->join('rapat as r','r.id','=','n.id_rapat')
+            ->where('t.user_id', $userId)
+            ->select(
+                't.id',
+                't.status',
+                DB::raw("CASE WHEN t.status = 'done' THEN 1 ELSE 0 END AS is_done"), // <- alias agar view lama aman
+                'd.id as notulensi_detail_id',
+                'd.hasil_pembahasan',
+                'd.rekomendasi',
+                'd.tgl_penyelesaian',
+                'r.id as id_rapat',
+                'r.judul as rapat_judul',
+                'r.tanggal as rapat_tanggal',
+                'r.waktu_mulai as rapat_waktu_mulai',
+                'r.tempat as rapat_tempat'
+            )
+            ->orderByRaw('COALESCE(d.tgl_penyelesaian, r.tanggal) asc')
+            ->limit(10)
+            ->get();
+
         return view('peserta.dashboard', compact(
             'stats',
             'rapat_terdekat',
             'absensi_pending',
             'rapat_akan_datang',
-            'riwayat_rapat'
+            'riwayat_rapat',
+            'tugas_saya'
         ));
     }
 
@@ -209,12 +232,14 @@ class PesertaController extends Controller
 
         if (!$rapat) abort(404);
 
+        // pastikan user memang diundang
         $diundang = DB::table('undangan')
             ->where('id_rapat',$id)
             ->where('id_user',Auth::id())
             ->exists();
         if (!$diundang) abort(403, 'Anda tidak terdaftar pada rapat ini.');
 
+        // daftar penerima undangan
         $penerima = DB::table('undangan')
             ->join('users','undangan.id_user','=','users.id')
             ->where('undangan.id_rapat',$id)
@@ -222,10 +247,11 @@ class PesertaController extends Controller
             ->orderBy('users.name')
             ->get();
 
+        // cek notulensi (untuk tombol "Lihat Notulensi")
         $notulensi = DB::table('notulensi')->where('id_rapat',$id)->first();
         $notulensi_id = $notulensi->id ?? null;
 
-        // URL PDF undangan untuk inline preview (controller undanganPdf)
+        // URL PDF undangan untuk inline preview (fallback beberapa nama route)
         $undangan_pdf_url = null;
         if (Route::has('rapat.undangan.pdf')) {
             $undangan_pdf_url = route('rapat.undangan.pdf', $id);
@@ -280,4 +306,123 @@ class PesertaController extends Controller
 
         return view('peserta.notulensi.show', compact('rapat','notulensi','detail'));
     }
+
+    public function tugasUpdateStatus(Request $request, $id)
+{
+    $request->validate([
+        'status' => 'required|in:pending,in_progress,done',
+    ]);
+
+    $userId = Auth::id();
+
+    // pastikan tugas milik user yang login
+    $tugas = DB::table('notulensi_tugas')
+        ->where('id', $id)
+        ->where('user_id', $userId)
+        ->first();
+
+    if (!$tugas) {
+        if ($request->expectsJson()) {
+            return response()->json(['message' => 'Tugas tidak ditemukan / bukan milik Anda'], 404);
+        }
+        abort(404);
+    }
+
+    DB::table('notulensi_tugas')
+        ->where('id', $id)
+        ->update([
+            'status'     => $request->status,
+            'updated_at' => now(),
+        ]);
+
+    if ($request->expectsJson()) {
+        return response()->json([
+            'message' => 'Status tugas diperbarui.',
+            'status'  => $request->status,
+        ]);
+    }
+
+    return back()->with('success', 'Status tugas berhasil diperbarui.');
+}
+
+public function tugasIndex(Request $request)
+{
+    $userId = Auth::id();
+
+    // filters
+    $status = $request->get('status');                   // pending|in_progress|done
+    $q      = trim((string) $request->get('q', ''));     // keyword di uraian/rekomendasi/judul rapat
+    $from   = $request->get('from');                     // yyyy-mm-dd
+    $to     = $request->get('to');                       // yyyy-mm-dd
+    $rapat  = $request->get('rapat');                    // id rapat
+
+    $base = DB::table('notulensi_tugas as t')
+        ->join('notulensi_detail as d', 'd.id', '=', 't.id_notulensi_detail')
+        ->join('notulensi as n', 'n.id', '=', 'd.id_notulensi')
+        ->join('rapat as r', 'r.id', '=', 'n.id_rapat')
+        ->where('t.user_id', $userId);
+
+    // ringkasan hitung cepat
+    $summary = [
+        'total'       => (clone $base)->count(),
+        'pending'     => (clone $base)->where('t.status', 'pending')->count(),
+        'in_progress' => (clone $base)->where('t.status', 'in_progress')->count(),
+        'done'        => (clone $base)->where('t.status', 'done')->count(),
+        'overdue'     => (clone $base)
+                            ->whereIn('t.status', ['pending','in_progress'])
+                            ->whereNotNull('d.tgl_penyelesaian')
+                            ->whereDate('d.tgl_penyelesaian','<', now()->toDateString())
+                            ->count(),
+    ];
+
+    // query daftar (baru)
+    $qList = DB::table('notulensi_tugas as t')
+        ->join('notulensi_detail as d', 'd.id', '=', 't.id_notulensi_detail')
+        ->join('notulensi as n', 'n.id', '=', 'd.id_notulensi')
+        ->join('rapat as r', 'r.id', '=', 'n.id_rapat')
+        ->where('t.user_id', $userId)
+        ->select(
+            't.id',
+            't.status',
+            'd.hasil_pembahasan',
+            'd.rekomendasi',
+            'd.tgl_penyelesaian',
+            'r.id as id_rapat',
+            'r.judul as rapat_judul',
+            'r.tanggal as rapat_tanggal',
+            'r.waktu_mulai as rapat_waktu_mulai',
+            'r.tempat as rapat_tempat'
+        );
+
+    if ($status) {
+        $qList->where('t.status', $status);
+    }
+    if ($q !== '') {
+        $qList->where(function($qq) use ($q){
+            $qq->where('d.hasil_pembahasan','like',"%{$q}%")
+               ->orWhere('d.rekomendasi','like',"%{$q}%")
+               ->orWhere('r.judul','like',"%{$q}%");
+        });
+    }
+    if ($from) $qList->whereDate('d.tgl_penyelesaian','>=',$from);
+    if ($to)   $qList->whereDate('d.tgl_penyelesaian','<=',$to);
+    if ($rapat) $qList->where('r.id', $rapat);
+
+    // urutkan: yang belum selesai dulu, lalu yang paling dekat jatuh tempo
+    $tugas = $qList
+        ->orderByRaw("CASE WHEN t.status!='done' THEN 0 ELSE 1 END ASC")
+        ->orderByRaw('COALESCE(d.tgl_penyelesaian, r.tanggal) asc')
+        ->paginate(12)
+        ->appends($request->query());
+
+    return view('peserta.tugas.index', [
+        'tugas'   => $tugas,
+        'summary' => $summary,
+        'filter'  => [
+            'q' => $q, 'status' => $status, 'from' => $from, 'to' => $to, 'rapat' => $rapat,
+        ],
+    ]);
+}
+
+
 }

@@ -4,15 +4,13 @@
 @section('style')
 <style>
   /* ====== INPUTS & FORM THEME ====== */
-  .form-control,
-  .custom-select{
+  .form-control,.custom-select{
     background: rgba(255,255,255,.06);
     border: 1px solid var(--border);
     color: var(--text);
     border-radius: 10px;
   }
-  .form-control:focus,
-  .custom-select:focus{
+  .form-control:focus,.custom-select:focus{
     background: rgba(255,255,255,.08);
     border-color: rgba(79,70,229,.55);
     box-shadow: 0 0 0 .15rem rgba(79,70,229,.25);
@@ -37,27 +35,11 @@
   #tabel-detail .no{ text-align:center; font-weight:700; }
 
   /* ====== CKEditor DARK ====== */
-  .ck.ck-editor{
-    border-radius: 12px;
-    border: 1px solid var(--border);
-    background: #0f1533;
-    box-shadow: var(--shadow);
-  }
-  .ck.ck-editor .ck.ck-toolbar{
-    background: linear-gradient(180deg, rgba(17,24,39,.85), rgba(17,24,39,.65));
-    border-bottom: 1px solid var(--border);
-  }
+  .ck.ck-editor{ border-radius: 12px; border: 1px solid var(--border); background: #0f1533; box-shadow: var(--shadow); }
+  .ck.ck-editor .ck.ck-toolbar{ background: linear-gradient(180deg, rgba(17,24,39,.85), rgba(17,24,39,.65)); border-bottom: 1px solid var(--border); }
   .ck.ck-editor .ck.ck-toolbar .ck-button{ color: var(--text); }
-  .ck.ck-editor .ck.ck-toolbar .ck-button:hover{
-    background: rgba(79,70,229,.18);
-    color:#fff;
-    border-radius: 8px;
-  }
-  .ck.ck-editor__editable_inline{
-    background: #0d1330;
-    color: var(--text);
-    min-height: 160px;
-  }
+  .ck.ck-editor .ck.ck-toolbar .ck-button:hover{ background: rgba(79,70,229,.18); color:#fff; border-radius: 8px; }
+  .ck.ck-editor__editable_inline{ background: #0d1330; color: var(--text); min-height: 160px; }
   .ck-content a{ color:#93c5fd; }
 
   .btn-sm{ border-radius: 8px; padding:.25rem .55rem; font-weight:600; }
@@ -69,6 +51,21 @@
     box-shadow: var(--shadow);
     color: var(--text);
   }
+
+  /* ====== Select2 (dark) ====== */
+  .select2-container--default .select2-selection--multiple{
+    background:rgba(255,255,255,.06);
+    border:1px solid var(--border);
+    min-height:38px;
+    border-radius:10px
+  }
+  .select2-container--default .select2-selection--multiple .select2-selection__choice{
+    background:rgba(79,70,229,.25);
+    border:1px solid rgba(79,70,229,.4);
+    color:#fff;border-radius:999px
+  }
+  .select2-dropdown{background:#0f1533;color:#fff;border:1px solid var(--border)}
+  .select2-results__option--highlighted{background:rgba(79,70,229,.45)!important}
 </style>
 @endsection
 
@@ -85,7 +82,7 @@
     Kode Dokumen: <strong>FM/AM/04/01</strong>
   </div>
 
-  {{-- INFO RAPAT (readonly) --}}
+  {{-- INFO RAPAT --}}
   <div class="card mb-3">
     <div class="card-header"><b>Informasi Rapat</b></div>
     <div class="card-body">
@@ -141,15 +138,22 @@
                 <th style="width:60px">NO</th>
                 <th>HASIL MONITORING & EVALUASI / RANGKAIAN ACARA</th>
                 <th style="width:25%;">REKOMENDASI TINDAK LANJUT</th>
-                <th style="width:16%;">PENANGGUNG JAWAB</th>
+                <th style="width:22%;">PENANGGUNG JAWAB (Tag User)</th>
                 <th style="width:16%;">TGL. PENYELESAIAN</th>
                 <th style="width:90px;">AKSI</th>
               </tr>
             </thead>
             <tbody>
-            @php $countDetail = count($detail); @endphp
+            @php
+              $countDetail = count($detail);
+              $assigneesMap = $assigneesMap ?? []; // [detail_id => [ {id,text}, ... ]]
+            @endphp
 
             @forelse($detail as $i => $row)
+              @php
+                $initAssignees = $assigneesMap[$row->id] ?? []; // array of {id,text}
+                $initIds = collect($initAssignees)->pluck('id')->all();
+              @endphp
               <tr>
                 <td class="no">{{ $loop->iteration }}</td>
                 <td>
@@ -159,7 +163,16 @@
                   <textarea name="baris[{{ $i }}][rekomendasi]" class="form-control rich">{!! $row->rekomendasi !!}</textarea>
                 </td>
                 <td>
-                  <input type="text" name="baris[{{ $i }}][penanggung_jawab]" class="form-control" value="{{ $row->penanggung_jawab }}">
+                  {{-- Select2 multiple + preload --}}
+                  <select name="baris[{{ $i }}][pj_ids][]" class="form-control js-user-tags"
+                          multiple data-placeholder="Pilih penanggung jawab"
+                          data-initial='@json($initAssignees)'></select>
+
+                  {{-- Catatan/teks PJ opsional (tetap dipertahankan) --}}
+                  <input type="text" name="baris[{{ $i }}][penanggung_jawab]"
+                         class="form-control mt-1"
+                         value="{{ $row->penanggung_jawab }}"
+                         placeholder="Catatan PJ (opsional)">
                 </td>
                 <td>
                   <input type="date" name="baris[{{ $i }}][tgl_penyelesaian]" class="form-control" value="{{ $row->tgl_penyelesaian }}">
@@ -174,7 +187,10 @@
                 <td class="no">1</td>
                 <td><textarea name="baris[0][hasil_pembahasan]" class="form-control rich required-rich"></textarea></td>
                 <td><textarea name="baris[0][rekomendasi]" class="form-control rich"></textarea></td>
-                <td><input type="text" name="baris[0][penanggung_jawab]" class="form-control" placeholder="Kesekretariatan"></td>
+                <td>
+                  <select name="baris[0][pj_ids][]" class="form-control js-user-tags" multiple data-placeholder="Pilih penanggung jawab"></select>
+                  <input type="text" name="baris[0][penanggung_jawab]" class="form-control mt-1" placeholder="Catatan PJ (opsional)">
+                </td>
                 <td><input type="date" name="baris[0][tgl_penyelesaian]" class="form-control"></td>
                 <td class="text-center"><button type="button" class="btn btn-danger btn-sm" onclick="hapusBaris(this)">Hapus</button></td>
               </tr>
@@ -230,57 +246,97 @@
 <script src="https://cdn.ckeditor.com/ckeditor5/41.2.0/classic/ckeditor.js"></script>
 <script>
 (function(){
-  let idxBaris = {{ max(1, $countDetail) }};  // index baris berikutnya
+  let idxBaris = {{ max(1, $countDetail) }};
   const editors = new Map();
 
-  function initEditors(scope = document){
-    scope.querySelectorAll('textarea.rich:not(.ck-ready)').forEach(el => {
-      ClassicEditor.create(el, {
-        toolbar: [
-          'undo','redo','|','bold','italic','underline','|',
-          'bulletedList','numberedList','outdent','indent','|',
-          'link','insertTable'
-        ]
-      }).then(editor => {
-        editors.set(el, editor);
+  /* ========== CKEditor init ========== */
+  function initEditors(scope=document){
+    scope.querySelectorAll('textarea.rich:not(.ck-ready)').forEach(el=>{
+      ClassicEditor.create(el,{
+        toolbar:['undo','redo','|','bold','italic','underline','|','bulletedList','numberedList','outdent','indent','|','link','insertTable']
+      }).then(ed=>{
+        editors.set(el, ed);
         el.classList.add('ck-ready');
       }).catch(console.error);
     });
   }
-
   function destroyEditorsInside(node){
-    node.querySelectorAll('textarea.rich.ck-ready').forEach(el => {
+    node.querySelectorAll('textarea.rich.ck-ready').forEach(el=>{
       const inst = editors.get(el);
-      if (inst) { inst.destroy().catch(()=>{}); editors.delete(el); }
+      if(inst){ inst.destroy().catch(()=>{}); editors.delete(el); }
       el.classList.remove('ck-ready');
     });
   }
 
+  /* ========== Select2 (AJAX tag user) ========== */
+  const USER_SEARCH_URL = @json(route('users.search'));
+  function initUserTags(scope=document){
+    $(scope).find('.js-user-tags').each(function(){
+      const $el = $(this);
+      $el.select2({
+        width:'100%',
+        ajax:{
+          url: USER_SEARCH_URL,
+          dataType:'json',
+          delay:220,
+          cache:true,
+          data: params => ({ q: params.term || '' }),
+          processResults: data => ({ results: data }),
+          transport: function (params, success, failure) {
+            const req = $.ajax(params);
+            req.then(success);
+            req.fail(function(xhr){
+              if (xhr.status === 401) { alert('Sesi berakhir. Silakan login ulang.'); location.reload(); return failure(); }
+              if (xhr.status === 419) { alert('Sesi kedaluwarsa (419). Muat ulang halaman.'); return failure(); }
+              failure();
+            });
+            return req;
+          }
+        }
+      });
+
+      // Preload nilai awal dari data-initial (array of {id,text})
+      const init = $el.data('initial') || [];
+      if (Array.isArray(init) && init.length){
+        init.forEach(function(opt){
+          if(!$el.find('option[value="'+opt.id+'"]').length){
+            $el.append(new Option(opt.text || ('User #'+opt.id), opt.id, true, true));
+          }
+        });
+        $el.trigger('change');
+      }
+    });
+  }
+
+  /* ========== Helpers tabel ========== */
   function renumber(){
     const rows = document.querySelectorAll('#tabel-detail tbody tr');
-    rows.forEach((tr, i) => {
-      tr.querySelector('.no').textContent = i + 1;
-      tr.querySelectorAll('textarea, input').forEach(input => {
-        if (!input.name) return;
-        input.name = input.name.replace(/baris\[\d+\]/, 'baris[' + i + ']');
+    rows.forEach((tr,i)=>{
+      tr.querySelector('.no').textContent = i+1;
+      tr.querySelectorAll('textarea,input,select').forEach(inp=>{
+        if(!inp.name) return;
+        inp.name = inp.name.replace(/baris\[\d+\]/, 'baris['+i+']');
       });
     });
     idxBaris = rows.length;
   }
 
-  document.getElementById('btn-tambah-baris').addEventListener('click', () => {
-    const tbody = document.querySelector('#tabel-detail tbody');
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
+  document.getElementById('btn-tambah-baris').addEventListener('click',()=>{
+    const tbody=document.querySelector('#tabel-detail tbody');
+    const tr=document.createElement('tr');
+    tr.innerHTML=`
       <td class="no"></td>
       <td><textarea name="baris[${idxBaris}][hasil_pembahasan]" class="form-control rich required-rich"></textarea></td>
       <td><textarea name="baris[${idxBaris}][rekomendasi]" class="form-control rich"></textarea></td>
-      <td><input type="text" name="baris[${idxBaris}][penanggung_jawab]" class="form-control" placeholder="Kesekretariatan"></td>
+      <td>
+        <select name="baris[${idxBaris}][pj_ids][]" class="form-control js-user-tags" multiple data-placeholder="Pilih penanggung jawab"></select>
+        <input type="text" name="baris[${idxBaris}][penanggung_jawab]" class="form-control mt-1" placeholder="Catatan PJ (opsional)">
+      </td>
       <td><input type="date" name="baris[${idxBaris}][tgl_penyelesaian]" class="form-control"></td>
-      <td class="text-center"><button type="button" class="btn btn-danger btn-sm" onclick="hapusBaris(this)">Hapus</button></td>
-    `;
+      <td class="text-center"><button type="button" class="btn btn-danger btn-sm" onclick="hapusBaris(this)">Hapus</button></td>`;
     tbody.appendChild(tr);
     initEditors(tr);
+    initUserTags(tr);
     renumber();
   });
 
@@ -291,28 +347,30 @@
     renumber();
   }
 
-  // sinkron editor -> textarea & validasi minimal
-  document.getElementById('form-notulensi').addEventListener('submit', function(e){
-    editors.forEach((editor, el) => { el.value = editor.getData(); });
+  // Submit: commit CKEditor data
+  document.getElementById('form-notulensi').addEventListener('submit',function(e){
+    editors.forEach((ed,el)=>{ el.value = ed.getData(); });
 
-    let invalid = false;
-    this.querySelectorAll('textarea.required-rich').forEach(el => {
-      const plain = (editors.get(el)?.getData() || '').replace(/<[^>]*>/g,'').trim();
-      if (!plain) {
-        invalid = true;
-        const cell = el.closest('td');
-        if (cell) cell.style.boxShadow = 'inset 0 0 0 2px #dc3545';
+    // validasi minimal
+    let invalid=false;
+    this.querySelectorAll('textarea.required-rich').forEach(el=>{
+      const plain=(editors.get(el)?.getData()||'').replace(/<[^>]*>/g,'').trim();
+      if(!plain){
+        invalid=true;
+        const cell=el.closest('td'); if(cell) cell.style.boxShadow='inset 0 0 0 2px #dc3545';
       }
     });
-
-    if (invalid){
+    if(invalid){
       e.preventDefault();
-      alert('Mohon lengkapi kolom "Hasil Monitoring & Evaluasi / Rangkaian Acara" yang wajib diisi.');
-      return false;
+      alert('Mohon lengkapi kolom "Hasil Monitoring & Evaluasi / Rangkaian Acara".');
     }
   });
 
-  document.addEventListener('DOMContentLoaded', () => initEditors());
+  // init
+  document.addEventListener('DOMContentLoaded',()=>{
+    initEditors();
+    initUserTags(document);
+  });
 })();
 </script>
 @endsection
