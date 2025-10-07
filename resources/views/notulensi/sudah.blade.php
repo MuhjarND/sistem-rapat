@@ -81,12 +81,19 @@
             <th style="min-width:140px;">Kategori</th>
             <th style="min-width:200px;">Tgl &amp; Waktu</th>
             <th style="min-width:160px;">Tempat</th>
-            <th style="min-width:170px;">Pimpinan</th>
+            <th style="min-width:130px;">Jumlah Hadir</th>
             <th style="width:170px;">Aksi</th>
           </tr>
         </thead>
         <tbody>
           @forelse(($isPaginator ? $daftar : collect($daftar)) as $i => $r)
+            @php
+              // Hitung jumlah yang HADIR berdasarkan tabel absensi
+              $jumlahHadir = \DB::table('absensi')
+                  ->where('id_rapat', $r->id)
+                  ->where('status', 'hadir')
+                  ->count();
+            @endphp
             <tr>
               <td class="text-center">{{ $startNumber + $i }}</td>
 
@@ -106,11 +113,9 @@
 
               <td>{{ $r->tempat }}</td>
 
-              <td>
-                {{ $r->nama_pimpinan ?? '-' }}
-                @if(!empty($r->jabatan_pimpinan))
-                  <div class="text-muted" style="font-size:12px">{{ $r->jabatan_pimpinan }}</div>
-                @endif
+              {{-- Kolom baru: Jumlah Hadir --}}
+              <td class="text-center">
+                {{ $jumlahHadir }} <span class="text-muted" style="font-size:12px">Orang</span>
               </td>
 
               <td class="text-center">
@@ -127,7 +132,7 @@
                      data-toggle="tooltip" title="Edit Notulen">
                     <i class="fas fa-edit"></i>
                   </a>
-                  {{-- Cetak Gabung (opsional, aktifkan jika route tersedia) --}}
+                  {{-- Cetak Gabung (opsional) --}}
                   @if(Route::has('notulensi.cetak.gabung'))
                   <a href="{{ route('notulensi.cetak.gabung', $r->id_notulensi) }}"
                      target="_blank"
