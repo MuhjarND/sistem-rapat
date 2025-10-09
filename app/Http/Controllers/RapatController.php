@@ -239,24 +239,6 @@ class RapatController extends Controller
             ]);
 
             $peserta = DB::table('users')->where('id', $id_peserta)->first();
-
-            if ($peserta && $peserta->no_hp) {
-                $wa = preg_replace('/^0/', '62', $peserta->no_hp);
-
-                $message = "Assalamualaikum wr. wb.\n\n"
-                    . "*[Undangan Rapat]*\n"
-                    . "Halo {$peserta->name},\n"
-                    . "Anda diundang pada rapat: _{$rapat->judul}_\n"
-                    . "Tanggal: {$rapat->tanggal} {$rapat->waktu_mulai}\n"
-                    . "Tempat: {$rapat->tempat}\n\n"
-                    . "Approval 1: " . ($approval1->name ?? '-') . "\n"
-                    . "Approval 2: " . ($approval2->name ?? '-') . "\n\n"
-                    . "Silakan login ke aplikasi *Sistem Rapat* untuk melihat detail rapat dan undangan PDF.\n"
-                    . "Terima kasih.\n"
-                    . "Wassalamualaikum wr. wb.";
-
-                FonnteWa::send($wa, $message);
-            }
         }
 
         // === Buat antrean approval untuk UNDANGAN (A2 -> A1 bila ada A2 / hanya A1 jika tidak) ===

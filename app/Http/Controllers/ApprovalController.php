@@ -328,15 +328,20 @@ class ApprovalController extends Controller
                 \App\Helpers\FonnteWa::send($wa, "Mohon approval {$req->doc_type} rapat: {$rapat->judul}\nLink: {$signUrl}");
             }
         } else {
+            // step terakhir: tandai selesai
             $col = $req->doc_type . '_approved_at';
             if (Schema::hasColumn('rapat', $col)) {
                 DB::table('rapat')->where('id', $req->rapat_id)->update([$col => now()]);
             }
 
+            // Undangan selesai -> buat QR absensi + kirim WA ke peserta  [NEW]
             if ($req->doc_type === 'undangan') {
                 $this->generateAbsensiQr((int)$req->rapat_id);
                 app(\App\Http\Controllers\AbsensiController::class)
                     ->ensureAbsensiQrMirrorsUndangan((int) $req->rapat_id);
+
+                // [NEW] Kirim WA peserta setelah undangan final-approved
+                $this->notifyParticipantsOnInvitationApproved($rapat);
             }
         }
 
@@ -518,89 +523,83 @@ class ApprovalController extends Controller
     /**
      * Kirim pemberitahuan ke pembuat dokumen ketika REJECT.
      */
-private function notifyCreatorOnReject(string $docType, $rapat, ?string $note, $reqRow): void
-{
-    if (!$rapat) return;
+    private function notifyCreatorOnReject(string $docType, $rapat, ?string $note, $reqRow): void
+    {
+        if (!$rapat) return;
 
-    $creatorId = null;
-    $editUrl   = null;
+        $creatorId = null;
+        $editUrl   = null;
 
-    if ($docType === 'notulensi') {
-        // creator ambil dari tabel notulensi
-        $notulen = DB::table('notulensi')->where('id_rapat', $rapat->id)->first();
-        if ($notulen) {
-            $creatorId = (int) $notulen->id_user;
-            $editUrl   = route('notulensi.edit', $notulen->id);
+        if ($docType === 'notulensi') {
+            // creator ambil dari tabel notulensi
+            $notulen = DB::table('notulensi')->where('id_rapat', $rapat->id)->first();
+            if ($notulen) {
+                $creatorId = (int) $notulen->id_user;
+                $editUrl   = route('notulensi.edit', $notulen->id);
+            }
+            if (!$editUrl) {
+                $editUrl = route('notulensi.belum');
+            }
+
+        } elseif ($docType === 'undangan') {
+            // dukung kolom 'dibuat_oleh' selain created_by/id_user
+            if (Schema::hasColumn('rapat', 'dibuat_oleh') && !empty($rapat->dibuat_oleh)) {
+                $creatorId = (int) $rapat->dibuat_oleh;
+            } elseif (Schema::hasColumn('rapat', 'created_by') && !empty($rapat->created_by)) {
+                $creatorId = (int) $rapat->created_by;
+            } elseif (Schema::hasColumn('rapat', 'id_user') && !empty($rapat->id_user)) {
+                $creatorId = (int) $rapat->id_user;
+            }
+
+            try { $editUrl = route('rapat.edit', $rapat->id); }
+            catch (\Throwable $e) { $editUrl = route('rapat.index'); }
+
+        } elseif ($docType === 'absensi') {
+            if (Schema::hasColumn('rapat', 'dibuat_oleh') && !empty($rapat->dibuat_oleh)) {
+                $creatorId = (int) $rapat->dibuat_oleh;
+            } elseif (Schema::hasColumn('rapat', 'created_by') && !empty($rapat->created_by)) {
+                $creatorId = (int) $rapat->created_by;
+            } elseif (Schema::hasColumn('rapat', 'id_user') && !empty($rapat->id_user)) {
+                $creatorId = (int) $rapat->id_user;
+            }
+
+            $editUrl = route('absensi.index');
         }
-        if (!$editUrl) {
-            $editUrl = route('notulensi.belum');
+
+        if (!$creatorId) return;
+
+        $creator = DB::table('users')->where('id', $creatorId)->first();
+        if (!$creator) return;
+
+        $judul = $rapat->judul ?? '-';
+        $jenis = ucfirst($docType);
+        $catat = $note ? "\nCatatan: ".$note : '';
+        $link  = $editUrl ?: url('/');
+
+        $approverName = $reqRow->approver_user_id
+            ? (DB::table('users')->where('id', $reqRow->approver_user_id)->value('name') ?: 'Approver')
+            : 'Approver';
+
+        $pesan = "Dokumen *{$jenis}* untuk rapat:\n"
+            ."• *{$judul}*\n"
+            ."Status: *DITOLAK*\n"
+            ."Oleh: {$approverName} pada ".now()->format('d/m/Y H:i')."{$catat}\n\n"
+            ."Silakan tindak lanjuti di:\n{$link}";
+
+        // ambil nomor WA dari kolom yang tersedia
+        $phone = null;
+        if (property_exists($creator, 'phone') && $creator->phone) {
+            $phone = \App\Helpers\FonnteWa::normalizeNumber($creator->phone);
+        } elseif (property_exists($creator, 'no_hp') && $creator->no_hp) {
+            $phone = \App\Helpers\FonnteWa::normalizeNumber($creator->no_hp);
         }
-
-    } elseif ($docType === 'undangan') {
-        // --- tambahkan dukungan kolom 'dibuat_oleh' ---
-        if (Schema::hasColumn('rapat', 'dibuat_oleh') && !empty($rapat->dibuat_oleh)) {
-            $creatorId = (int) $rapat->dibuat_oleh;
-        } elseif (Schema::hasColumn('rapat', 'created_by') && !empty($rapat->created_by)) {
-            $creatorId = (int) $rapat->created_by;
-        } elseif (Schema::hasColumn('rapat', 'id_user') && !empty($rapat->id_user)) {
-            $creatorId = (int) $rapat->id_user;
+        if ($phone) {
+            \App\Helpers\FonnteWa::send($phone, $pesan);
         }
-
-        try { $editUrl = route('rapat.edit', $rapat->id); }
-        catch (\Throwable $e) { $editUrl = route('rapat.index'); }
-
-    } elseif ($docType === 'absensi') {
-        // absensi ikut pembuat rapat; dukung 'dibuat_oleh' juga
-        if (Schema::hasColumn('rapat', 'dibuat_oleh') && !empty($rapat->dibuat_oleh)) {
-            $creatorId = (int) $rapat->dibuat_oleh;
-        } elseif (Schema::hasColumn('rapat', 'created_by') && !empty($rapat->created_by)) {
-            $creatorId = (int) $rapat->created_by;
-        } elseif (Schema::hasColumn('rapat', 'id_user') && !empty($rapat->id_user)) {
-            $creatorId = (int) $rapat->id_user;
-        }
-
-        $editUrl = route('absensi.index');
     }
-
-    if (!$creatorId) return;
-
-    $creator = DB::table('users')->where('id', $creatorId)->first();
-    if (!$creator) return;
-
-    $judul = $rapat->judul ?? '-';
-    $jenis = ucfirst($docType);
-    $catat = $note ? "\nCatatan: ".$note : '';
-    $link  = $editUrl ?: url('/');
-
-    $approverName = $reqRow->approver_user_id
-        ? (DB::table('users')->where('id', $reqRow->approver_user_id)->value('name') ?: 'Approver')
-        : 'Approver';
-
-    $pesan = "Dokumen *{$jenis}* untuk rapat:\n"
-        ."• *{$judul}*\n"
-        ."Status: *DITOLAK*\n"
-        ."Oleh: {$approverName} pada ".now()->format('d/m/Y H:i')."{$catat}\n\n"
-        ."Silakan tindak lanjuti di:\n{$link}";
-
-    // ambil nomor WA dari kolom yang tersedia
-    $phone = null;
-    if (property_exists($creator, 'phone') && $creator->phone) {
-        $phone = \App\Helpers\FonnteWa::normalizeNumber($creator->phone);
-    } elseif (property_exists($creator, 'no_hp') && $creator->no_hp) {
-        $phone = \App\Helpers\FonnteWa::normalizeNumber($creator->no_hp);
-    }
-    if ($phone) {
-        \App\Helpers\FonnteWa::send($phone, $pesan);
-    }
-}
 
     /**
      * (OPSIONAL) Buka blokir step-step berikutnya setelah kreator mengirim revisi.
-     * - Mengubah semua request 'blocked' di atas order tertentu menjadi 'pending'
-     * - Mengosongkan rapat.<doc_type>_rejected_at (supaya tidak dianggap masih ada penolakan)
-     *
-     * Panggil dari controller pembuat dokumen (misal setelah Notulensi/Undangan disimpan ulang):
-     *   $this->unblockNextSteps($rapatId, 'notulensi', $fromOrderIndex);
      */
     public function unblockNextSteps(int $rapatId, string $docType, int $fromOrderIndex = 0): void
     {
@@ -621,4 +620,119 @@ private function notifyCreatorOnReject(string $docType, $rapat, ?string $note, $
                 'updated_at' => now(),
             ]);
     }
+
+    // ============================================================
+    // [NEW] Kirim WhatsApp ke peserta setelah UNDANGAN final approved
+    // ============================================================
+private function notifyParticipantsOnInvitationApproved($rapat): void
+{
+    if (!$rapat) return;
+
+    // Cegah kirim ganda jika sudah ada timestamp
+    if (\Illuminate\Support\Facades\Schema::hasColumn('rapat', 'undangan_notified_at') && !empty($rapat->undangan_notified_at)) {
+        return;
+    }
+
+    // Deteksi kolom yang tersedia di tabel undangan
+    $hasUserId = \Illuminate\Support\Facades\Schema::hasColumn('undangan', 'user_id');
+    $hasIdUser = \Illuminate\Support\Facades\Schema::hasColumn('undangan', 'id_user');
+    $hasNoHp   = \Illuminate\Support\Facades\Schema::hasColumn('undangan', 'no_hp');
+    $hasNama   = \Illuminate\Support\Facades\Schema::hasColumn('undangan', 'nama');
+
+    $peserta = collect();
+
+    if ($hasUserId || $hasIdUser) {
+        $joinCol = $hasUserId ? 'user_id' : 'id_user';
+        $peserta = DB::table('undangan as u')
+            ->leftJoin('users as usr', 'usr.id', '=', "u.$joinCol")
+            ->where('u.id_rapat', $rapat->id)
+            ->select('usr.name', 'usr.no_hp')
+            ->get();
+    }
+
+    if ($peserta->isEmpty() && $hasNoHp) {
+        $selects = ['u.no_hp'];
+        if ($hasNama) $selects[] = 'u.nama';
+
+        $peserta = DB::table('undangan as u')
+            ->where('u.id_rapat', $rapat->id)
+            ->select($selects)
+            ->get()
+            ->map(function ($r) {
+                return (object)[
+                    'name'  => property_exists($r, 'nama') ? $r->nama : null,
+                    'no_hp' => $r->no_hp ?? null,
+                ];
+            });
+    }
+
+    if ($peserta->isEmpty()) return;
+
+    // ===== Informasi Rapat =====
+    $judul   = $rapat->judul ?? '-';
+    $nomor   = $rapat->nomor_undangan ?? '-';
+    $tanggal = $rapat->tanggal ? \Carbon\Carbon::parse($rapat->tanggal)->translatedFormat('l, d F Y') : '-';
+    $waktu   = $rapat->waktu_mulai ?? '-';
+    $tempat  = $rapat->tempat ?? '-';
+
+    // ===== Link PDF dan Preview Peserta =====
+    $pdfLink = null;
+    try {
+        if (\Illuminate\Support\Facades\Route::has('rapat.undangan.pdf')) {
+            $pdfLink = route('rapat.undangan.pdf', $rapat->id);
+        }
+    } catch (\Throwable $e) {
+        $pdfLink = null;
+    }
+
+    $previewLink = null;
+    try {
+        if (\Illuminate\Support\Facades\Route::has('peserta.rapat.show')) {
+            $previewLink = route('peserta.rapat.show', $rapat->id);
+        }
+    } catch (\Throwable $e) {
+        $previewLink = null;
+    }
+
+    // ===== Pesan Formal =====
+    $pesan =
+        "Assalamu’alaikum warahmatullahi wabarakatuh,\n\n"
+      . "Yth. Bapak/Ibu Peserta Rapat,\n\n"
+      . "Dengan hormat, kami sampaikan bahwa undangan rapat berikut telah *disetujui oleh seluruh pihak terkait* dan siap untuk dilaksanakan:\n\n"
+      . "• Nomor: *{$nomor}*\n"
+      . "• Judul: *{$judul}*\n"
+      . "• Hari/Tanggal: *{$tanggal}*\n"
+      . "• Waktu: *{$waktu} WIB*\n"
+      . "• Tempat: *{$tempat}*\n\n"
+      . "Silakan meninjau detail rapat melalui tautan berikut:\n"
+      . ($previewLink ? "🔗 *Preview Rapat:* {$previewLink}\n" : "")
+      . ($pdfLink ? "📄 *Undangan (PDF):* {$pdfLink}\n" : "")
+      . "\nAtas perhatian dan kehadirannya kami ucapkan terima kasih.\n\n"
+      . "Wassalamu’alaikum warahmatullahi wabarakatuh.\n\n"
+      . "*Sekretariat Rapat*";
+
+    // ===== Kirim WA =====
+    $sent = 0;
+    $sentTo = [];
+
+    foreach ($peserta as $row) {
+        if (empty($row->no_hp)) continue;
+        $phone = \App\Helpers\FonnteWa::normalizeNumber($row->no_hp);
+        if (!$phone || isset($sentTo[$phone])) continue;
+
+        \App\Helpers\FonnteWa::send($phone, $pesan);
+        $sentTo[$phone] = true;
+        $sent++;
+    }
+
+    // Tandai sudah kirim WA (jika kolom tersedia)
+    if ($sent > 0 && \Illuminate\Support\Facades\Schema::hasColumn('rapat', 'undangan_notified_at')) {
+        DB::table('rapat')->where('id', $rapat->id)->update([
+            'undangan_notified_at' => now(),
+            'updated_at'           => now(),
+        ]);
+    }
+}
+
+
 }
