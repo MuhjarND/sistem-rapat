@@ -1,3 +1,5 @@
+{{-- resources/views/rapat/_form.blade.php --}}
+
 <div class="form-group">
     <label>Nomor Undangan</label>
     <input type="text" name="nomor_undangan"
@@ -52,7 +54,7 @@
     </select>
 </div>
 
-{{-- === GANTI: Pimpinan -> Approval 1 & Approval 2 === --}}
+{{-- === Approval 1 & Approval 2 === --}}
 <div class="form-group">
     <label>Approval 1 <span class="text-danger">*</span></label>
     <select name="approval1_user_id" class="form-control" required
@@ -80,23 +82,95 @@
         @endforeach
     </select>
 </div>
-{{-- ================================================ --}}
+
+{{-- ============ Peserta (Multiple Select2) ============ --}}
+@php
+    // 1) Ambil selected dari old() atau dari $peserta_terpilih
+    $selectedIds = [];
+    $selectedLabels = []; // [id => text]
+
+    $oldPeserta = old('peserta');
+    if (is_array($oldPeserta)) {
+        // old() berisi array id
+        $selectedIds = array_values(array_unique(array_map('intval', $oldPeserta)));
+    } else {
+        // dari $peserta_terpilih: bisa [id,...] atau [{id,text},...]
+        if (!empty($peserta_terpilih)) {
+            // bentuk objek?
+            if (is_array($peserta_terpilih) && isset($peserta_terpilih[0]) && is_array($peserta_terpilih[0]) && array_key_exists('id', $peserta_terpilih[0])) {
+                foreach ($peserta_terpilih as $p) {
+                    $selectedIds[] = (int)$p['id'];
+                    if (!empty($p['text'])) $selectedLabels[(int)$p['id']] = $p['text'];
+                }
+            } else {
+                // diasumsikan array id
+                $selectedIds = array_values(array_unique(array_map('intval', $peserta_terpilih)));
+            }
+        }
+    }
+
+    // 2) Buat map label dari $daftar_peserta untuk fallback
+    $labelsFromMaster = collect($daftar_peserta)->keyBy('id')->map(function($u){
+        $label = $u->name;
+        if (!empty($u->jabatan)) $label .= ' — '.$u->jabatan;
+        if (!empty($u->unit))    $label .= ' · '.$u->unit;
+        return $label;
+    })->all();
+
+    // Isi label yang belum ada memakai master
+    foreach ($selectedIds as $sid) {
+        if (!isset($selectedLabels[$sid]) && isset($labelsFromMaster[$sid])) {
+            $selectedLabels[$sid] = $labelsFromMaster[$sid];
+        }
+    }
+
+    // 3) Siapkan set untuk menghindari duplikasi opsi
+    $selectedSet = array_flip($selectedIds);
+@endphp
 
 <div class="form-group" id="{{ $pesertaWrapperId ?? 'peserta-wrapper' }}">
     <label>Peserta</label>
     <select
         class="js-example-basic-multiple"
         name="peserta[]"
-        multiple="multiple"
-        style="width: 100%;"
+        multiple
+        style="width:100%;"
         required
         data-dropdown-parent="#{{ $pesertaWrapperId ?? 'peserta-wrapper' }}"
     >
+        {{-- Render dulu yang terpilih agar tampil preselected, walau tidak ada di $daftar_peserta --}}
+        @foreach($selectedIds as $sid)
+            <option value="{{ $sid }}" selected>
+                {{ $selectedLabels[$sid] ?? ($labelsFromMaster[$sid] ?? ('User #'.$sid)) }}
+            </option>
+        @endforeach
+
+        {{-- Lalu render opsi master yang belum termasuk selected --}}
         @foreach($daftar_peserta as $peserta)
-            <option value="{{ $peserta->id }}"
-                {{ in_array($peserta->id, old('peserta', $peserta_terpilih ?? [])) ? 'selected' : '' }}>
-                {{ $peserta->name }}
+            @continue(isset($selectedSet[$peserta->id]))
+            <option value="{{ $peserta->id }}">
+                {{ $labelsFromMaster[$peserta->id] ?? $peserta->name }}
             </option>
         @endforeach
     </select>
+    <small class="text-muted d-block mt-1">Tip: ketik untuk mencari nama peserta</small>
 </div>
+
+@push('scripts')
+<script>
+(function(){
+  // Inisialisasi Select2 untuk elemen di partial ini
+  const wrapperId = '#{{ $pesertaWrapperId ?? 'peserta-wrapper' }}';
+  const $wrap = $(wrapperId);
+  if ($wrap.length){
+    const $sel = $wrap.find('select.js-example-basic-multiple');
+    if ($sel.length && !$sel.data('select2')){
+      $sel.select2({
+        width: '100%',
+        dropdownParent: $wrap.closest('.modal').length ? $wrap.closest('.modal') : $(wrapperId)
+      });
+    }
+  }
+})();
+</script>
+@endpush

@@ -7,77 +7,166 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
-use App\Mail\UndanganRapatMail;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use App\Helpers\FonnteWa;
-use iio\libmergepdf\Merger;
 
 class RapatController extends Controller
 {
     // Tampilkan daftar rapat
-    public function index(Request $request)
-    {
-        $daftar_kategori = DB::table('kategori_rapat')->orderBy('nama')->get();
+ public function index(Request $request)
+{
+    // === Master data ===
+    $daftar_kategori = DB::table('kategori_rapat')->orderBy('nama')->get();
 
-        $query = DB::table('rapat')
-            ->leftJoin('kategori_rapat', 'rapat.id_kategori', '=', 'kategori_rapat.id')
-            ->leftJoin('users as pembuat', 'rapat.dibuat_oleh', '=', 'pembuat.id')
-            ->leftJoin('users as appr1', 'rapat.approval1_user_id', '=', 'appr1.id')
-            ->leftJoin('users as appr2', 'rapat.approval2_user_id', '=', 'appr2.id')
-            ->select(
-                'rapat.*',
-                'kategori_rapat.nama as nama_kategori',
-                'pembuat.name as nama_pembuat',
-                'appr1.name as approval1_nama',
-                'appr2.name as approval2_nama'
-            );
+    // === Base query daftar rapat ===
+    $query = DB::table('rapat')
+        ->leftJoin('kategori_rapat', 'rapat.id_kategori', '=', 'kategori_rapat.id')
+        ->leftJoin('users as pembuat', 'rapat.dibuat_oleh', '=', 'pembuat.id') // pakai kolom "dibuat_oleh"
+        ->leftJoin('users as appr1', 'rapat.approval1_user_id', '=', 'appr1.id')
+        ->leftJoin('users as appr2', 'rapat.approval2_user_id', '=', 'appr2.id')
+        ->select(
+            'rapat.*',
+            'kategori_rapat.nama as nama_kategori',
+            'pembuat.name as nama_pembuat',
+            'appr1.name as approval1_nama',
+            'appr2.name as approval2_nama'
+        );
 
-        if ($request->kategori) {
-            $query->where('rapat.id_kategori', $request->kategori);
-        }
-        if ($request->tanggal) {
-            $query->where('rapat.tanggal', $request->tanggal);
-        }
-        if ($request->keyword) {
-            $query->where(function($q) use ($request) {
-                $q->where('rapat.judul', 'like', '%' . $request->keyword . '%')
-                  ->orWhere('rapat.nomor_undangan', 'like', '%' . $request->keyword . '%');
-            });
-        }
-
-        $daftar_rapat = $query
-            ->orderBy('tanggal', 'desc')
-            ->paginate(6)
-            ->appends($request->all());
-
-        foreach ($daftar_rapat as $rapat) {
-            $rapat->status_label = $this->getStatusRapat($rapat);
-        }
-
-        // Daftar peserta (tetap)
-        $daftar_peserta  = DB::table('users')->where('role', 'peserta')->get();
-
-        // List approval
-        $approval1_list = DB::table('users')
-            ->select('id','name','tingkatan')
-            ->where('role','approval')
-            ->orderBy('name')->get();
-
-        $approval2_list = DB::table('users')
-            ->select('id','name','tingkatan')
-            ->where('role','approval')
-            ->where('tingkatan', 2)
-            ->orderBy('name')->get();
-
-        return view('rapat.index', compact(
-            'daftar_rapat',
-            'daftar_kategori',
-            'daftar_peserta',
-            'approval1_list',
-            'approval2_list'
-        ));
+    // === Filter ===
+    if ($request->filled('kategori')) {
+        $query->where('rapat.id_kategori', $request->kategori);
     }
+    if ($request->filled('tanggal')) {
+        $query->whereDate('rapat.tanggal', $request->tanggal);
+    }
+    if ($request->filled('keyword')) {
+        $kw = trim($request->keyword);
+        $query->where(function($q) use ($kw) {
+            $q->where('rapat.judul', 'like', '%'.$kw.'%')
+              ->orWhere('rapat.nomor_undangan', 'like', '%'.$kw.'%')
+              ->orWhere('rapat.tempat', 'like', '%'.$kw.'%'); // sekalian cari "Tempat"
+        });
+    }
+
+    // === Paging ===
+    $daftar_rapat = $query
+        ->orderBy('tanggal', 'desc')
+        ->paginate(6)
+        ->appends($request->all());
+
+    // === Hitung status label (Akan Datang/Berlangsung/Selesai/Dibatalkan) ===
+    foreach ($daftar_rapat as $rapat) {
+        $rapat->status_label = $this->getStatusRapat($rapat);
+    }
+
+    // === PRELOAD: Peserta terpilih untuk setiap rapat (agar Select2 preselected di modal Edit) ===
+    $rapatIds = $daftar_rapat->pluck('id')->all();
+    if (!empty($rapatIds)) {
+        // Ambil peserta dari tabel UNDANGAN (sesuaikan nama kolom kalau berbeda)
+        $pesertaMap = DB::table('undangan as u')
+            ->join('users as usr', 'usr.id', '=', 'u.id_user') // u.id_user = user peserta
+            ->whereIn('u.id_rapat', $rapatIds)
+            ->select(
+                'u.id_rapat',
+                'usr.id as id',
+                'usr.name',
+                'usr.jabatan',
+                'usr.unit'
+            )
+            ->orderBy('usr.name')
+            ->get()
+            ->groupBy('id_rapat')
+            ->map(function ($group) {
+                return $group->map(function ($row) {
+                    $label = $row->name;
+                    if ($row->jabatan) $label .= ' — '.$row->jabatan;
+                    if ($row->unit)    $label .= ' · '.$row->unit;
+                    return ['id' => (int)$row->id, 'text' => $label];
+                })->values()->all();
+            });
+
+        // Tempelkan ke setiap item rapat
+        foreach ($daftar_rapat as $r) {
+            $r->peserta_terpilih = $pesertaMap->get($r->id, []);
+        }
+
+        // === PRELOAD: Approval map (undangan & absensi) untuk badge modal "Cek Status" ===
+        $apprRows = DB::table('approval_requests as ar')
+            ->leftJoin('users as u', 'u.id', '=', 'ar.approver_user_id')
+            ->whereIn('ar.rapat_id', $rapatIds)
+            ->whereIn('ar.doc_type', ['undangan', 'absensi'])
+            ->select(
+                'ar.rapat_id',
+                'ar.doc_type',
+                'ar.order_index',
+                'ar.status',
+                'ar.signed_at',
+                'ar.rejected_at',
+                'ar.rejection_note',
+                'u.name as approver_name'
+            )
+            ->orderBy('ar.doc_type')
+            ->orderBy('ar.order_index')
+            ->get();
+
+        // Bentuk peta: rapat_id => [ 'undangan' => [ {...}, ... ], 'absensi' => [ {...}, ... ] ]
+        $approvalMapByRapat = $apprRows
+            ->groupBy('rapat_id')
+            ->map(function ($rowsPerRapat) {
+                return $rowsPerRapat->groupBy('doc_type')->map(function ($groupPerType) {
+                    return $groupPerType->map(function ($r) {
+                        return [
+                            'order'          => (int)$r->order_index,
+                            'name'           => $r->approver_name ?: 'Approver',
+                            'status'         => $r->status,                     // approved | rejected | pending | blocked
+                            'signed_at'      => $r->signed_at,
+                            'rejected_at'    => $r->rejected_at,
+                            'rejection_note' => $r->rejection_note,
+                        ];
+                    })->values()->all();
+                })->toArray();
+            });
+
+        foreach ($daftar_rapat as $r) {
+            $r->approval_map = $approvalMapByRapat->get($r->id, []);
+        }
+    } else {
+        // Kalau kosong, tetap set properti agar view aman
+        foreach ($daftar_rapat as $r) {
+            $r->peserta_terpilih = [];
+            $r->approval_map = [];
+        }
+    }
+
+    // === Master daftar peserta (opsi Select2) ===
+    $daftar_peserta = DB::table('users')
+        ->where('role', 'peserta')
+        ->orderBy('name')
+        ->get();
+
+    // === Daftar Approver (approval1 & approval2) ===
+    $approval1_list = DB::table('users')
+        ->select('id','name','tingkatan')
+        ->where('role','approval')
+        ->orderBy('name')
+        ->get();
+
+    $approval2_list = DB::table('users')
+        ->select('id','name','tingkatan')
+        ->where('role','approval')
+        ->where('tingkatan', 2)
+        ->orderBy('name')
+        ->get();
+
+    return view('rapat.index', compact(
+        'daftar_rapat',
+        'daftar_kategori',
+        'daftar_peserta',
+        'approval1_list',
+        'approval2_list'
+    ));
+}
+
 
     // Form tambah rapat (kalau pakai halaman terpisah)
     public function create()
