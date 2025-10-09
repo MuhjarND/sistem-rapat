@@ -37,6 +37,8 @@ protected function redirectTo()
             return 'notulensi/dashboard';
         case 'peserta':
             return '/peserta/dashboard';
+        case 'approval':
+            return '/approval';    
         default:
             return '/home';
     }

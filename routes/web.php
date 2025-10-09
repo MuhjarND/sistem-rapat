@@ -31,7 +31,7 @@ Route::get('/users/search', function(\Illuminate\Http\Request $r){
 
 Route::middleware(['auth'])->group(function () {
     Route::get('/ajax/users/search', [UserLookupController::class, 'search'])
-         ->name('users.search');
+        ->name('users.search');
 });
 
 
@@ -73,7 +73,7 @@ Route::middleware(['auth', 'cekrole:admin'])->group(function () {
 //NOTULENSI
 Route::middleware(['auth', 'cekrole:admin,notulis'])->group(function () {
     //CETAK ABSENSI
-    Route::get('absensi/laporan/{id_rapat}', 'AbsensiController@exportPdf')->name('absensi.export.pdf');
+    // Route::get('absensi/laporan/{id_rapat}', 'AbsensiController@exportPdf')->name('absensi.export.pdf');
     //NOTULENSI
     Route::get('notulensi',                 'NotulensiController@index')->name('notulensi.index');
     Route::get('/notulensi/dashboard', 'NotulensiController@dashboard')->name('notulensi.dashboard');
@@ -84,20 +84,24 @@ Route::middleware(['auth', 'cekrole:admin,notulis'])->group(function () {
     Route::get('notulensi/{id}',            'NotulensiController@show')->name('notulensi.show');
     Route::get('notulensi/{id}/edit',       'NotulensiController@edit')->name('notulensi.edit');
     Route::put('notulensi/{id}',            'NotulensiController@update')->name('notulensi.update');
-    Route::get('notulensi/{id}/cetak', 'NotulensiController@cetakGabung')->name('notulensi.cetak');
+    //cetak pdf
+    // Route::get('notulensi/{id}/cetak', 'NotulensiController@cetakGabung')->name('notulensi.cetak');
     Route::get('/notulensi/{id}/export', 'NotulensiController@exportPdf')->name('notulensi.export');
     //tag user
     Route::get('/users/search', 'UserController@search')->name('users.search');
+    //revisi berkas 
+    Route::post('/approval/reopen', 'ApprovalController@reopen')->name('approval.reopen');
 });
 
 // PESERTA
-Route::middleware(['auth', 'cekrole:admin,peserta'])->group(function () {
+Route::middleware(['auth', 'cekrole:admin,peserta,approval'])->group(function () {
     Route::get('undangan-saya', 'UndanganController@undanganSaya')->name('undangan.saya');
     Route::get('absensi-saya', 'AbsensiController@absensiSaya')->name('absensi.saya');
     Route::post('absensi/isi', 'AbsensiController@isiAbsensi')->name('absensi.isi');
     Route::get('absensi/scan/{token}', 'AbsensiController@scan')->name('absensi.scan');        
     Route::post('absensi/scan/{token}', 'AbsensiController@simpanScan')->name('absensi.scan.save'); 
 
+    //Cetak undangan
     Route::get('rapat/{id}/undangan-pdf', 'RapatController@undanganPdf')->name('rapat.undangan.pdf');
     
     Route::get('/peserta/dashboard', 'PesertaController@dashboard')->name('peserta.dashboard');
@@ -114,9 +118,13 @@ Route::middleware(['auth', 'cekrole:admin,peserta'])->group(function () {
     Route::put('/peserta/tugas/{id}', 'PesertaController@tugasUpdateStatus')->name('peserta.tugas.update');
 });
 
-Route::middleware(['auth', 'cekrole:approval'])->group(function () {
+Route::middleware(['auth', 'cekrole:approval,notulis,admin'])->group(function () {
+    Route::get('/approval', 'ApprovalController@dashboard')->name('approval.dashboard');
     Route::get('/approval/pending', 'ApprovalController@pending')->name('approval.pending');
     Route::get('/approval/sign/{token}', 'ApprovalController@signForm')->name('approval.sign');
     Route::post('/approval/sign/{token}', 'ApprovalController@signSubmit')->name('approval.sign.submit');
     Route::get('/approval/done/{token}', 'ApprovalController@done')->name('approval.done');
+
+    Route::get('absensi/laporan/{id_rapat}', 'AbsensiController@exportPdf')->name('absensi.export.pdf');
+    Route::get('notulensi/{id}/cetak', 'NotulensiController@cetakGabung')->name('notulensi.cetak');
 });
