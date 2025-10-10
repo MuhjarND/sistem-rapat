@@ -7,7 +7,7 @@
   /* Hilangkan efek hover */
   .table.no-hover tbody tr:hover { background: transparent !important; }
 
-  /* Badge peserta */
+  /* Badge jumlah undangan */
   .pill-count{
     display:inline-flex; align-items:center; justify-content:center;
     min-width: 28px; height: 24px; padding: 0 8px;
@@ -16,6 +16,17 @@
     color:#fff;
     background: linear-gradient(180deg, #22c55e, #16a34a);
     box-shadow: 0 4px 12px rgba(34,197,94,.25);
+  }
+
+  /* Badge jumlah hadir */
+  .pill-hadir{
+    display:inline-flex; align-items:center; justify-content:center;
+    min-width: 28px; height: 24px; padding: 0 8px;
+    border-radius: 999px;
+    font-weight: 600; font-size: 12px;
+    color:#fff;
+    background: linear-gradient(180deg, #3b82f6, #2563eb);
+    box-shadow: 0 4px 12px rgba(37,99,235,.25);
   }
 
   /* Tombol ikon */
@@ -93,49 +104,55 @@
         <thead>
           <tr class="text-center">
             <th style="width:40px">#</th>
-            <th>Judul / Nomor</th>
-            <th>Kategori</th>
-            <th style="width:130px;">Tgl &amp; Waktu</th>
-            <th>Tempat</th>
-            <th>Pimpinan</th>
-            <th style="width:80px;">Peserta</th>
+            <th style="min-width:160px;">Nomor Undangan</th>
+            <th>Judul &amp; Kategori</th>
+            <th style="min-width:230px;">Tanggal, Waktu &amp; Tempat</th>
+            <th style="width:80px;">Undangan</th>
+            <th style="width:80px;">Hadir</th>
             <th style="width:90px;">Aksi</th>
           </tr>
         </thead>
         <tbody>
           @forelse($daftar_rapat as $index => $rapat)
+            @php
+              // Hitung jumlah hadir dari tabel absensi
+              $jumlahHadir = \DB::table('absensi')
+                ->where('id_rapat', $rapat->id)
+                ->where('status', 'hadir')
+                ->count();
+            @endphp
             <tr>
               <td class="text-center">
                 {{ ($daftar_rapat->currentPage()-1) * $daftar_rapat->perPage() + $index + 1 }}
               </td>
 
+              {{-- Nomor Undangan (rata kiri) --}}
+              <td>{{ $rapat->nomor_undangan ?? '—' }}</td>
+
+              {{-- Judul + Kategori --}}
               <td>
                 <strong>{{ $rapat->judul }}</strong>
-                @if(!empty($rapat->nomor_undangan))
-                  <div class="text-muted" style="font-size:11px">{{ $rapat->nomor_undangan }}</div>
-                @endif
+                <div class="text-muted" style="font-size:12px">{{ $rapat->nama_kategori ?? '-' }}</div>
               </td>
 
-              <td>{{ $rapat->nama_kategori ?? '-' }}</td>
-
-              <td class="text-center">
-                {{ \Carbon\Carbon::parse($rapat->tanggal)->format('d M y') }}
-                <div class="text-muted" style="font-size:11px">{{ $rapat->waktu_mulai }}</div>
-              </td>
-
-              <td>{{ $rapat->tempat }}</td>
-
+              {{-- Tanggal + Waktu + Tempat (disatukan) --}}
               <td>
-                {{ $rapat->nama_pimpinan ?? '-' }}
-                @if(!empty($rapat->jabatan_pimpinan))
-                  <div class="text-muted" style="font-size:11px">{{ $rapat->jabatan_pimpinan }}</div>
-                @endif
+                {{ \Carbon\Carbon::parse($rapat->tanggal)->translatedFormat('l, d F Y') }}
+                <div class="text-muted" style="font-size:11px">{{ $rapat->waktu_mulai }}</div>
+                <div class="text-muted" style="font-size:12px"><i class="fas fa-map-marker-alt mr-1"></i>{{ $rapat->tempat }}</div>
               </td>
 
+              {{-- Undangan (jumlah peserta yang diundang) --}}
               <td class="text-center">
                 <span class="pill-count">{{ $rapat->jumlah_peserta ?? 0 }}</span>
               </td>
 
+              {{-- Hadir (jumlah peserta hadir) --}}
+              <td class="text-center">
+                <span class="pill-hadir">{{ $jumlahHadir }}</span>
+              </td>
+
+              {{-- Aksi --}}
               <td class="text-center">
                 <a href="{{ route('rapat.show', $rapat->id) }}"
                    class="btn-icon btn-teal"
@@ -152,7 +169,7 @@
             </tr>
           @empty
             <tr>
-              <td colspan="8" class="text-center text-muted p-4">
+              <td colspan="7" class="text-center text-muted p-4">
                 Belum ada rapat untuk absensi.
               </td>
             </tr>

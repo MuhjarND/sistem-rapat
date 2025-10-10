@@ -144,11 +144,9 @@ class NotulensiController extends Controller
                 'updated_at' => now(),
             ]);
 
-            // === antrian penerima WA (kumpulkan dulu; kirim setelah commit)
-            $notifQueue = [];
             $urut = 1;
 
-            // detail + tugas
+            // detail + tugas (TIDAK kirim WA di sini) // === changed
             foreach ($request->baris as $r) {
                 $idDetail = DB::table('notulensi_detail')->insertGetId([
                     'id_notulensi'     => $id_notulensi,
@@ -172,11 +170,6 @@ class NotulensiController extends Controller
                             'status'              => 'pending',
                             'created_at'          => now(),
                             'updated_at'          => now(),
-                        ];
-                        // masukkan antrian notifikasi
-                        $notifQueue[] = [
-                            'user_id'    => (int)$uid,
-                            'tgl_selesai'=> $r['tgl_penyelesaian'] ?? null,
                         ];
                     }
                     DB::table('notulensi_tugas')->insert($bulk);
@@ -209,7 +202,7 @@ class NotulensiController extends Controller
                 }
             }
 
-            // QR Notulis + approval chain
+            // QR Notulis + siapkan chain approval notulensi
             $this->ensureNotulensiNotulisQr((int)$request->id_rapat, (int)$id_notulensi);
 
             $rapat = DB::table('rapat')->where('id', $request->id_rapat)->first();
@@ -259,60 +252,12 @@ class NotulensiController extends Controller
 
             DB::commit();
 
-            // ================== KIRIM NOTIFIKASI WA (setelah commit) ==================
-            if (!empty($notifQueue)) {
-                $rapatInfo = DB::table('rapat')
-                    ->where('id', $request->id_rapat)
-                    ->select('id','judul','tanggal','tempat')
-                    ->first();
-
-                $userIds = array_values(array_unique(array_map(function($x){ return (int)$x['user_id']; }, $notifQueue)));
-                if (!empty($userIds)) {
-                    $phoneExpr = $this->usersPhoneExpr(); // gunakan kolom yang memang ada
-                    $users = DB::table('users')
-                        ->whereIn('id', $userIds)
-                        ->select('id','name', DB::raw("{$phoneExpr} as phone"))
-                        ->get()->keyBy('id');
-
-                    $urlTugas = URL::route('peserta.tugas.index');
-
-                    foreach ($notifQueue as $item) {
-                        $uid  = (int)$item['user_id'];
-                        $user = $users->get($uid);
-                        if (!$user) continue;
-
-                        $phoneRaw = $user->phone ?? null;
-                        $phone    = $this->normalizeMsisdn($phoneRaw);
-                        if (!$phone) {
-                            Log::warning('WA skip: nomor kosong/tidak valid', ['user_id'=>$uid, 'name'=>$user->name ?? null, 'raw'=>$phoneRaw]);
-                            continue;
-                        }
-
-                        $tglRapat   = $rapatInfo && $rapatInfo->tanggal ? Carbon::parse($rapatInfo->tanggal)->isoFormat('D MMM Y') : '-';
-                        $tglSelesai = !empty($item['tgl_selesai']) ? Carbon::parse($item['tgl_selesai'])->isoFormat('D MMM Y') : '-';
-
-                        $msg = $this->buildTaskAssignedMessage(
-                            $user->name ?? '-',
-                            $rapatInfo->judul ?? '-',
-                            $tglRapat,
-                            $rapatInfo->tempat ?? '-',
-                            $tglSelesai,
-                            $urlTugas
-                        );
-
-                        $res = FonnteWa::send($phone, $msg);
-                        if (!($res['status'] ?? false) && !($res['ok'] ?? false)) {
-                            Log::error('Gagal kirim WA tugas notulensi', [
-                                'user_id'=>$uid, 'phone'=>$phone, 'result'=>$res
-                            ]);
-                        }
-                    }
-                }
-            }
-            // ==========================================================================
+            // === Kirim WA ke approver berikutnya (bukan ke assignee) // === changed
+            app(\App\Http\Controllers\ApprovalController::class)
+                ->notifyNextApproverDocReady((int)$request->id_rapat, 'notulensi');
 
             return redirect()->route('notulensi.show', $id_notulensi)
-                ->with('success', 'Notulensi berhasil dibuat. TTD Notulis dibuat otomatis, approval pimpinan disiapkan, dan notifikasi tugas dikirim.');
+                ->with('success', 'Notulensi berhasil dibuat. TTD Notulis dibuat otomatis & approval pimpinan disiapkan.');
         } catch (\Throwable $e) {
             DB::rollBack();
             report($e);
@@ -500,6 +445,14 @@ class NotulensiController extends Controller
             }
 
             DB::commit();
+
+            // === Kirim WA ke approver berikutnya (bila revisi) // === changed
+            $idRap = DB::table('notulensi')->where('id',$id)->value('id_rapat');
+            if ($idRap) {
+                app(\App\Http\Controllers\ApprovalController::class)
+                    ->notifyNextApproverDocReady((int)$idRap, 'notulensi');
+            }
+
             return redirect()->route('notulensi.show', $id)->with('success', 'Notulensi berhasil diperbarui.');
         } catch (\Throwable $e) {
             DB::rollBack();
@@ -794,6 +747,82 @@ class NotulensiController extends Controller
             'selesai'  => $selesai,
             'byMonth'  => $byMonth,
         ]);
+    }
+
+    /**
+     * === Baru ===
+     * Kirim notifikasi WA tugas notulensi KE PARA ASSIGNEE,
+     * dipanggil HANYA setelah dokumen NOTULENSI dinyatakan FINAL APPROVED.
+     */
+    public function notifyAssigneesOnNotulensiApproved(int $rapatId): void // === changed (new)
+    {
+        // Ambil notulensi terkait rapat
+        $notulen = DB::table('notulensi')->where('id_rapat', $rapatId)->first();
+        if (!$notulen) return;
+
+        // Info rapat ringkas
+        $rapat = DB::table('rapat')
+            ->where('id', $rapatId)
+            ->select('id','judul','tanggal','tempat')
+            ->first();
+        if (!$rapat) return;
+
+        // Kumpulkan semua assignee + target selesai (per detail)
+        $rows = DB::table('notulensi_detail as d')
+            ->leftJoin('notulensi_tugas as t', 't.id_notulensi_detail','=','d.id')
+            ->leftJoin('users as u','u.id','=','t.user_id')
+            ->where('d.id_notulensi', $notulen->id)
+            ->whereNotNull('t.user_id')
+            ->select(
+                'u.id as uid','u.name',
+                't.tgl_penyelesaian'
+            )->get();
+
+        if ($rows->isEmpty()) return;
+
+        // siapkan nomor telepon
+        $phoneExpr = $this->usersPhoneExpr();
+        $userIds   = $rows->pluck('uid')->unique()->values()->all();
+        $phones    = DB::table('users')
+            ->whereIn('id', $userIds)
+            ->select('id','name', DB::raw("{$phoneExpr} as phone"))
+            ->get()->keyBy('id');
+
+        // URL tugas peserta
+        $urlTugas = URL::route('peserta.tugas.index');
+
+        $tglRapat = $rapat->tanggal ? Carbon::parse($rapat->tanggal)->isoFormat('D MMM Y') : '-';
+
+        foreach ($rows as $r) {
+            $user = $phones->get($r->uid);
+            if (!$user) continue;
+
+            $phoneRaw = $user->phone ?? null;
+            $phone    = $this->normalizeMsisdn($phoneRaw);
+            if (!$phone) {
+                Log::warning('WA tugas skip (no phone)', ['user_id'=>$r->uid, 'name'=>$user->name ?? null]);
+                continue;
+            }
+
+            $tglSelesai = $r->tgl_penyelesaian ? Carbon::parse($r->tgl_penyelesaian)->isoFormat('D MMM Y') : '-';
+
+            // pesan (boleh disesuaikan ke versi formal bila diinginkan)
+            $msg = $this->buildTaskAssignedMessage(
+                $user->name ?? '-',
+                $rapat->judul ?? '-',
+                $tglRapat,
+                $rapat->tempat ?? '-',
+                $tglSelesai,
+                $urlTugas
+            );
+
+            $res = FonnteWa::send($phone, $msg);
+            if (!($res['status'] ?? false) && !($res['ok'] ?? false)) {
+                Log::error('Gagal kirim WA tugas notulensi (approved)', [
+                    'user_id'=>$r->uid, 'phone'=>$phone, 'result'=>$res
+                ]);
+            }
+        }
     }
 
     /**

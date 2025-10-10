@@ -193,161 +193,168 @@ class ApprovalController extends Controller
     /**
      * Proses approval/reject.
      */
-    public function signSubmit(Request $request, $token)
-    {
-        // 1) Ambil request approval
-        $req = DB::table('approval_requests')->where('sign_token', $token)->first();
-        if (!$req) abort(404);
+public function signSubmit(Request $request, $token)
+{
+    // 1) Ambil request approval
+    $req = DB::table('approval_requests')->where('sign_token', $token)->first();
+    if (!$req) abort(404);
 
-        // Sudah approved: langsung done
-        if ($req->status === 'approved') {
-            return redirect()->route('approval.done', ['token' => $token])
-                ->with('success', 'Dokumen ini sudah disetujui sebelumnya.');
-        }
+    // Sudah approved: langsung done
+    if ($req->status === 'approved') {
+        return redirect()->route('approval.done', ['token' => $token])
+            ->with('success', 'Dokumen ini sudah disetujui sebelumnya.');
+    }
 
-        // 2) Cek step sebelumnya
-        $blocked = DB::table('approval_requests')
-            ->where('rapat_id', $req->rapat_id)
-            ->where('doc_type', $req->doc_type)
-            ->where('order_index', '<', $req->order_index)
-            ->where('status', '!=', 'approved')
-            ->exists();
-        if ($blocked) {
-            return back()->with('error', 'Tahap sebelum Anda belum selesai.');
-        }
+    // 2) Cek step sebelumnya
+    $blocked = DB::table('approval_requests')
+        ->where('rapat_id', $req->rapat_id)
+        ->where('doc_type', $req->doc_type)
+        ->where('order_index', '<', $req->order_index)
+        ->where('status', '!=', 'approved')
+        ->exists();
+    if ($blocked) {
+        return back()->with('error', 'Tahap sebelum Anda belum selesai.');
+    }
 
-        // 3) Aksi
-        $action = $request->input('action', 'approve'); // approve | reject
+    // 3) Aksi
+    $action = $request->input('action', 'approve'); // approve | reject
 
-        // === REJECT ===
-        if ($action === 'reject') {
-            $note = trim((string) $request->input('rejection_note', ''));
+    // === REJECT ===
+    if ($action === 'reject') {
+        $note = trim((string) $request->input('rejection_note', ''));
 
-            // 3a) Tandai request ini REJECTED
-            DB::table('approval_requests')->where('id', $req->id)->update([
-                'status'         => 'rejected',
-                'rejection_note' => $note ?: null,
-                'rejected_at'    => now(),
-                'updated_at'     => now(),
-            ]);
-
-            // 3b) Isi rapat.<doc_type>_rejected_at bila ada kolomnya
-            $rejectCol = $req->doc_type . '_rejected_at';
-            if (Schema::hasColumn('rapat', $rejectCol)) {
-                DB::table('rapat')->where('id', $req->rapat_id)->update([$rejectCol => now()]);
-            }
-
-            // 3c) AUTO-BLOCK semua step berikutnya (pending → blocked)
-            DB::table('approval_requests')
-                ->where('rapat_id', $req->rapat_id)
-                ->where('doc_type', $req->doc_type)
-                ->where('order_index', '>', $req->order_index)
-                ->where('status', 'pending')
-                ->update([
-                    'status'     => 'blocked',
-                    'updated_at' => now(),
-                ]);
-
-            // 3d) Notifikasi ke pembuat
-            $rapat = DB::table('rapat')->where('id', $req->rapat_id)->first();
-            $this->notifyCreatorOnReject($req->doc_type, $rapat, $note, $req);
-
-            return redirect()->route('approval.done', ['token' => $token])
-                ->with('success', 'Status ditolak telah direkam. Tahap berikutnya diblokir & pemberitahuan dikirim.');
-        }
-
-        // === APPROVE ===
-        $rapat    = DB::table('rapat')->where('id', $req->rapat_id)->first();
-        $approver = DB::table('users')->where('id', $req->approver_user_id)->first();
-
-        $payload = [
-            'v'         => 1,
-            'doc_type'  => $req->doc_type,
-            'rapat_id'  => $req->rapat_id,
-            'nomor'     => $rapat->nomor_undangan ?? null,
-            'judul'     => $rapat->judul,
-            'tanggal'   => $rapat->tanggal,
-            'approver'  => [
-                'id'      => $approver->id,
-                'name'    => $approver->name,
-                'jabatan' => $approver->jabatan ?? null,
-                'order'   => $req->order_index,
-            ],
-            'issued_at' => now()->toIso8601String(),
-            'nonce'     => Str::random(16),
-        ];
-
-        $secret = config('app.key');
-        if (is_string($secret) && Str::startsWith($secret, 'base64:')) {
-            $secret = base64_decode(substr($secret, 7));
-        }
-        $payload['sig'] = hash_hmac(
-            'sha256',
-            json_encode($payload, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),
-            $secret
-        );
-        $payloadJson = json_encode($payload, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
-
-        // 4) Generate QR
-        $qrContent = route('qr.verify', ['d' => base64_encode($payloadJson)]);
-
-        $qrDir = public_path('qr');
-        if (!is_dir($qrDir)) @mkdir($qrDir, 0755, true);
-
-        $basename     = 'qr_' . $req->doc_type . '_r' . $req->rapat_id . '_a' . $approver->id . '_' . Str::random(6) . '.png';
-        $relativePath = 'qr/' . $basename;
-        $absolutePath = public_path($relativePath);
-
-        $ok = $this->saveQrWithLogo($qrContent, $absolutePath, 600, public_path('logo_qr.png'));
-        if (!$ok) {
-            return back()->with('error', 'Gagal membuat QR (akses internet/allow_url_fopen nonaktif).');
-        }
-
-        // 5) Simpan signature
+        // 3a) Tandai request ini REJECTED
         DB::table('approval_requests')->where('id', $req->id)->update([
-            'status'             => 'approved',
-            'signature_qr_path'  => $relativePath,
-            'signature_payload'  => $payloadJson,
-            'signed_at'          => now(),
-            'updated_at'         => now(),
+            'status'         => 'rejected',
+            'rejection_note' => $note ?: null,
+            'rejected_at'    => now(),
+            'updated_at'     => now(),
         ]);
 
-        // 6) Lanjutkan ke approver berikutnya / selesai
-        $next = DB::table('approval_requests')
+        // 3b) Isi rapat.<doc_type>_rejected_at bila ada kolomnya
+        $rejectCol = $req->doc_type . '_rejected_at';
+        if (Schema::hasColumn('rapat', $rejectCol)) {
+            DB::table('rapat')->where('id', $req->rapat_id)->update([$rejectCol => now()]);
+        }
+
+        // 3c) AUTO-BLOCK semua step berikutnya (pending → blocked)
+        DB::table('approval_requests')
             ->where('rapat_id', $req->rapat_id)
             ->where('doc_type', $req->doc_type)
             ->where('order_index', '>', $req->order_index)
-            ->orderBy('order_index')
-            ->first();
+            ->where('status', 'pending')
+            ->update([
+                'status'     => 'blocked',
+                'updated_at' => now(),
+            ]);
 
-        if ($next) {
-            $nextApprover = DB::table('users')->where('id', $next->approver_user_id)->first();
-            if ($nextApprover && $nextApprover->no_hp) {
-                $wa = preg_replace('/^0/', '62', $nextApprover->no_hp);
-                $signUrl = url('/approval/sign/'.$next->sign_token);
-                \App\Helpers\FonnteWa::send($wa, "Mohon approval {$req->doc_type} rapat: {$rapat->judul}\nLink: {$signUrl}");
-            }
-        } else {
-            // step terakhir: tandai selesai
-            $col = $req->doc_type . '_approved_at';
-            if (Schema::hasColumn('rapat', $col)) {
-                DB::table('rapat')->where('id', $req->rapat_id)->update([$col => now()]);
-            }
-
-            // Undangan selesai -> buat QR absensi + kirim WA ke peserta  [NEW]
-            if ($req->doc_type === 'undangan') {
-                $this->generateAbsensiQr((int)$req->rapat_id);
-                app(\App\Http\Controllers\AbsensiController::class)
-                    ->ensureAbsensiQrMirrorsUndangan((int) $req->rapat_id);
-
-                // [NEW] Kirim WA peserta setelah undangan final-approved
-                $this->notifyParticipantsOnInvitationApproved($rapat);
-            }
-        }
+        // 3d) Notifikasi ke pembuat
+        $rapat = DB::table('rapat')->where('id', $req->rapat_id)->first();
+        $this->notifyCreatorOnReject($req->doc_type, $rapat, $note, $req);
 
         return redirect()->route('approval.done', ['token' => $token])
-            ->with('success', 'Approval berhasil & QR dibuat (dengan logo).');
+            ->with('success', 'Status ditolak telah direkam. Tahap berikutnya diblokir & pemberitahuan dikirim.');
     }
+
+    // === APPROVE ===
+    $rapat    = DB::table('rapat')->where('id', $req->rapat_id)->first();
+    $approver = DB::table('users')->where('id', $req->approver_user_id)->first();
+
+    $payload = [
+        'v'         => 1,
+        'doc_type'  => $req->doc_type,
+        'rapat_id'  => $req->rapat_id,
+        'nomor'     => $rapat->nomor_undangan ?? null,
+        'judul'     => $rapat->judul,
+        'tanggal'   => $rapat->tanggal,
+        'approver'  => [
+            'id'      => $approver->id,
+            'name'    => $approver->name,
+            'jabatan' => $approver->jabatan ?? null,
+            'order'   => $req->order_index,
+        ],
+        'issued_at' => now()->toIso8601String(),
+        'nonce'     => Str::random(16),
+    ];
+
+    $secret = config('app.key');
+    if (is_string($secret) && Str::startsWith($secret, 'base64:')) {
+        $secret = base64_decode(substr($secret, 7));
+    }
+    $payload['sig'] = hash_hmac(
+        'sha256',
+        json_encode($payload, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),
+        $secret
+    );
+    $payloadJson = json_encode($payload, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
+
+    // 4) Generate QR
+    $qrContent = route('qr.verify', ['d' => base64_encode($payloadJson)]);
+
+    $qrDir = public_path('qr');
+    if (!is_dir($qrDir)) @mkdir($qrDir, 0755, true);
+
+    $basename     = 'qr_' . $req->doc_type . '_r' . $req->rapat_id . '_a' . $approver->id . '_' . Str::random(6) . '.png';
+    $relativePath = 'qr/' . $basename;
+    $absolutePath = public_path($relativePath);
+
+    $ok = $this->saveQrWithLogo($qrContent, $absolutePath, 600, public_path('logo_qr.png'));
+    if (!$ok) {
+        return back()->with('error', 'Gagal membuat QR (akses internet/allow_url_fopen nonaktif).');
+    }
+
+    // 5) Simpan signature
+    DB::table('approval_requests')->where('id', $req->id)->update([
+        'status'             => 'approved',
+        'signature_qr_path'  => $relativePath,
+        'signature_payload'  => $payloadJson,
+        'signed_at'          => now(),
+        'updated_at'         => now(),
+    ]);
+
+    // 6) Lanjutkan ke approver berikutnya / selesai
+    $next = DB::table('approval_requests')
+        ->where('rapat_id', $req->rapat_id)
+        ->where('doc_type', $req->doc_type)
+        ->where('order_index', '>', $req->order_index)
+        ->orderBy('order_index')
+        ->first();
+
+    if ($next) {
+        // Kirim WA ke approver berikutnya (tetap)
+        $nextApprover = DB::table('users')->where('id', $next->approver_user_id)->first();
+        if ($nextApprover && $nextApprover->no_hp) {
+            $wa = preg_replace('/^0/', '62', $nextApprover->no_hp);
+            $signUrl = url('/approval/sign/'.$next->sign_token);
+            \App\Helpers\FonnteWa::send($wa, "Mohon approval {$req->doc_type} rapat: {$rapat->judul}\nLink: {$signUrl}");
+        }
+    } else {
+        // step terakhir: tandai selesai
+        $col = $req->doc_type . '_approved_at';
+        if (Schema::hasColumn('rapat', $col)) {
+            DB::table('rapat')->where('id', $req->rapat_id)->update([$col => now()]);
+        }
+
+        // UNDANGAN final-approved => buat QR absensi & kirim WA peserta (sudah ada)
+        if ($req->doc_type === 'undangan') {
+            $this->generateAbsensiQr((int)$req->rapat_id);
+            app(\App\Http\Controllers\AbsensiController::class)
+                ->ensureAbsensiQrMirrorsUndangan((int) $req->rapat_id);
+
+            // kirim WA peserta setelah undangan final-approved
+            $this->notifyParticipantsOnInvitationApproved($rapat);
+        }
+
+        // [NEW] NOTULENSI final-approved => kirim WA tugas ke assignee notulen
+        if ($req->doc_type === 'notulensi') { // [NEW]
+            app(\App\Http\Controllers\NotulensiController::class)
+                ->notifyAssigneesOnNotulensiApproved((int)$req->rapat_id); // [NEW]
+        }
+    }
+
+    return redirect()->route('approval.done', ['token' => $token])
+        ->with('success', 'Approval berhasil & QR dibuat (dengan logo).');
+}
 
     /**
      * Halaman selesai approval.
@@ -731,6 +738,71 @@ private function notifyParticipantsOnInvitationApproved($rapat): void
             'undangan_notified_at' => now(),
             'updated_at'           => now(),
         ]);
+    }
+}
+
+public function notifyNextApproverDocReady(int $rapatId, string $docType = 'notulensi'): void
+{
+    $rapat = DB::table('rapat')->where('id', $rapatId)->first();
+    if (!$rapat) return;
+
+    // Ambil kandidat pending terdepan
+    $next = DB::table('approval_requests as ar')
+        ->where('ar.rapat_id', $rapatId)
+        ->where('ar.doc_type', $docType)
+        ->where('ar.status', 'pending')
+        ->orderBy('ar.order_index')
+        ->get()
+        ->first(function($row) use ($rapatId, $docType) {
+            // pastikan tidak diblokir oleh step sebelumnya
+            $blocked = DB::table('approval_requests')
+                ->where('rapat_id', $rapatId)
+                ->where('doc_type', $docType)
+                ->where('order_index','<',$row->order_index)
+                ->where('status','!=','approved')
+                ->exists();
+            return !$blocked;
+        });
+
+    if (!$next) return; // tidak ada yang bisa di-approve sekarang
+
+    $approver = DB::table('users')->where('id', $next->approver_user_id)->first();
+    if (!$approver) return;
+
+    // Buat link Sign
+    $signUrl = url('/approval/sign/'.$next->sign_token);
+
+    // Buat link preview (khusus notulensi)
+    $previewUrl = null;
+    if ($docType === 'notulensi') {
+        $notulenId = DB::table('notulensi')->where('id_rapat', $rapatId)->value('id');
+        if ($notulenId && \Illuminate\Support\Facades\Route::has('notulensi.cetak')) {
+            $previewUrl = route('notulensi.cetak', $notulenId);
+        }
+    }
+
+    // Susun pesan WA (singkat & jelas)
+    $tgl = \Carbon\Carbon::parse($rapat->tanggal)->translatedFormat('l, d F Y');
+    $jenis = ucfirst($docType);
+    $pesan = "Assalamualaikum,\n\n"
+        ."Mohon *approval {$jenis}* untuk rapat:\n"
+        ."• *{$rapat->judul}*\n"
+        ."• Tgl/Waktu: {$tgl} {$rapat->waktu_mulai}\n"
+        ."• Tempat: {$rapat->tempat}\n\n"
+        ."Tautan persetujuan:\n{$signUrl}";
+    if ($previewUrl) {
+        $pesan .= "\nPratinjau dokumen:\n{$previewUrl}";
+    }
+
+    // Kirim WA
+    $phone = null;
+    if (isset($approver->no_hp) && $approver->no_hp) {
+        $phone = \App\Helpers\FonnteWa::normalizeNumber($approver->no_hp);
+    } elseif (isset($approver->phone) && $approver->phone) {
+        $phone = \App\Helpers\FonnteWa::normalizeNumber($approver->phone);
+    }
+    if ($phone) {
+        \App\Helpers\FonnteWa::send($phone, $pesan);
     }
 }
 
