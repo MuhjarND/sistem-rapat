@@ -741,70 +741,68 @@ private function notifyParticipantsOnInvitationApproved($rapat): void
     }
 }
 
+/**
+ * Kirim WA ke approver pertama yang statusnya 'pending' untuk $docType pada rapat $rapatId.
+ * Dipakai saat NOTULENSI baru dibuat agar approver segera menandatangani.
+ */
 public function notifyNextApproverDocReady(int $rapatId, string $docType = 'notulensi'): void
 {
-    $rapat = DB::table('rapat')->where('id', $rapatId)->first();
-    if (!$rapat) return;
-
-    // Ambil kandidat pending terdepan
-    $next = DB::table('approval_requests as ar')
+    // cari step pending terawal
+    $firstPending = DB::table('approval_requests as ar')
         ->where('ar.rapat_id', $rapatId)
         ->where('ar.doc_type', $docType)
         ->where('ar.status', 'pending')
-        ->orderBy('ar.order_index')
-        ->get()
-        ->first(function($row) use ($rapatId, $docType) {
-            // pastikan tidak diblokir oleh step sebelumnya
-            $blocked = DB::table('approval_requests')
-                ->where('rapat_id', $rapatId)
-                ->where('doc_type', $docType)
-                ->where('order_index','<',$row->order_index)
-                ->where('status','!=','approved')
-                ->exists();
-            return !$blocked;
-        });
+        ->orderBy('ar.order_index', 'asc')
+        ->first();
 
-    if (!$next) return; // tidak ada yang bisa di-approve sekarang
+    if (!$firstPending) return;
 
-    $approver = DB::table('users')->where('id', $next->approver_user_id)->first();
+    $approver = DB::table('users')->where('id', $firstPending->approver_user_id)->first();
     if (!$approver) return;
 
-    // Buat link Sign
-    $signUrl = url('/approval/sign/'.$next->sign_token);
+    $rapat = DB::table('rapat')
+        ->select('id','judul','tanggal','tempat')
+        ->where('id', $rapatId)->first();
+    if (!$rapat) return;
 
-    // Buat link preview (khusus notulensi)
-    $previewUrl = null;
-    if ($docType === 'notulensi') {
-        $notulenId = DB::table('notulensi')->where('id_rapat', $rapatId)->value('id');
-        if ($notulenId && \Illuminate\Support\Facades\Route::has('notulensi.cetak')) {
-            $previewUrl = route('notulensi.cetak', $notulenId);
-        }
-    }
-
-    // Susun pesan WA (singkat & jelas)
-    $tgl = \Carbon\Carbon::parse($rapat->tanggal)->translatedFormat('l, d F Y');
-    $jenis = ucfirst($docType);
-    $pesan = "Assalamualaikum,\n\n"
-        ."Mohon *approval {$jenis}* untuk rapat:\n"
-        ."• *{$rapat->judul}*\n"
-        ."• Tgl/Waktu: {$tgl} {$rapat->waktu_mulai}\n"
-        ."• Tempat: {$rapat->tempat}\n\n"
-        ."Tautan persetujuan:\n{$signUrl}";
-    if ($previewUrl) {
-        $pesan .= "\nPratinjau dokumen:\n{$previewUrl}";
-    }
-
-    // Kirim WA
+    // ambil nomor hp dari kolom yang tersedia (no_hp/phone/wa/dll)
     $phone = null;
-    if (isset($approver->no_hp) && $approver->no_hp) {
-        $phone = \App\Helpers\FonnteWa::normalizeNumber($approver->no_hp);
-    } elseif (isset($approver->phone) && $approver->phone) {
-        $phone = \App\Helpers\FonnteWa::normalizeNumber($approver->phone);
+    if (Schema::hasColumn('users','no_hp') && !empty($approver->no_hp)) {
+        $phone = $approver->no_hp;
+    } elseif (Schema::hasColumn('users','phone') && !empty($approver->phone)) {
+        $phone = $approver->phone;
+    } elseif (Schema::hasColumn('users','wa') && !empty($approver->wa)) {
+        $phone = $approver->wa;
     }
-    if ($phone) {
-        \App\Helpers\FonnteWa::send($phone, $pesan);
+
+    if (!$phone) return;
+
+    // normalisasi msisdn (gunakan helper FonnteWa jika punya; fallback sederhana)
+    if (method_exists(\App\Helpers\FonnteWa::class, 'normalizeNumber')) {
+        $msisdn = \App\Helpers\FonnteWa::normalizeNumber($phone);
+    } else {
+        $n = preg_replace('/[^0-9+]/','',$phone);
+        if (strpos($n,'+62')===0) $n = '62'.substr($n,3);
+        if (strpos($n,'0')===0)   $n = '62'.substr($n,1);
+        if (strpos($n,'8')===0)   $n = '62'.$n;
+        $msisdn = preg_match('/^62[0-9]{8,15}$/',$n) ? $n : null;
     }
+    if (!$msisdn) return;
+
+    $signUrl = url('/approval/sign/'.$firstPending->sign_token);
+    $tgl     = $rapat->tanggal ? \Carbon\Carbon::parse($rapat->tanggal)->isoFormat('D MMM Y') : '-';
+
+    $msg = "Assalamu’alaikum Wr. Wb.\n\n"
+         . "Mohon *persetujuan NOTULENSI* untuk rapat:\n"
+         . "• *{$rapat->judul}*\n"
+         . "• Tanggal: {$tgl}\n"
+         . "• Tempat: {$rapat->tempat}\n\n"
+         . "Silakan tinjau & setujui pada tautan berikut:\n{$signUrl}\n\n"
+         . "Terima kasih.\nWassalamu’alaikum Wr. Wb.";
+
+    \App\Helpers\FonnteWa::send($msisdn, $msg);
 }
+
 
 
 }

@@ -113,157 +113,158 @@ class NotulensiController extends Controller
         return view('notulensi.create', compact('rapat','jumlah_peserta','hari_tanggal','jam'));
     }
 
-    public function store(Request $request)
-    {
-        $request->validate([
-            'id_rapat'                 => 'required|exists:rapat,id',
-            'baris'                    => 'required|array|min:1',
-            'baris.*.hasil_pembahasan' => 'required|string',
-            'baris.*.rekomendasi'      => 'nullable|string',
-            'baris.*.penanggung_jawab' => 'nullable|string|max:150',
-            'baris.*.pj_ids'           => 'nullable|array',
-            'baris.*.pj_ids.*'         => 'integer|exists:users,id',
-            'baris.*.tgl_penyelesaian' => 'nullable|date',
-            'dokumentasi'              => 'required',
-            'dokumentasi.*'            => 'image|max:10240',
-        ], [
-            'dokumentasi.required' => 'Minimal unggah 3 foto dokumentasi.',
+ public function store(Request $request)
+{
+    $request->validate([
+        'id_rapat'                 => 'required|exists:rapat,id',
+        'baris'                    => 'required|array|min:1',
+        'baris.*.hasil_pembahasan' => 'required|string',
+        'baris.*.rekomendasi'      => 'nullable|string',
+        'baris.*.penanggung_jawab' => 'nullable|string|max:150',
+        'baris.*.pj_ids'           => 'nullable|array',
+        'baris.*.pj_ids.*'         => 'integer|exists:users,id',
+        'baris.*.tgl_penyelesaian' => 'nullable|date',
+        'dokumentasi'              => 'required',
+        'dokumentasi.*'            => 'image|max:10240',
+    ], [
+        'dokumentasi.required' => 'Minimal unggah 3 foto dokumentasi.',
+    ]);
+
+    if (DB::table('notulensi')->where('id_rapat', $request->id_rapat)->exists()) {
+        return redirect()->route('notulensi.sudah')->with('success', 'Notulensi untuk rapat ini sudah ada.');
+    }
+
+    DB::beginTransaction();
+    try {
+        // Header
+        $id_notulensi = DB::table('notulensi')->insertGetId([
+            'id_rapat'   => $request->id_rapat,
+            'id_user'    => Auth::id(),
+            'created_at' => now(),
+            'updated_at' => now(),
         ]);
 
-        if (DB::table('notulensi')->where('id_rapat', $request->id_rapat)->exists()) {
-            return redirect()->route('notulensi.sudah')->with('success', 'Notulensi untuk rapat ini sudah ada.');
-        }
-
-        DB::beginTransaction();
-        try {
-            // header
-            $id_notulensi = DB::table('notulensi')->insertGetId([
-                'id_rapat'   => $request->id_rapat,
-                'id_user'    => Auth::id(),
-                'created_at' => now(),
-                'updated_at' => now(),
+        // Detail + tugas (TIDAK kirim WA di sini)
+        $urut = 1;
+        foreach ($request->baris as $r) {
+            $idDetail = DB::table('notulensi_detail')->insertGetId([
+                'id_notulensi'     => $id_notulensi,
+                'urut'             => $urut++,
+                'hasil_pembahasan' => $r['hasil_pembahasan'],
+                'rekomendasi'      => $r['rekomendasi'] ?? null,
+                'penanggung_jawab' => $r['penanggung_jawab'] ?? null,
+                'tgl_penyelesaian' => $r['tgl_penyelesaian'] ?? null,
+                'created_at'       => now(),
+                'updated_at'       => now(),
             ]);
 
-            $urut = 1;
+            $pjIds = $r['pj_ids'] ?? [];
+            if (is_array($pjIds) && count($pjIds)) {
+                $bulk = [];
+                foreach ($pjIds as $uid) {
+                    $bulk[] = [
+                        'id_notulensi_detail' => $idDetail,
+                        'user_id'             => (int)$uid,
+                        'tgl_penyelesaian'    => $r['tgl_penyelesaian'] ?? null,
+                        'status'              => 'pending',
+                        'created_at'          => now(),
+                        'updated_at'          => now(),
+                    ];
+                }
+                DB::table('notulensi_tugas')->insert($bulk);
+            }
+        }
 
-            // detail + tugas (TIDAK kirim WA di sini) // === changed
-            foreach ($request->baris as $r) {
-                $idDetail = DB::table('notulensi_detail')->insertGetId([
-                    'id_notulensi'     => $id_notulensi,
-                    'urut'             => $urut++,
-                    'hasil_pembahasan' => $r['hasil_pembahasan'],
-                    'rekomendasi'      => $r['rekomendasi'] ?? null,
-                    'penanggung_jawab' => $r['penanggung_jawab'] ?? null,
-                    'tgl_penyelesaian' => $r['tgl_penyelesaian'] ?? null,
-                    'created_at'       => now(),
-                    'updated_at'       => now(),
+        // Dokumentasi
+        if ($request->hasFile('dokumentasi')) {
+            $dest = public_path('uploads/notulensi');
+            if (!is_dir($dest)) mkdir($dest, 0775, true);
+
+            foreach ($request->file('dokumentasi') as $file) {
+                if (!$file || !$file->isValid()) continue;
+
+                $ext      = strtolower($file->getClientOriginalExtension());
+                $basename = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
+                $slugBase = preg_replace('/[^a-z0-9\-]+/i', '-', $basename);
+                $name     = $slugBase.'-'.uniqid().'.'.$ext;
+
+                $file->move($dest, $name);
+                $relPath = 'uploads/notulensi/'.$name;
+
+                DB::table('notulensi_dokumentasi')->insert([
+                    'id_notulensi' => $id_notulensi,
+                    'file_path'    => $relPath,
+                    'caption'      => null,
+                    'created_at'   => now(),
+                    'updated_at'   => now(),
                 ]);
+            }
+        }
 
-                $pjIds = $r['pj_ids'] ?? [];
-                if (is_array($pjIds) && count($pjIds)) {
-                    $bulk = [];
-                    foreach ($pjIds as $uid) {
-                        $bulk[] = [
-                            'id_notulensi_detail' => $idDetail,
-                            'user_id'             => (int)$uid,
-                            'tgl_penyelesaian'    => $r['tgl_penyelesaian'] ?? null,
-                            'status'              => 'pending',
-                            'created_at'          => now(),
-                            'updated_at'          => now(),
-                        ];
-                    }
-                    DB::table('notulensi_tugas')->insert($bulk);
+        // QR Notulis + siapkan chain approval notulensi
+        $this->ensureNotulensiNotulisQr((int)$request->id_rapat, (int)$id_notulensi);
+
+        // Tambahkan approver (approval2 -> order 2, approval1 -> order 3)
+        $rapat = DB::table('rapat')->where('id', $request->id_rapat)->first();
+        if ($rapat) {
+            $order = 2;
+            if (!empty($rapat->approval2_user_id)) {
+                $exists2 = DB::table('approval_requests')
+                    ->where('rapat_id', $rapat->id)
+                    ->where('doc_type', 'notulensi')
+                    ->where('approver_user_id', $rapat->approval2_user_id)
+                    ->exists();
+                if (!$exists2) {
+                    DB::table('approval_requests')->insert([
+                        'rapat_id'         => $rapat->id,
+                        'doc_type'         => 'notulensi',
+                        'approver_user_id' => $rapat->approval2_user_id,
+                        'order_index'      => $order++,
+                        'status'           => 'pending',
+                        'sign_token'       => Str::random(32),
+                        'created_at'       => now(),
+                        'updated_at'       => now(),
+                    ]);
+                } else {
+                    $order++;
                 }
             }
-
-            // dokumentasi
-            if ($request->hasFile('dokumentasi')) {
-                $dest = public_path('uploads/notulensi');
-                if (!is_dir($dest)) mkdir($dest, 0775, true);
-
-                foreach ($request->file('dokumentasi') as $file) {
-                    if (!$file || !$file->isValid()) continue;
-
-                    $ext      = strtolower($file->getClientOriginalExtension());
-                    $basename = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
-                    $slugBase = preg_replace('/[^a-z0-9\-]+/i', '-', $basename);
-                    $name     = $slugBase.'-'.uniqid().'.'.$ext;
-
-                    $file->move($dest, $name);
-                    $relPath = 'uploads/notulensi/'.$name;
-
-                    DB::table('notulensi_dokumentasi')->insert([
-                        'id_notulensi' => $id_notulensi,
-                        'file_path'    => $relPath,
-                        'caption'      => null,
-                        'created_at'   => now(),
-                        'updated_at'   => now(),
+            if (!empty($rapat->approval1_user_id)) {
+                $exists1 = DB::table('approval_requests')
+                    ->where('rapat_id', $rapat->id)
+                    ->where('doc_type', 'notulensi')
+                    ->where('approver_user_id', $rapat->approval1_user_id)
+                    ->exists();
+                if (!$exists1) {
+                    DB::table('approval_requests')->insert([
+                        'rapat_id'         => $rapat->id,
+                        'doc_type'         => 'notulensi',
+                        'approver_user_id' => $rapat->approval1_user_id,
+                        'order_index'      => $order,
+                        'status'           => 'pending',
+                        'sign_token'       => Str::random(32),
+                        'created_at'       => now(),
+                        'updated_at'       => now(),
                     ]);
                 }
             }
-
-            // QR Notulis + siapkan chain approval notulensi
-            $this->ensureNotulensiNotulisQr((int)$request->id_rapat, (int)$id_notulensi);
-
-            $rapat = DB::table('rapat')->where('id', $request->id_rapat)->first();
-            if ($rapat) {
-                $order = 2;
-                if (!empty($rapat->approval2_user_id)) {
-                    $exists2 = DB::table('approval_requests')
-                        ->where('rapat_id', $rapat->id)
-                        ->where('doc_type', 'notulensi')
-                        ->where('approver_user_id', $rapat->approval2_user_id)
-                        ->exists();
-                    if (!$exists2) {
-                        DB::table('approval_requests')->insert([
-                            'rapat_id'         => $rapat->id,
-                            'doc_type'         => 'notulensi',
-                            'approver_user_id' => $rapat->approval2_user_id,
-                            'order_index'      => $order++,
-                            'status'           => 'pending',
-                            'sign_token'       => Str::random(32),
-                            'created_at'       => now(),
-                            'updated_at'       => now(),
-                        ]);
-                    } else {
-                        $order++;
-                    }
-                }
-                if (!empty($rapat->approval1_user_id)) {
-                    $exists1 = DB::table('approval_requests')
-                        ->where('rapat_id', $rapat->id)
-                        ->where('doc_type', 'notulensi')
-                        ->where('approver_user_id', $rapat->approval1_user_id)
-                        ->exists();
-                    if (!$exists1) {
-                        DB::table('approval_requests')->insert([
-                            'rapat_id'         => $rapat->id,
-                            'doc_type'         => 'notulensi',
-                            'approver_user_id' => $rapat->approval1_user_id,
-                            'order_index'      => $order,
-                            'status'           => 'pending',
-                            'sign_token'       => Str::random(32),
-                            'created_at'       => now(),
-                            'updated_at'       => now(),
-                        ]);
-                    }
-                }
-            }
-
-            DB::commit();
-
-            // === Kirim WA ke approver berikutnya (bukan ke assignee) // === changed
-            app(\App\Http\Controllers\ApprovalController::class)
-                ->notifyNextApproverDocReady((int)$request->id_rapat, 'notulensi');
-
-            return redirect()->route('notulensi.show', $id_notulensi)
-                ->with('success', 'Notulensi berhasil dibuat. TTD Notulis dibuat otomatis & approval pimpinan disiapkan.');
-        } catch (\Throwable $e) {
-            DB::rollBack();
-            report($e);
-            return back()->withErrors('Gagal menyimpan notulensi.')->withInput();
         }
+
+        DB::commit();
+
+        // === Kirim WA ke approver pertama yang pending (BUKAN ke assignee)
+        app(\App\Http\Controllers\ApprovalController::class)
+            ->notifyNextApproverDocReady((int)$request->id_rapat, 'notulensi');
+
+        return redirect()->route('notulensi.show', $id_notulensi)
+            ->with('success', 'Notulensi berhasil dibuat. TTD Notulis dibuat otomatis & approval pimpinan disiapkan. Notifikasi sudah dikirim ke approver.');
+    } catch (\Throwable $e) {
+        DB::rollBack();
+        report($e);
+        return back()->withErrors('Gagal menyimpan notulensi.')->withInput();
     }
+}
+
 
     public function show($id)
     {
