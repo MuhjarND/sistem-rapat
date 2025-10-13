@@ -8,6 +8,7 @@
               background:rgba(255,255,255,.08); color:#fff; border-radius:999px;
               padding:.25rem .6rem; font-size:.78rem; font-weight:800; line-height:1;
               border:1px solid rgba(255,255,255,.2)}
+  .badge-chip.fix{background:rgba(34,197,94,.18); border-color:rgba(34,197,94,.35)} /* Sudah diperbaiki */
   .doc-badge{font-weight:800; letter-spacing:.2px; border-radius:8px; padding:.12rem .4rem}
   .doc-undangan{background:#0ea5e9; color:#05293a}
   .doc-notulensi{background:#22c55e; color:#05341e}
@@ -17,6 +18,8 @@
   .kpi-card{background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,.02)); border:1px solid var(--border); border-radius:14px; box-shadow:var(--shadow); padding:12px; color:var(--text)}
   .kpi-card .value{font-size:1.4rem; font-weight:800}
   .table thead th{text-align:center}
+  .meta-repair{display:flex;flex-wrap:wrap;gap:.5rem;color:var(--muted)}
+  .meta-repair .sep{opacity:.6}
 </style>
 @endsection
 
@@ -27,45 +30,6 @@
     <a href="{{ route('approval.dashboard') }}" class="btn btn-outline-light btn-sm">
       <i class="fas fa-home mr-1"></i> Kembali ke Dashboard
     </a>
-  </div>
-
-  {{-- RINGKASAN --}}
-  @php
-    $total        = $rows->count();
-    $open         = $rows->where('blocked', false)->count();
-    $blockedTotal = $rows->where('blocked', true)->count();
-
-    $byType = [
-      'undangan'  => $rows->where('doc_type','undangan')->count(),
-      'notulensi' => $rows->where('doc_type','notulensi')->count(),
-      'absensi'   => $rows->where('doc_type','absensi')->count(),
-    ];
-  @endphp
-  <div class="row">
-    <div class="col-md-3 mb-3">
-      <div class="kpi-card">
-        <div class="text-muted">Total Pending</div>
-        <div class="value">{{ $total }}</div>
-        <span class="badge-chip">Siap tanda tangan: {{ $open }}</span>
-      </div>
-    </div>
-    <div class="col-md-3 mb-3">
-      <div class="kpi-card">
-        <div class="text-muted">Menunggu Tahap Sebelumnya</div>
-        <div class="value">{{ $blockedTotal }}</div>
-        <span class="badge-chip">Tertahan</span>
-      </div>
-    </div>
-    <div class="col-md-6 mb-3">
-      <div class="kpi-card">
-        <div class="text-muted mb-1">Per Jenis Dokumen</div>
-        <div class="d-flex flex-wrap" style="gap:.4rem">
-          <span class="doc-badge doc-undangan">Undangan: {{ $byType['undangan'] }}</span>
-          <span class="doc-badge doc-notulensi">Notulensi: {{ $byType['notulensi'] }}</span>
-          <span class="doc-badge doc-absensi">Absensi: {{ $byType['absensi'] }}</span>
-        </div>
-      </div>
-    </div>
   </div>
 
   {{-- FILTER BAR (client-side) --}}
@@ -119,18 +83,43 @@
           <tbody>
           @forelse($rows as $r)
             @php
-              $badgeCls = $r->doc_type==='undangan' ? 'doc-undangan' : ($r->doc_type==='notulensi' ? 'doc-notulensi' : 'doc-absensi');
+              $badgeCls  = $r->doc_type==='undangan' ? 'doc-undangan' : ($r->doc_type==='notulensi' ? 'doc-notulensi' : 'doc-absensi');
               $isBlocked = (bool)$r->blocked;
+              $isResub   = !empty($r->resubmitted) && $r->doc_type==='notulensi';
+              $revisedItems = (int)($r->revised_items ?? 0);
+              $revisedDocs  = (int)($r->revised_docs  ?? 0);
             @endphp
             <tr data-type="{{ $r->doc_type }}"
-                data-search="{{ Str::lower(($r->judul ?? '').' '.($r->tempat ?? '').' '.($r->nomor_undangan ?? '')) }}"
-                data-status="{{ $isBlocked ? 'blocked' : 'open' }}">
+                data-search="{{ \Illuminate\Support\Str::lower(($r->judul ?? '').' '.($r->tempat ?? '').' '.($r->nomor_undangan ?? '')) }}"
+                data-status="{{ $isBlocked ? 'blocked' : 'open' }}"
+                data-resubmitted="{{ $isResub ? 1 : 0 }}">
               <td class="text-center">
                 <span class="doc-badge {{ $badgeCls }}">{{ ucfirst($r->doc_type) }}</span>
               </td>
               <td>
-                <div class="font-weight-bold">{{ $r->judul }}</div>
-                <small class="text-muted">No: {{ $r->nomor_undangan ?? '-' }}</small>
+                <div class="font-weight-bold d-flex align-items-center flex-wrap" style="gap:.35rem">
+                  <span>{{ $r->judul }}</span>
+                  @if($isResub)
+                    <span class="badge-chip fix"
+                          data-toggle="tooltip"
+                          title="Perbaikan terakhir {{ \Carbon\Carbon::parse($r->last_fix_at)->diffForHumans() }} • {{ $revisedItems }} butir / {{ $revisedDocs }} berkas">
+                      Sudah diperbaiki
+                    </span>
+                  @endif
+                </div>
+
+                {{-- meta info perbaikan (ditampilkan teks kecil) --}}
+                @if($isResub)
+                  <div class="meta-repair mt-1">
+                    @if(!empty($r->last_fix_at))
+                      <span>Perbaikan {{ \Carbon\Carbon::parse($r->last_fix_at)->diffForHumans() }}</span>
+                    @endif
+                    <span class="sep">•</span>
+                    <span>Perubahan: <b>{{ $revisedItems }}</b> butir / <b>{{ $revisedDocs }}</b> berkas</span>
+                  </div>
+                @endif
+
+                <small class="text-muted d-block">No: {{ $r->nomor_undangan ?? '-' }}</small>
               </td>
               <td class="text-center">
                 {{ \Carbon\Carbon::parse($r->tanggal)->translatedFormat('d F Y') }}<br>
@@ -140,6 +129,11 @@
               <td class="text-center">Step {{ $r->order_index }}</td>
               <td class="text-right">
                 @if(!$isBlocked)
+                  @if(!empty($r->preview_url))
+                    <a href="{{ $r->preview_url }}" target="_blank" class="btn btn-outline-light btn-sm mr-1">
+                      <i class="fas fa-eye mr-1"></i> Preview
+                    </a>
+                  @endif
                   <a href="{{ route('approval.sign', $r->sign_token) }}" class="btn btn-primary btn-sm">
                     <i class="fas fa-pen-nib mr-1"></i> Tanda Tangani
                   </a>
@@ -163,6 +157,19 @@
       </div>
     </div>
   </div>
+
+  @if(method_exists($rows, 'links'))
+    <div class="mt-3 d-flex justify-content-between align-items-center flex-wrap">
+      <div class="text-muted mb-2">
+        Menampilkan <b>{{ $rows->firstItem() ?? 0 }}</b>–<b>{{ $rows->lastItem() ?? 0 }}</b>
+        dari <b>{{ $rows->total() }}</b> approval pending
+      </div>
+      <div class="mb-2">
+        {{ $rows->onEachSide(1)->links() }}
+      </div>
+    </div>
+  @endif
+
 </div>
 @endsection
 

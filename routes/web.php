@@ -124,7 +124,13 @@ Route::middleware(['auth', 'cekrole:approval,notulis,admin'])->group(function ()
     Route::get('/approval/sign/{token}', 'ApprovalController@signForm')->name('approval.sign');
     Route::post('/approval/sign/{token}', 'ApprovalController@signSubmit')->name('approval.sign.submit');
     Route::get('/approval/done/{token}', 'ApprovalController@done')->name('approval.done');
+    Route::get('/approval/history',   'ApprovalController@history')->name('approval.history');
+    Route::get('/approval/approved',  'ApprovalController@approved')->name('approval.approved');
 
+    // rapat
+    Route::get('/approval/rapat', 'ApprovalController@meetings')->name('approval.rapat'); // halaman rapat (versi approver)
+    Route::get('rapat/{id}/show', 'RapatController@show')->name('rapat.show');
+    // preview
     Route::get('absensi/laporan/{id_rapat}', 'AbsensiController@exportPdf')->name('absensi.export.pdf');
     Route::get('notulensi/{id}/cetak', 'NotulensiController@cetakGabung')->name('notulensi.cetak');
 });

@@ -347,120 +347,162 @@ class NotulensiController extends Controller
         return view('notulensi.edit', compact('notulensi','rapat','detail','dokumentasi','assigneesMap'));
     }
 
-    public function update(Request $request, $id)
-    {
-        $request->validate([
-            'baris'                    => 'nullable|array',
-            'baris.*.hasil_pembahasan' => 'required_with:baris|string',
-            'baris.*.rekomendasi'      => 'nullable|string',
-            'baris.*.penanggung_jawab' => 'nullable|string|max:150',
-            'baris.*.pj_ids'           => 'nullable|array',
-            'baris.*.pj_ids.*'         => 'integer|exists:users,id',
-            'baris.*.tgl_penyelesaian' => 'nullable|date',
-            'hapus_dok'                => 'nullable|array',
-            'hapus_dok.*'              => 'integer',
-            'dokumentasi_baru.*'       => 'nullable|image|max:10240',
-        ]);
+public function update(Request $request, $id)
+{
+    $request->validate([
+        'baris'                    => 'nullable|array',
+        'baris.*.hasil_pembahasan' => 'required_with:baris|string',
+        'baris.*.rekomendasi'      => 'nullable|string',
+        'baris.*.penanggung_jawab' => 'nullable|string|max:150',
+        'baris.*.pj_ids'           => 'nullable|array',
+        'baris.*.pj_ids.*'         => 'integer|exists:users,id',
+        'baris.*.tgl_penyelesaian' => 'nullable|date',
+        'hapus_dok'                => 'nullable|array',
+        'hapus_dok.*'              => 'integer',
+        'dokumentasi_baru.*'       => 'nullable|image|max:10240',
+    ]);
 
-        DB::beginTransaction();
-        try {
-            DB::table('notulensi')->where('id', $id)->update(['updated_at' => now()]);
+    DB::beginTransaction();
+    try {
+        // Sentuh updated_at notulensi
+        DB::table('notulensi')->where('id', $id)->update(['updated_at' => now()]);
 
-            if ($request->filled('baris')) {
-                // buang detail lama + tugasnya
-                $oldDetailIds = DB::table('notulensi_detail')->where('id_notulensi', $id)->pluck('id');
-                if ($oldDetailIds->count()) {
-                    DB::table('notulensi_tugas')->whereIn('id_notulensi_detail', $oldDetailIds)->delete();
-                }
-                DB::table('notulensi_detail')->where('id_notulensi', $id)->delete();
+        if ($request->filled('baris')) {
+            // buang detail lama + tugasnya
+            $oldDetailIds = DB::table('notulensi_detail')->where('id_notulensi', $id)->pluck('id');
+            if ($oldDetailIds->count()) {
+                DB::table('notulensi_tugas')->whereIn('id_notulensi_detail', $oldDetailIds)->delete();
+            }
+            DB::table('notulensi_detail')->where('id_notulensi', $id)->delete();
 
-                // insert ulang
-                $urut = 1;
-                foreach ($request->baris as $r) {
-                    if (!isset($r['hasil_pembahasan']) || $r['hasil_pembahasan'] === '') continue;
+            // insert ulang
+            $urut = 1;
+            foreach ($request->baris as $r) {
+                if (!isset($r['hasil_pembahasan']) || $r['hasil_pembahasan'] === '') continue;
 
-                    $idDetail = DB::table('notulensi_detail')->insertGetId([
-                        'id_notulensi'     => $id,
-                        'urut'             => $urut++,
-                        'hasil_pembahasan' => $r['hasil_pembahasan'],
-                        'rekomendasi'      => $r['rekomendasi'] ?? null,
-                        'penanggung_jawab' => $r['penanggung_jawab'] ?? null,
-                        'tgl_penyelesaian' => $r['tgl_penyelesaian'] ?? null,
-                        'created_at'       => now(),
-                        'updated_at'       => now(),
-                    ]);
+                $idDetail = DB::table('notulensi_detail')->insertGetId([
+                    'id_notulensi'     => $id,
+                    'urut'             => $urut++,
+                    'hasil_pembahasan' => $r['hasil_pembahasan'],
+                    'rekomendasi'      => $r['rekomendasi'] ?? null,
+                    'penanggung_jawab' => $r['penanggung_jawab'] ?? null,
+                    'tgl_penyelesaian' => $r['tgl_penyelesaian'] ?? null,
+                    'created_at'       => now(),
+                    'updated_at'       => now(),
+                ]);
 
-                    $pjIds = $r['pj_ids'] ?? [];
-                    if (is_array($pjIds) && count($pjIds)) {
-                        $bulk = [];
-                        foreach ($pjIds as $uid) {
-                            $bulk[] = [
-                                'id_notulensi_detail' => $idDetail,
-                                'user_id'             => (int)$uid,
-                                'tgl_penyelesaian'    => $r['tgl_penyelesaian'] ?? null,
-                                'status'              => 'pending',
-                                'created_at'          => now(),
-                                'updated_at'          => now(),
-                            ];
-                        }
-                        DB::table('notulensi_tugas')->insert($bulk);
+                $pjIds = $r['pj_ids'] ?? [];
+                if (is_array($pjIds) && count($pjIds)) {
+                    $bulk = [];
+                    foreach ($pjIds as $uid) {
+                        $bulk[] = [
+                            'id_notulensi_detail' => $idDetail,
+                            'user_id'             => (int)$uid,
+                            'tgl_penyelesaian'    => $r['tgl_penyelesaian'] ?? null,
+                            'status'              => 'pending',
+                            'created_at'          => now(),
+                            'updated_at'          => now(),
+                        ];
                     }
+                    DB::table('notulensi_tugas')->insert($bulk);
                 }
             }
-
-            // hapus dok terpilih
-            if ($request->filled('hapus_dok')) {
-                $hapusIds = $request->hapus_dok;
-                $lama = DB::table('notulensi_dokumentasi')->whereIn('id', $hapusIds)->get();
-                foreach ($lama as $item) {
-                    $path = public_path($item->file_path);
-                    if (is_file($path)) @unlink($path);
-                }
-                DB::table('notulensi_dokumentasi')->whereIn('id', $hapusIds)->delete();
-            }
-
-            // upload dok baru
-            if ($request->hasFile('dokumentasi_baru')) {
-                $dest = public_path('uploads/notulensi');
-                if (!is_dir($dest)) mkdir($dest, 0775, true);
-
-                foreach ($request->file('dokumentasi_baru') as $file) {
-                    if (!$file || !$file->isValid()) continue;
-
-                    $ext      = strtolower($file->getClientOriginalExtension());
-                    $basename = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
-                    $slugBase = preg_replace('/[^a-z0-9\-]+/i', '-', $basename);
-                    $name     = $slugBase.'-'.uniqid().'.'.$ext;
-
-                    $file->move($dest, $name);
-                    $relPath = 'uploads/notulensi/'.$name;
-
-                    DB::table('notulensi_dokumentasi')->insert([
-                        'id_notulensi' => $id,
-                        'file_path'    => $relPath,
-                        'caption'      => null,
-                        'created_at'   => now(),
-                        'updated_at'   => now(),
-                    ]);
-                }
-            }
-
-            DB::commit();
-
-            // === Kirim WA ke approver berikutnya (bila revisi) // === changed
-            $idRap = DB::table('notulensi')->where('id',$id)->value('id_rapat');
-            if ($idRap) {
-                app(\App\Http\Controllers\ApprovalController::class)
-                    ->notifyNextApproverDocReady((int)$idRap, 'notulensi');
-            }
-
-            return redirect()->route('notulensi.show', $id)->with('success', 'Notulensi berhasil diperbarui.');
-        } catch (\Throwable $e) {
-            DB::rollBack();
-            report($e);
-            return back()->withErrors('Gagal memperbarui notulensi.')->withInput();
         }
+
+        // hapus dok terpilih
+        if ($request->filled('hapus_dok')) {
+            $hapusIds = $request->hapus_dok;
+            $lama = DB::table('notulensi_dokumentasi')->whereIn('id', $hapusIds)->get();
+            foreach ($lama as $item) {
+                $path = public_path($item->file_path);
+                if (is_file($path)) @unlink($path);
+            }
+            DB::table('notulensi_dokumentasi')->whereIn('id', $hapusIds)->delete();
+        }
+
+        // upload dok baru
+        if ($request->hasFile('dokumentasi_baru')) {
+            $dest = public_path('uploads/notulensi');
+            if (!is_dir($dest)) mkdir($dest, 0775, true);
+
+            foreach ($request->file('dokumentasi_baru') as $file) {
+                if (!$file || !$file->isValid()) continue;
+
+                $ext      = strtolower($file->getClientOriginalExtension());
+                $basename = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
+                $slugBase = preg_replace('/[^a-z0-9\-]+/i', '-', $basename);
+                $name     = $slugBase.'-'.uniqid().'.'.$ext;
+
+                $file->move($dest, $name);
+                $relPath = 'uploads/notulensi/'.$name;
+
+                DB::table('notulensi_dokumentasi')->insert([
+                    'id_notulensi' => $id,
+                    'file_path'    => $relPath,
+                    'caption'      => null,
+                    'created_at'   => now(),
+                    'updated_at'   => now(),
+                ]);
+            }
+        }
+
+        DB::commit();
+
+        // ================== RE-QUEUE APPROVAL (jika sebelumnya REJECT) ==================
+        try {
+            $rapatId = (int) DB::table('notulensi')->where('id', $id)->value('id_rapat');
+
+            // Cari request notulensi yang terakhir ditolak
+            $rej = DB::table('approval_requests')
+                ->where('rapat_id',  $rapatId)
+                ->where('doc_type',  'notulensi')
+                ->where('status',    'rejected')
+                ->orderByDesc('order_index')
+                ->orderByDesc('id')
+                ->first();
+
+            if ($rej) {
+                // Jika memiliki kolom resubmitted/resubmitted_at, set nilainya
+                $extra = [];
+                if (\Illuminate\Support\Facades\Schema::hasColumn('approval_requests','resubmitted')) {
+                    $extra['resubmitted'] = 1;
+                }
+                if (\Illuminate\Support\Facades\Schema::hasColumn('approval_requests','resubmitted_at')) {
+                    $extra['resubmitted_at'] = now();
+                }
+
+                // Ubah jadi pending lagi + token baru, hapus catatan reject
+                DB::table('approval_requests')->where('id', $rej->id)->update(array_merge([
+                    'status'         => 'pending',
+                    'sign_token'     => \Illuminate\Support\Str::random(32),
+                    'rejection_note' => null,
+                    'rejected_at'    => null,
+                    'updated_at'     => now(),
+                ], $extra));
+
+                // Bersihkan flag ditolak di rapat + buka blokir step berikutnya
+                app(\App\Http\Controllers\ApprovalController::class)
+                    ->unblockNextSteps($rapatId, 'notulensi', (int)$rej->order_index);
+            }
+
+            // Kirim WA ke approver pertama yang pending (baik kasus baru atau revisi)
+            if ($rapatId) {
+                app(\App\Http\Controllers\ApprovalController::class)
+                    ->notifyNextApproverDocReady((int)$rapatId, 'notulensi');
+            }
+        } catch (\Throwable $e) {
+            Log::error('[notulensi-update] requeue rejected step fail', ['e'=>$e->getMessage()]);
+        }
+        // ================================================================================
+
+        return redirect()->route('notulensi.show', $id)->with('success', 'Notulensi berhasil diperbarui & dikirim ulang untuk persetujuan.');
+    } catch (\Throwable $e) {
+        DB::rollBack();
+        report($e);
+        return back()->withErrors('Gagal memperbarui notulensi.')->withInput();
     }
+}
+
 
     /** Cetak p1+p2+p3 (dengan QR notulis & pimpinan) */
     public function cetakGabung($id)
