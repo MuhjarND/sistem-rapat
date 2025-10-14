@@ -111,13 +111,20 @@ public function pending(Request $request)
 {
     $userId = auth()->id();
 
-    // [REVISED-0] deteksi kolom rejected_at utk notulensi
-    $hasRejectedCol = \Illuminate\Support\Facades\Schema::hasColumn('rapat','notulensi_rejected_at');
-    // raw ekspresi yang bisa dipakai di SQL
-    $rejCol = $hasRejectedCol ? 'r.notulensi_rejected_at' : 'NULL';
+    // Deteksi kolom audit yang mungkin ada di tabel rapat
+    $hasNotuRejected = \Illuminate\Support\Facades\Schema::hasColumn('rapat','notulensi_rejected_at');
+    $hasUndRejected  = \Illuminate\Support\Facades\Schema::hasColumn('rapat','undangan_rejected_at');
+    $hasUndRevised   = \Illuminate\Support\Facades\Schema::hasColumn('rapat','undangan_revised_at');
+
+    // Ekspresi raw untuk dipakai di CASE
+    $notuRejCol = $hasNotuRejected ? 'r.notulensi_rejected_at' : 'NULL';
+    $undRejCol  = $hasUndRejected  ? 'r.undangan_rejected_at'  : 'NULL';
+    // Jika tidak ada undangan_revised_at, fallback ke r.updated_at sebagai indikator revisi
+    $undRevCol  = $hasUndRevised   ? 'r.undangan_revised_at'   : 'r.updated_at';
 
     $rows = DB::table('approval_requests as ar')
         ->join('rapat as r', 'ar.rapat_id', '=', 'r.id')
+        // Notulensi untuk membaca updated_at notulensi & hitung detail/dok
         ->leftJoin('notulensi as n', function($j){
             $j->on('n.id_rapat','=','r.id');
         })
@@ -126,7 +133,7 @@ public function pending(Request $request)
             'ar.rapat_id',
             'r.judul','r.nomor_undangan','r.tanggal','r.waktu_mulai','r.tempat',
 
-            // [REVISED-1] status blocked dihitung langsung (cegah N+1)
+            // (1) BLOCKED dihitung langsung (hindari N+1)
             DB::raw("EXISTS(
                 SELECT 1 FROM approval_requests ar2
                  WHERE ar2.rapat_id = ar.rapat_id
@@ -135,34 +142,57 @@ public function pending(Request $request)
                    AND ar2.status <> 'approved'
             ) as blocked"),
 
-            // [REVISED-2] penanda "sudah diperbaiki" utk NOTULENSI
+            // (2a) Resubmitted: NOTULENSI (n.updated_at > notulensi_rejected_at)
             DB::raw("CASE 
                 WHEN ar.doc_type = 'notulensi'
-                 AND ".($hasRejectedCol ? " {$rejCol} IS NOT NULL" : "0")."
+                 AND ".($hasNotuRejected ? "{$notuRejCol} IS NOT NULL" : "0")."
                  AND n.updated_at IS NOT NULL
-                 ".($hasRejectedCol ? "AND n.updated_at > {$rejCol}" : "")."
-                THEN 1 ELSE 0 END as resubmitted"),
+                 ".($hasNotuRejected ? "AND n.updated_at > {$notuRejCol}" : "")."
+                THEN 1 ELSE 0 END as resub_notulensi"),
 
-            // [REVISED-3] info waktu perbaikan terakhir (ambil dari n.updated_at)
-            DB::raw("CASE WHEN ar.doc_type='notulensi' AND n.updated_at IS NOT NULL THEN n.updated_at ELSE NULL END as last_fix_at"),
+            // (2b) Resubmitted: UNDANGAN (undangan_revised_at > undangan_rejected_at) 
+            // fallback: r.updated_at > undangan_rejected_at kalau kolom revised tidak ada
+            DB::raw("CASE
+                WHEN ar.doc_type = 'undangan'
+                 ".($hasUndRejected ? "AND {$undRejCol} IS NOT NULL" : "")."
+                 ".($hasUndRejected 
+                        ? "AND {$undRevCol} IS NOT NULL AND {$undRevCol} > {$undRejCol}"
+                        : "AND 0")."
+                THEN 1 ELSE 0 END as resub_undangan"),
 
-            // [REVISED-4] ringkasan jumlah butir yang berubah (notulensi_detail)
+            // (3) last_fix_at: notulensi pakai n.updated_at; undangan pakai undangan_revised_at (atau updated_at)
             DB::raw("CASE 
-                WHEN ar.doc_type='notulensi' ".($hasRejectedCol ? "AND {$rejCol} IS NOT NULL" : "")."
+                WHEN ar.doc_type='notulensi' AND n.updated_at IS NOT NULL THEN n.updated_at
+                WHEN ar.doc_type='undangan'  THEN {$undRevCol}
+                ELSE NULL END as last_fix_at"),
+
+            // (4a) revised_items: untuk NOTULENSI = jumlah baris detail yang diperbarui setelah ditolak
+            DB::raw("CASE 
+                WHEN ar.doc_type='notulensi' ".($hasNotuRejected ? "AND {$notuRejCol} IS NOT NULL" : "")."
                 THEN (
                     SELECT COUNT(*) FROM notulensi_detail d
-                     WHERE d.id_notulensi = n.id
-                     ".($hasRejectedCol ? "AND d.updated_at > {$rejCol}" : "")."
+                      WHERE d.id_notulensi = n.id
+                      ".($hasNotuRejected ? "AND d.updated_at > {$notuRejCol}" : "")."
                 )
                 ELSE 0 END as revised_items"),
 
-            // [REVISED-5] ringkasan jumlah berkas dokumentasi yang berubah/dibuat
+            // (4b) revised_items_und: untuk UNDANGAN = jumlah baris undangan (peserta) yang diperbarui setelah ditolak
             DB::raw("CASE 
-                WHEN ar.doc_type='notulensi' ".($hasRejectedCol ? "AND {$rejCol} IS NOT NULL" : "")."
+                WHEN ar.doc_type='undangan' ".($hasUndRejected ? "AND {$undRejCol} IS NOT NULL" : "")."
+                THEN (
+                    SELECT COUNT(*) FROM undangan u
+                      WHERE u.id_rapat = r.id
+                      ".($hasUndRejected ? "AND u.updated_at > {$undRejCol}" : "")."
+                )
+                ELSE 0 END as revised_items_und"),
+
+            // (5) revised_docs: untuk NOTULENSI = jumlah dokumentasi yang diperbarui setelah ditolak; undangan => 0 (tidak ada tabel lampiran khusus)
+            DB::raw("CASE 
+                WHEN ar.doc_type='notulensi' ".($hasNotuRejected ? "AND {$notuRejCol} IS NOT NULL" : "")."
                 THEN (
                     SELECT COUNT(*) FROM notulensi_dokumentasi nd
-                     WHERE nd.id_notulensi = n.id
-                     ".($hasRejectedCol ? "AND nd.updated_at > {$rejCol}" : "")."
+                      WHERE nd.id_notulensi = n.id
+                      ".($hasNotuRejected ? "AND nd.updated_at > {$notuRejCol}" : "")."
                 )
                 ELSE 0 END as revised_docs")
         )
@@ -173,8 +203,9 @@ public function pending(Request $request)
         ->paginate(8)
         ->appends($request->query());
 
-    // Lengkapi preview_url per baris
+    // Lengkapi kolom turunan untuk view (preview_url & resubmitted unify)
     $rows->getCollection()->transform(function($r){
+        // Preview URL
         $preview = null;
         if ($r->doc_type === 'notulensi') {
             $nid = DB::table('notulensi')->where('id_rapat',$r->rapat_id)->value('id');
@@ -193,6 +224,21 @@ public function pending(Request $request)
             }
         }
         $r->preview_url = $preview;
+
+        // Satukan flag resubmitted untuk konsumsi view:
+        $r->resubmitted = (int)($r->resub_notulensi ?? 0) === 1 || (int)($r->resub_undangan ?? 0) === 1;
+
+        // Satukan ringkasan "berapa yang berubah" ke satu angka untuk ditampilkan (opsional)
+        // - notulensi: revised_items + revised_docs
+        // - undangan : revised_items_und
+        if ($r->doc_type === 'notulensi') {
+            $r->revised_total = (int)($r->revised_items ?? 0) + (int)($r->revised_docs ?? 0);
+        } elseif ($r->doc_type === 'undangan') {
+            $r->revised_total = (int)($r->revised_items_und ?? 0);
+        } else {
+            $r->revised_total = 0;
+        }
+
         return $r;
     });
 
@@ -834,116 +880,193 @@ public function pending(Request $request)
      * Kirim WA ke approver pertama yang statusnya 'pending' untuk $docType pada rapat $rapatId.
      * Dipakai saat NOTULENSI baru dibuat agar approver segera menandatangani.
      */
-    public function notifyNextApproverDocReady(int $rapatId, string $docType = 'notulensi'): void
-    {
-        // cari step pending terawal
-        $firstPending = DB::table('approval_requests as ar')
-            ->where('ar.rapat_id', $rapatId)
-            ->where('ar.doc_type', $docType)
-            ->where('ar.status', 'pending')
-            ->orderBy('ar.order_index', 'asc')
-            ->first();
+public function notifyNextApproverDocReady(int $rapatId, string $docType = 'notulensi'): void
+{
+    // cari step pending terawal
+    $firstPending = DB::table('approval_requests as ar')
+        ->where('ar.rapat_id', $rapatId)
+        ->where('ar.doc_type', $docType)
+        ->where('ar.status', 'pending')
+        ->orderBy('ar.order_index', 'asc')
+        ->first();
 
-        if (!$firstPending) return;
+    if (!$firstPending) return;
 
-        $approver = DB::table('users')->where('id', $firstPending->approver_user_id)->first();
-        if (!$approver) return;
+    $approver = DB::table('users')->where('id', $firstPending->approver_user_id)->first();
+    if (!$approver) return;
 
-        $rapat = DB::table('rapat')
-            ->select('id','judul','tanggal','tempat')
-            ->where('id', $rapatId)->first();
-        if (!$rapat) return;
+    $rapat = DB::table('rapat')
+        ->select('id','judul','tanggal','tempat',
+            // kolom audit optional
+            'undangan_rejected_at','undangan_revised_at',
+            'notulensi_rejected_at'
+        )
+        ->where('id', $rapatId)->first();
+    if (!$rapat) return;
 
-        // ambil nomor hp dari kolom yang tersedia (no_hp/phone/wa/dll)
-        $phone = null;
-        if (Schema::hasColumn('users','no_hp') && !empty($approver->no_hp)) {
-            $phone = $approver->no_hp;
-        } elseif (Schema::hasColumn('users','phone') && !empty($approver->phone)) {
-            $phone = $approver->phone;
-        } elseif (Schema::hasColumn('users','wa') && !empty($approver->wa)) {
-            $phone = $approver->wa;
-        }
-
-        if (!$phone) return;
-
-        // normalisasi
-        if (method_exists(\App\Helpers\FonnteWa::class, 'normalizeNumber')) {
-            $msisdn = \App\Helpers\FonnteWa::normalizeNumber($phone);
-        } else {
-            $n = preg_replace('/[^0-9+]/','',$phone);
-            if (strpos($n,'+62')===0) $n = '62'.substr($n,3);
-            if (strpos($n,'0')===0)   $n = '62'.substr($n,1);
-            if (strpos($n,'8')===0)   $n = '62'.$n;
-            $msisdn = preg_match('/^62[0-9]{8,15}$/',$n) ? $n : null;
-        }
-        if (!$msisdn) return;
-
-        $signUrl = url('/approval/sign/'.$firstPending->sign_token);
-        $tgl     = $rapat->tanggal ? \Carbon\Carbon::parse($rapat->tanggal)->isoFormat('D MMM Y') : '-';
-
-        $msg = "Assalamu’alaikum Wr. Wb.\n\n"
-             . "Mohon *persetujuan NOTULENSI* untuk rapat:\n"
-             . "• *{$rapat->judul}*\n"
-             . "• Tanggal: {$tgl}\n"
-             . "• Tempat: {$rapat->tempat}\n\n"
-             . "Silakan tinjau & setujui pada tautan berikut:\n{$signUrl}\n\n"
-             . "Terima kasih.\nWassalamu’alaikum Wr. Wb.";
-
-        \App\Helpers\FonnteWa::send($msisdn, $msg);
+    // Nomor HP
+    $phone = null;
+    if (\Illuminate\Support\Facades\Schema::hasColumn('users','no_hp') && !empty($approver->no_hp)) {
+        $phone = $approver->no_hp;
+    } elseif (\Illuminate\Support\Facades\Schema::hasColumn('users','phone') && !empty($approver->phone)) {
+        $phone = $approver->phone;
+    } elseif (\Illuminate\Support\Facades\Schema::hasColumn('users','wa') && !empty($approver->wa)) {
+        $phone = $approver->wa;
     }
+    if (!$phone) return;
+
+    // normalisasi
+    if (method_exists(\App\Helpers\FonnteWa::class, 'normalizeNumber')) {
+        $msisdn = \App\Helpers\FonnteWa::normalizeNumber($phone);
+    } else {
+        $n = preg_replace('/[^0-9+]/','',$phone);
+        if (strpos($n,'+62')===0) $n = '62'.substr($n,3);
+        if (strpos($n,'0')===0)   $n = '62'.substr($n,1);
+        if (strpos($n,'8')===0)   $n = '62'.$n;
+        $msisdn = preg_match('/^62[0-9]{8,15}$/',$n) ? $n : null;
+    }
+    if (!$msisdn) return;
+
+    // Label jenis dokumen
+    $label = strtoupper($docType);
+
+    // Deteksi apakah ini revisi setelah penolakan
+    $isResub = false;
+    if ($docType === 'undangan' && \Illuminate\Support\Facades\Schema::hasColumn('rapat','undangan_rejected_at')) {
+        if (!empty($rapat->undangan_revised_at) && !empty($rapat->undangan_rejected_at)) {
+            $isResub = \Carbon\Carbon::parse($rapat->undangan_revised_at)->gt(\Carbon\Carbon::parse($rapat->undangan_rejected_at));
+        }
+    } elseif ($docType === 'notulensi' && \Illuminate\Support\Facades\Schema::hasColumn('rapat','notulensi_rejected_at')) {
+        // opsional kalau kamu juga set revised_at notulensi (di notulensi@update)
+        // bisa gunakan updated_at notulensi sebagai pembanding bila diperlukan
+        // $isResub = true/false;
+    }
+
+    $signUrl = url('/approval/sign/'.$firstPending->sign_token);
+    $tgl     = $rapat->tanggal ? \Carbon\Carbon::parse($rapat->tanggal)->isoFormat('D MMM Y') : '-';
+
+    $msg = "Assalamu’alaikum Wr. Wb.\n\n"
+         . "Mohon *persetujuan {$label}* untuk rapat:\n"
+         . "• *{$rapat->judul}*\n"
+         . "• Tanggal: {$tgl}\n"
+         . "• Tempat: {$rapat->tempat}\n\n"
+         . "Silakan tinjau & setujui pada tautan berikut:\n{$signUrl}\n";
+
+    if ($isResub) {
+        $msg .= "\n*Dokumen ini telah diperbaiki setelah penolakan sebelumnya.*\n";
+    }
+
+    $msg .= "\nTerima kasih.\nWassalamu’alaikum Wr. Wb.";
+
+    \App\Helpers\FonnteWa::send($msisdn, $msg);
+}
+
 
     /**
      * [NEW] Kirim WA ke approver pertama pending setelah dokumen (notulensi) diperbaiki.
      */
-    public function notifyFirstPendingApproverOnResubmission(int $rapatId, string $docType = 'notulensi'): void
-    {
-        $row = DB::table('approval_requests')
-            ->where('rapat_id', $rapatId)
-            ->where('doc_type', $docType)
-            ->where('status', 'pending')
-            ->orderBy('order_index')
-            ->first();
+public function notifyFirstPendingApproverOnResubmission(int $rapatId, string $docType = 'notulensi'): void
+{
+    // 0) Validasi docType
+    $docType = strtolower($docType);
+    if (!in_array($docType, ['undangan','notulensi','absensi'], true)) return;
 
-        if (!$row) return;
+    // 1) Ambil rapatnya (judul/tanggal/tempat dipakai di pesan)
+    $rapat = DB::table('rapat')
+        ->select('id','judul','nomor_undangan','tanggal','waktu_mulai','tempat')
+        ->where('id', $rapatId)->first();
+    if (!$rapat) return;
 
-        $rapat = DB::table('rapat')->where('id', $rapatId)->first();
-        $approver = DB::table('users')->where('id', $row->approver_user_id)->first();
-        if (!$rapat || !$approver) return;
+    // 2) Cari approver pending *terawal* yang TIDAK terblokir
+    //    NOT EXISTS memastikan tidak ada step sebelumnya yang belum approved.
+    $firstPending = DB::table('approval_requests as ar')
+        ->where('ar.rapat_id', $rapatId)
+        ->where('ar.doc_type', $docType)
+        ->where('ar.status', 'pending')
+        ->whereRaw("NOT EXISTS (
+            SELECT 1 FROM approval_requests ar2
+             WHERE ar2.rapat_id = ar.rapat_id
+               AND ar2.doc_type  = ar.doc_type
+               AND ar2.order_index < ar.order_index
+               AND ar2.status <> 'approved'
+        )")
+        ->orderBy('ar.order_index','asc')
+        ->first();
 
-        // nomor WA
-        $wa = null;
-        if (!empty($approver->no_hp)) {
-            $wa = \App\Helpers\FonnteWa::normalizeNumber($approver->no_hp);
-        } elseif (!empty($approver->phone)) {
-            $wa = \App\Helpers\FonnteWa::normalizeNumber($approver->phone);
-        }
-        if (!$wa) return;
-
-        $signUrl = url('/approval/sign/'.$row->sign_token);
-        $msg = "Assalamualaikum,\n\n"
-             . "Dokumen *".ucfirst($docType)."* untuk rapat:\n"
-             . "• *{$rapat->judul}*\n"
-             . "Status: *Sudah diperbaiki* dan siap ditinjau kembali.\n\n"
-             . "Silakan proses persetujuan pada tautan berikut:\n{$signUrl}";
-
-        \App\Helpers\FonnteWa::send($wa, $msg);
+    if (!$firstPending) {
+        // Tidak ada approver pending yang “siap ditandatangani” ⇒ tidak usah kirim WA
+        return;
     }
 
-    // ===== Riwayat singkat =====
-    public function history(Request $request)
-    {
-        $uid = auth()->id();
-        $rows = DB::table('approval_requests as ar')
-            ->join('rapat as r','r.id','=','ar.rapat_id')
-            ->select('ar.*','r.judul','r.nomor_undangan','r.tanggal','r.tempat')
-            ->where('ar.approver_user_id',$uid)
-            ->where('ar.status','approved')
-            ->orderBy('ar.signed_at','desc')
-            ->paginate(10)
-            ->appends($request->query());
+    // 3) Ambil profil approver + nomor WA
+    $approver = DB::table('users')->where('id', $firstPending->approver_user_id)->first();
+    if (!$approver) return;
 
-        return view('approval.history', compact('rows'));
+    // Cari nomor WA dari kolom yang tersedia
+    $phone = null;
+    if (\Illuminate\Support\Facades\Schema::hasColumn('users','no_hp') && !empty($approver->no_hp)) {
+        $phone = $approver->no_hp;
+    } elseif (\Illuminate\Support\Facades\Schema::hasColumn('users','phone') && !empty($approver->phone)) {
+        $phone = $approver->phone;
+    } elseif (\Illuminate\Support\Facades\Schema::hasColumn('users','wa') && !empty($approver->wa)) {
+        $phone = $approver->wa;
     }
+    if (!$phone) return;
+
+    // Normalisasi msisdn (gunakan helper jika ada)
+    if (method_exists(\App\Helpers\FonnteWa::class, 'normalizeNumber')) {
+        $msisdn = \App\Helpers\FonnteWa::normalizeNumber($phone);
+    } else {
+        $n = preg_replace('/[^0-9+]/','',$phone);
+        if (strpos($n,'+62')===0) $n = '62'.substr($n,3);
+        if (strpos($n,'0')===0)   $n = '62'.substr($n,1);
+        if (strpos($n,'8')===0)   $n = '62'.$n;
+        $msisdn = preg_match('/^62[0-9]{8,15}$/',$n) ? $n : null;
+    }
+    if (!$msisdn) return;
+
+    // 4) Siapkan pesan “Sudah diperbaiki”
+    $tgl  = $rapat->tanggal ? \Carbon\Carbon::parse($rapat->tanggal)->isoFormat('D MMM Y') : '-';
+    $sign = url('/approval/sign/'.$firstPending->sign_token);
+
+    // Label dokumen
+    $label = strtoupper($docType); // UNDANGAN / NOTULENSI / ABSENSI
+
+    // Versi pesan per jenis
+    if ($docType === 'undangan') {
+        $nomor = $rapat->nomor_undangan ?: '-';
+        $msg =
+            "Assalamu’alaikum Wr. Wb.\n\n"
+          . "Mohon *persetujuan {$label}* (status: *SUDAH DIPERBAIKI*) untuk rapat berikut:\n"
+          . "• Nomor: *{$nomor}*\n"
+          . "• Judul: *{$rapat->judul}*\n"
+          . "• Tanggal: {$tgl}\n"
+          . "• Tempat: {$rapat->tempat}\n\n"
+          . "Silakan tinjau & setujui pada tautan berikut:\n{$sign}\n\n"
+          . "Terima kasih.\nWassalamu’alaikum Wr. Wb.";
+    } elseif ($docType === 'notulensi') {
+        $msg =
+            "Assalamu’alaikum Wr. Wb.\n\n"
+          . "Mohon *persetujuan {$label}* (status: *SUDAH DIPERBAIKI*) untuk rapat:\n"
+          . "• *{$rapat->judul}*\n"
+          . "• Tanggal: {$tgl}\n"
+          . "• Tempat: {$rapat->tempat}\n\n"
+          . "Silakan tinjau & setujui pada tautan berikut:\n{$sign}\n\n"
+          . "Terima kasih.\nWassalamu’alaikum Wr. Wb.";
+    } else { // absensi (jika kamu pakai flow revisi absensi)
+        $msg =
+            "Assalamu’alaikum Wr. Wb.\n\n"
+          . "Mohon *persetujuan {$label}* (status: *SUDAH DIPERBAIKI*) untuk rapat:\n"
+          . "• *{$rapat->judul}*\n"
+          . "• Tanggal: {$tgl}\n"
+          . "• Tempat: {$rapat->tempat}\n\n"
+          . "Silakan tinjau & setujui pada tautan berikut:\n{$sign}\n\n"
+          . "Terima kasih.\nWassalamu’alaikum Wr. Wb.";
+    }
+
+    // 5) Kirim WA
+    \App\Helpers\FonnteWa::send($msisdn, $msg);
+}
 
     // ===== Halaman dokumen yang telah disetujui (dengan filter + dedupe) =====
     public function approved(Request $request)
@@ -1141,4 +1264,5 @@ public function pending(Request $request)
 
         return view('approval.rapat', compact('daftar_rapat','daftar_kategori','nextOpen','counts'));
     }
+
 }

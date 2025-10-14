@@ -346,178 +346,171 @@ class RapatController extends Controller
 public function update(Request $request, $id)
 {
     $request->validate([
-        'baris'                    => 'required|array|min:1',
-        'baris.*.hasil_pembahasan' => 'required|string',
-        'baris.*.rekomendasi'      => 'nullable|string',
-        'baris.*.penanggung_jawab' => 'nullable|string|max:150',
-        'baris.*.pj_ids'           => 'nullable|array',
-        'baris.*.pj_ids.*'         => 'integer|exists:users,id',
-        'baris.*.tgl_penyelesaian' => 'nullable|date',
-        // dokumentasi opsional saat update (bisa kosong)
-        'dokumentasi'              => 'nullable',
-        'dokumentasi.*'            => 'image|max:10240',
+        'nomor_undangan'    => 'required|unique:rapat,nomor_undangan,' . $id,
+        'judul'             => 'required',
+        'deskripsi'         => 'nullable',
+        'tanggal'           => 'required|date',
+        'waktu_mulai'       => 'required',
+        'tempat'            => 'required',
+        'approval1_user_id' => 'required|exists:users,id',
+        'approval2_user_id' => 'nullable|exists:users,id',
+        'peserta'           => 'required|array|min:1',
+        'id_kategori'       => 'required|exists:kategori_rapat,id'
     ]);
-
-    // Ambil notulensi + rapat terkait
-    $notulensi = DB::table('notulensi')->where('id', $id)->first();
-    if (!$notulensi) abort(404);
-    $rapatId = (int) $notulensi->id_rapat;
 
     DB::beginTransaction();
     try {
-        // 1) Update header (penanda siapa yang merevisi)
-        DB::table('notulensi')->where('id', $id)->update([
-            'id_user'    => Auth::id(), // yang merevisi
-            'updated_at' => now(),
+        // ===== 1) Update data rapat (UNDANGAN)
+        DB::table('rapat')->where('id', $id)->update([
+            'nomor_undangan'    => $request->nomor_undangan,
+            'judul'             => $request->judul,
+            'deskripsi'         => $request->deskripsi,
+            'tanggal'           => $request->tanggal,
+            'waktu_mulai'       => $request->waktu_mulai,
+            'tempat'            => $request->tempat,
+            'id_kategori'       => $request->id_kategori,
+            'approval1_user_id' => $request->approval1_user_id,
+            'approval2_user_id' => $request->approval2_user_id,
+            'updated_at'        => now(),
         ]);
 
-        // 2) Replace detail & tugas (sederhana & aman)
-        $detailIds = DB::table('notulensi_detail')
-            ->where('id_notulensi', $id)->pluck('id')->all();
-        if (!empty($detailIds)) {
-            DB::table('notulensi_tugas')->whereIn('id_notulensi_detail', $detailIds)->delete();
-        }
-        DB::table('notulensi_detail')->where('id_notulensi', $id)->delete();
-
-        $urut = 1;
-        foreach ($request->baris as $r) {
-            $idDetail = DB::table('notulensi_detail')->insertGetId([
-                'id_notulensi'     => $id,
-                'urut'             => $urut++,
-                'hasil_pembahasan' => $r['hasil_pembahasan'],
-                'rekomendasi'      => $r['rekomendasi'] ?? null,
-                'penanggung_jawab' => $r['penanggung_jawab'] ?? null,
-                'tgl_penyelesaian' => $r['tgl_penyelesaian'] ?? null,
-                'created_at'       => now(),
-                'updated_at'       => now(),
+        // ===== 2) Reset & simpan ulang undangan peserta
+        DB::table('undangan')->where('id_rapat', $id)->delete();
+        foreach ($request->peserta as $id_peserta) {
+            DB::table('undangan')->insert([
+                'id_rapat'   => $id,
+                'id_user'    => $id_peserta,
+                'status'     => 'terkirim',
+                'created_at' => now(),
+                'updated_at' => now(),
             ]);
+        }
 
-            $pjIds = $r['pj_ids'] ?? [];
-            if (is_array($pjIds) && count($pjIds)) {
-                $bulk = [];
-                foreach ($pjIds as $uid) {
-                    $bulk[] = [
-                        'id_notulensi_detail' => $idDetail,
-                        'user_id'             => (int)$uid,
-                        'tgl_penyelesaian'    => $r['tgl_penyelesaian'] ?? null,
-                        'status'              => 'pending',
-                        'created_at'          => now(),
-                        'updated_at'          => now(),
-                    ];
-                }
-                DB::table('notulensi_tugas')->insert($bulk);
+        // ===== 3) Sinkronisasi chain approval UNDANGAN dengan approver terbaru
+        // Urutan yang dipakai: approval2 -> approval1 (order_index 1 lalu 2)
+        $desired = [];
+        if (!empty($request->approval2_user_id)) $desired[1] = (int)$request->approval2_user_id;
+        if (!empty($request->approval1_user_id)) $desired[2] = (int)$request->approval1_user_id;
+
+        // Ambil semua row approval_requests untuk doc_type 'undangan' rapat ini
+        $existing = DB::table('approval_requests')
+            ->where('rapat_id', $id)
+            ->where('doc_type', 'undangan')
+            ->orderBy('order_index')
+            ->get();
+
+        // Petakan yang sudah approved agar tidak diutak-atik
+        $approvedByOrder = $existing->where('status','approved')->keyBy('order_index');
+        $nonApproved     = $existing->where('status','!=','approved');
+
+        // a) Hapus non-approved yang tidak ada lagi di daftar desired (approver berubah)
+        foreach ($nonApproved as $row) {
+            if (!isset($desired[$row->order_index]) || (int)$desired[$row->order_index] !== (int)$row->approver_user_id) {
+                DB::table('approval_requests')->where('id', $row->id)->delete();
             }
         }
 
-        // 3) Dokumentasi baru (tambahan; tidak menghapus yang lama)
-        if ($request->hasFile('dokumentasi')) {
-            $dest = public_path('uploads/notulensi');
-            if (!is_dir($dest)) mkdir($dest, 0775, true);
+        // b) Pastikan tiap desired ada row-nya (kecuali jika sudah approved oleh orang tsb)
+        foreach ($desired as $ord => $uid) {
+            $existsOrd = DB::table('approval_requests')
+                ->where('rapat_id', $id)
+                ->where('doc_type', 'undangan')
+                ->where('order_index', $ord)
+                ->first();
 
-            foreach ($request->file('dokumentasi') as $file) {
-                if (!$file || !$file->isValid()) continue;
-
-                $ext      = strtolower($file->getClientOriginalExtension());
-                $basename = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
-                $slugBase = preg_replace('/[^a-z0-9\-]+/i', '-', $basename);
-                $name     = $slugBase.'-'.uniqid().'.'.$ext;
-
-                $file->move($dest, $name);
-                $relPath = 'uploads/notulensi/'.$name;
-
-                DB::table('notulensi_dokumentasi')->insert([
-                    'id_notulensi' => $id,
-                    'file_path'    => $relPath,
-                    'caption'      => null,
-                    'created_at'   => now(),
-                    'updated_at'   => now(),
+            if ($existsOrd) {
+                // kalau sudah ada tapi approver berbeda & belum approved, ganti ke user baru
+                if ($existsOrd->status !== 'approved' && (int)$existsOrd->approver_user_id !== (int)$uid) {
+                    DB::table('approval_requests')->where('id',$existsOrd->id)->update([
+                        'approver_user_id' => $uid,
+                        'status'           => 'pending',
+                        'sign_token'       => \Illuminate\Support\Str::random(32),
+                        'updated_at'       => now(),
+                    ]);
+                }
+            } else {
+                // belum ada: buat baru (pending)
+                DB::table('approval_requests')->insert([
+                    'rapat_id'         => $id,
+                    'doc_type'         => 'undangan',
+                    'approver_user_id' => $uid,
+                    'order_index'      => $ord,
+                    'status'           => 'pending',
+                    'sign_token'       => \Illuminate\Support\Str::random(32),
+                    'created_at'       => now(),
+                    'updated_at'       => now(),
                 ]);
             }
         }
 
-        // 4) Pastikan QR notulis tetap ada / up-to-date
-        $this->ensureNotulensiNotulisQr((int)$rapatId, (int)$id);
+        // ===== 4) Jika sebelumnya ada REJECT, reset step yang ditolak → PENDING + token baru,
+        //           tandai "resubmitted", dan buka blokir step berikutnya
+        $rejected = DB::table('approval_requests')
+            ->where('rapat_id', $id)
+            ->where('doc_type', 'undangan')
+            ->where('status', 'rejected')
+            ->orderBy('order_index','asc')
+            ->first();
 
-        // 5) Pastikan chain approval NOTULENSI ada (jika hilang, buat ulang)
-        $rapat = DB::table('rapat')->where('id', $rapatId)->first();
-        if ($rapat) {
-            // cek apakah ada approval_requests untuk doc_type notulensi
-            $existsAny = DB::table('approval_requests')
-                ->where('rapat_id', $rapatId)
-                ->where('doc_type', 'notulensi')
-                ->exists();
-
-            if (!$existsAny) {
-                // buat chain seperti di store()
-                $order = 2;
-                if (!empty($rapat->approval2_user_id)) {
-                    $exists2 = DB::table('approval_requests')
-                        ->where('rapat_id', $rapat->id)
-                        ->where('doc_type', 'notulensi')
-                        ->where('approver_user_id', $rapat->approval2_user_id)
-                        ->exists();
-                    if (!$exists2) {
-                        DB::table('approval_requests')->insert([
-                            'rapat_id'         => $rapat->id,
-                            'doc_type'         => 'notulensi',
-                            'approver_user_id' => $rapat->approval2_user_id,
-                            'order_index'      => $order++,
-                            'status'           => 'pending',
-                            'sign_token'       => \Illuminate\Support\Str::random(32),
-                            'created_at'       => now(),
-                            'updated_at'       => now(),
-                        ]);
-                    } else {
-                        $order++;
-                    }
-                }
-                if (!empty($rapat->approval1_user_id)) {
-                    $exists1 = DB::table('approval_requests')
-                        ->where('rapat_id', $rapat->id)
-                        ->where('doc_type', 'notulensi')
-                        ->where('approver_user_id', $rapat->approval1_user_id)
-                        ->exists();
-                    if (!$exists1) {
-                        DB::table('approval_requests')->insert([
-                            'rapat_id'         => $rapat->id,
-                            'doc_type'         => 'notulensi',
-                            'approver_user_id' => $rapat->approval1_user_id,
-                            'order_index'      => $order,
-                            'status'           => 'pending',
-                            'sign_token'       => \Illuminate\Support\Str::random(32),
-                            'created_at'       => now(),
-                            'updated_at'       => now(),
-                        ]);
-                    }
-                }
+        if ($rejected) {
+            $extra = [];
+            if (\Schema::hasColumn('approval_requests','resubmitted')) {
+                $extra['resubmitted'] = 1;
             }
+            if (\Schema::hasColumn('approval_requests','resubmitted_at')) {
+                $extra['resubmitted_at'] = now();
+            }
+
+            DB::table('approval_requests')->where('id', $rejected->id)->update(array_merge([
+                'status'         => 'pending',
+                'rejection_note' => null,
+                'rejected_at'    => null,
+                'sign_token'     => \Illuminate\Support\Str::random(32),
+                'updated_at'     => now(),
+            ], $extra));
+
+            // buka step setelahnya yang tadinya diblokir
+            DB::table('approval_requests')
+                ->where('rapat_id', $id)
+                ->where('doc_type', 'undangan')
+                ->where('order_index', '>', $rejected->order_index)
+                ->where('status', 'blocked')
+                ->update([
+                    'status'     => 'pending',
+                    'updated_at' => now(),
+                ]);
+        } else {
+            // Tidak ada 'rejected': amankan semua yang blocked → pending
+            DB::table('approval_requests')
+                ->where('rapat_id', $id)
+                ->where('doc_type', 'undangan')
+                ->where('status', 'blocked')
+                ->update(['status' => 'pending', 'updated_at' => now()]);
+        }
+
+        // ===== 5) Cap waktu revisi (jika kolom ada); JANGAN null-kan undangan_rejected_at
+        if (\Schema::hasColumn('rapat','undangan_revised_at')) {
+            DB::table('rapat')->where('id',$id)->update([
+                'undangan_revised_at' => now(),
+                'updated_at'          => now(),
+            ]);
+        } else {
+            // minimal update cap utama
+            DB::table('rapat')->where('id',$id)->update(['updated_at'=>now()]);
         }
 
         DB::commit();
 
-        // 6) Buka blokir step-step berikutnya (jika sebelumnya REJECT mem-block)
+        // ===== 6) Kirim WA dgn pesan "SUDAH DIPERBAIKI" ke approver pertama yang pending & tidak terblokir
         app(\App\Http\Controllers\ApprovalController::class)
-            ->unblockNextSteps((int)$rapatId, 'notulensi', 0);
+            ->notifyFirstPendingApproverOnResubmission((int)$id, 'undangan');
 
-        // 7) Kirim WA ke approver pertama pending: status "Sudah diperbaiki"
-        app(\App\Http\Controllers\ApprovalController::class)
-            ->notifyFirstPendingApproverOnResubmission((int)$rapatId, 'notulensi');
-
-        // (Opsional) cap waktu revisi di rapat untuk audit
-        if (\Illuminate\Support\Facades\Schema::hasColumn('rapat', 'notulensi_revised_at')) {
-            DB::table('rapat')->where('id', $rapatId)->update([
-                'notulensi_revised_at' => now(),
-                'updated_at'           => now(),
-            ]);
-        }
-
-        return redirect()->route('notulensi.show', $id)
-            ->with('success', 'Perbaikan notulensi disimpan. Dokumen dikembalikan ke antrean approval (status: sudah diperbaiki).');
+        return redirect()->route('rapat.index')->with('success', 'Undangan berhasil diperbarui & dikirim ulang ke antrean approval (status: sudah diperbaiki).');
 
     } catch (\Throwable $e) {
         DB::rollBack();
         report($e);
-        return back()->withErrors('Gagal menyimpan revisi notulensi.')->withInput();
+        return back()->withErrors('Gagal memperbarui undangan.')->withInput();
     }
 }
 
