@@ -7,6 +7,7 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
@@ -714,8 +715,17 @@ class RapatController extends Controller
             if ($approver && $approver->no_hp) {
                 $wa = preg_replace('/^0/', '62', $approver->no_hp);
                 $signUrl = url('/approval/sign/'.$firstReq->sign_token);
-                \App\Helpers\FonnteWa::send($wa, "Mohon approval {$docType} rapat: {$judulRapat}\nLink: {$signUrl}");
+                \App\Helpers\FonnteWa::send($wa,
+                    "Assalamu’alaikum Wr. Wb.\n\n".
+                    "Dengan hormat,\n".
+                    "Mohon kesediaan Bapak/Ibu untuk memberikan *Approval* pada dokumen *{$docType}* rapat berikut:\n\n".
+                    "📄 *{$judulRapat}*\n\n".
+                    "Silakan melakukan persetujuan melalui tautan di bawah ini:\n{$signUrl}\n\n".
+                    "Terima kasih atas perhatian dan kerja samanya.\n".
+                    "Wassalamu’alaikum Wr. Wb."
+                );
             }
         }
     }
+
 }
