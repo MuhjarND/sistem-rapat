@@ -144,7 +144,7 @@ class NotulensiController extends Controller
             'updated_at' => now(),
         ]);
 
-        // Detail + tugas (TIDAK kirim WA di sini)
+        // Detail + tugas
         $urut = 1;
         foreach ($request->baris as $r) {
             $idDetail = DB::table('notulensi_detail')->insertGetId([
@@ -160,6 +160,7 @@ class NotulensiController extends Controller
 
             $pjIds = $r['pj_ids'] ?? [];
             if (is_array($pjIds) && count($pjIds)) {
+                $now = now();
                 $bulk = [];
                 foreach ($pjIds as $uid) {
                     $bulk[] = [
@@ -167,8 +168,8 @@ class NotulensiController extends Controller
                         'user_id'             => (int)$uid,
                         'tgl_penyelesaian'    => $r['tgl_penyelesaian'] ?? null,
                         'status'              => 'pending',
-                        'created_at'          => now(),
-                        'updated_at'          => now(),
+                        'created_at'          => $now,
+                        'updated_at'          => $now,
                     ];
                 }
                 DB::table('notulensi_tugas')->insert($bulk);
@@ -178,7 +179,7 @@ class NotulensiController extends Controller
         // Dokumentasi
         if ($request->hasFile('dokumentasi')) {
             $dest = public_path('uploads/notulensi');
-            if (!is_dir($dest)) mkdir($dest, 0775, true);
+            if (!is_dir($dest)) @mkdir($dest, 0775, true);
 
             foreach ($request->file('dokumentasi') as $file) {
                 if (!$file || !$file->isValid()) continue;
@@ -201,19 +202,23 @@ class NotulensiController extends Controller
             }
         }
 
-        // QR Notulis + siapkan chain approval notulensi
+        // QR Notulis + chain approval NOTULENSI (order 1 = notulis; berikutnya approver)
         $this->ensureNotulensiNotulisQr((int)$request->id_rapat, (int)$id_notulensi);
 
-        // Tambahkan approver (approval2 -> order 2, approval1 -> order 3)
+        // Tambahkan approver untuk NOTULENSI
         $rapat = DB::table('rapat')->where('id', $request->id_rapat)->first();
         if ($rapat) {
+            // Mulai setelah notulis (order 1)
             $order = 2;
+
+            // Approval 2 (jika ada) ditempatkan lebih dulu
             if (!empty($rapat->approval2_user_id)) {
                 $exists2 = DB::table('approval_requests')
                     ->where('rapat_id', $rapat->id)
                     ->where('doc_type', 'notulensi')
                     ->where('approver_user_id', $rapat->approval2_user_id)
                     ->exists();
+
                 if (!$exists2) {
                     DB::table('approval_requests')->insert([
                         'rapat_id'         => $rapat->id,
@@ -229,12 +234,15 @@ class NotulensiController extends Controller
                     $order++;
                 }
             }
+
+            // Approval 1 (selalu terakhir)
             if (!empty($rapat->approval1_user_id)) {
                 $exists1 = DB::table('approval_requests')
                     ->where('rapat_id', $rapat->id)
                     ->where('doc_type', 'notulensi')
                     ->where('approver_user_id', $rapat->approval1_user_id)
                     ->exists();
+
                 if (!$exists1) {
                     DB::table('approval_requests')->insert([
                         'rapat_id'         => $rapat->id,
@@ -252,18 +260,20 @@ class NotulensiController extends Controller
 
         DB::commit();
 
-        // === Kirim WA ke approver pertama yang pending (BUKAN ke assignee)
+        // === KIRIM WA: approver pertama yang masih pending untuk NOTULENSI ===
+        // Gunakan helper "satu pintu" di ApprovalController agar robust
         app(\App\Http\Controllers\ApprovalController::class)
-            ->notifyNextApproverDocReady((int)$request->id_rapat, 'notulensi');
+            ->notifyFirstPendingApprover((int)$request->id_rapat, 'notulensi');
 
         return redirect()->route('notulensi.show', $id_notulensi)
-            ->with('success', 'Notulensi berhasil dibuat. TTD Notulis dibuat otomatis & approval pimpinan disiapkan. Notifikasi sudah dikirim ke approver.');
+            ->with('success', 'Notulensi berhasil dibuat. TTD Notulis dibuat otomatis & approval pimpinan disiapkan. Notifikasi WA sudah dikirim ke approver.');
     } catch (\Throwable $e) {
         DB::rollBack();
         report($e);
         return back()->withErrors('Gagal menyimpan notulensi.')->withInput();
     }
 }
+
 
 
     public function show($id)

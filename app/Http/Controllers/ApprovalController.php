@@ -961,6 +961,54 @@ public function notifyNextApproverDocReady(int $rapatId, string $docType = 'notu
     \App\Helpers\FonnteWa::send($msisdn, $msg);
 }
 
+// app/Http/Controllers/ApprovalController.php
+
+public function notifyFirstPendingApprover(int $rapatId, string $docType): void
+{
+    // Ambil request pertama yang pending
+    $req = DB::table('approval_requests')
+        ->where('rapat_id', $rapatId)
+        ->where('doc_type', $docType)
+        ->orderBy('order_index')
+        ->first();
+
+    if (!$req) { Log::warning("[WA] No approval_requests for {$docType} rapat={$rapatId}"); return; }
+
+    // Jika step pertama sudah bukan pending (mis. approved), cari pending berikutnya
+    if (!in_array($req->status, ['pending','blocked'])) {
+        $req = DB::table('approval_requests')
+            ->where('rapat_id', $rapatId)
+            ->where('doc_type', $docType)
+            ->where('status', 'pending')
+            ->orderBy('order_index')
+            ->first();
+        if (!$req) { Log::info("[WA] No PENDING approval for {$docType} rapat={$rapatId}"); return; }
+    }
+
+    $approver = DB::table('users')->where('id', $req->approver_user_id)->first();
+    if (!$approver || empty($approver->no_hp)) {
+        Log::warning("[WA] Approver missing phone for {$docType} rapat={$rapatId} approver_id={$req->approver_user_id}");
+        return;
+    }
+
+    $rapat = DB::table('rapat')->where('id', $rapatId)->first();
+    $judul = $rapat->judul ?? ucfirst($docType);
+
+    $wa = preg_replace('/\D+/', '', (string)$approver->no_hp);      // keep digits
+    $wa = preg_replace('/^0/', '62', $wa);                          // 08xx -> 62xx
+    $signUrl = url('/approval/sign/'.$req->sign_token);
+    $docTitle = strtoupper($docType);
+
+    $msg = "Mohon approval {$docTitle} rapat: {$judul}\nLink: {$signUrl}";
+
+    try {
+        \App\Helpers\FonnteWa::send($wa, $msg);
+        Log::info("[WA] sent {$docType} to {$wa} (rapat={$rapatId}, req={$req->id})");
+    } catch (\Throwable $e) {
+        Log::error("[WA] failed {$docType} to {$wa} (rapat={$rapatId}, req={$req->id}): ".$e->getMessage());
+    }
+}
+
 
     /**
      * [NEW] Kirim WA ke approver pertama pending setelah dokumen (notulensi) diperbaiki.
