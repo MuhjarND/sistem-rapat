@@ -184,7 +184,7 @@
                 <a href="#"
                    class="pill-file preview-link"
                    title="Preview: {{ $u->file_name }}"
-                   data-url="{{ route('laporan.file.preview',$u->id) }}"
+                   data-url="{{ route('laporan.file.preview',$u->id) }}?live=1"
                    data-mime="{{ $u->mime ?? 'application/octet-stream' }}"
                    data-filename="{{ $u->file_name }}">
                   {{ $u->file_name }}
