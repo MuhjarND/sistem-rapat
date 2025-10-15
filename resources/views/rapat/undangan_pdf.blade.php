@@ -1,3 +1,14 @@
+@php
+    if (!isset($tampilkan_lampiran)) {
+        $tampilkan_lampiran = (isset($daftar_peserta) && method_exists($daftar_peserta, 'count'))
+            ? ($daftar_peserta->count() > 5)
+            : false;
+    }
+    if (!isset($tampilkan_daftar_di_surat)) {
+        $tampilkan_daftar_di_surat = !$tampilkan_lampiran;
+    }
+@endphp
+
 <!DOCTYPE html>
 <html>
 <head>

@@ -20,11 +20,12 @@
                         <th>Nama</th>
                         <th>Jabatan</th>
                         <th>Email</th>
-                        <th>No. HP</th>     {{-- baru --}}
-                        <th>Unit</th>       {{-- baru --}}
-                        <th>Role</th>
+                        <th>No. HP</th>     
+                        <th>Unit</th>    
+                        <th>Tingkatan</th>   
+                        <th>Role</th>                        
+                        <th>Hirarki</th>
                         <th>Aksi</th>
-                        <th>Tingkatan</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -38,6 +39,7 @@
                         <td class="text-capitalize">{{ $user->unit ?? '-' }}</td> {{-- tampilkan unit --}}
                         <td>{{ $user->tingkatan ? 'T'.$user->tingkatan : '-' }}</td>
                         <td>{{ ucfirst($user->role) }}</td>
+                        <td>{{ $user->hirarki }}</td>
                         <td>
                             <a href="{{ route('user.edit', $user->id) }}" class="btn btn-warning btn-sm">Edit</a>
                             <form action="{{ route('user.destroy', $user->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Hapus user ini?')">

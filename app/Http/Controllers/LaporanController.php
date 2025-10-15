@@ -100,11 +100,8 @@ class LaporanController extends Controller
 
         /* =========================
          * BADGE untuk sidebar/menu
-         * =========================
-         * Sesuai permintaan: jumlah di badge "Laporan" = total baris tabel Rekap + total baris tabel Unggahan (aktif)
-         */
+         * ========================= */
         $badgeActive  = $rekap->total() + $uploads->total();
-        // (Opsional) jika ingin menampilkan badge arsip juga di sidebar saat berada di halaman index:
         $badgeArchive = DB::table('laporan_files')->where('is_archived', 1)->count();
 
         return view('laporan.index', [
@@ -326,8 +323,7 @@ class LaporanController extends Controller
 
         $uploads = $uploadsQ->paginate(7)->appends($r->query());
 
-        // Badge: di halaman arsip, jadikan badge arsip = total paginator arsip,
-        // dan badge aktif dihitung cepat (agar sidebar tetap tampil informatif).
+        // Badge
         $badgeArchive = $uploads->total();
         $badgeActive  = DB::table('rapat')
                             ->leftJoin('laporan_archived_meetings as lam','lam.rapat_id','=','rapat.id')
@@ -466,16 +462,57 @@ class LaporanController extends Controller
                 'kategori_rapat.nama as nama_kategori'
             )->where('rapat.id',$rapatId)->first() ?? abort(404);
 
+        // ======== Peserta (untuk undangan & absensi) — urut by hirarki lalu nama ========
         $daftar_peserta = DB::table('undangan')
-            ->leftJoin('users','users.id','=','undangan.id_user')
-            ->select('undangan.*','users.name as nama', DB::raw('COALESCE(users.jabatan,"") as jabatan'))
-            ->where('undangan.id_rapat',$rapat->id)->orderBy('users.name')->get();
-
-        $peserta = DB::table('undangan')
             ->join('users','users.id','=','undangan.id_user')
             ->where('undangan.id_rapat',$rapat->id)
-            ->orderBy('users.name')
-            ->get(['users.id as id_user','users.name as name', DB::raw('COALESCE(users.jabatan,"") as jabatan')]);
+            ->select(
+                'users.id',
+                'users.name',
+                DB::raw('COALESCE(users.jabatan,"") as jabatan'),
+                'users.hirarki'
+            )
+            ->orderByRaw('COALESCE(users.hirarki, 9999) ASC')
+            ->orderBy('users.name','asc')
+            ->get();
+
+        // Flag lampiran: > 5 dicetak sebagai lampiran terpisah
+        $tampilkan_lampiran        = $daftar_peserta->count() > 5;
+        $tampilkan_daftar_di_surat = !$tampilkan_lampiran;
+
+        // ======== Approval & QR untuk undangan (agar view tidak error) ========
+        $approval1 = DB::table('users')->where('id', $rapat->approval1_user_id)->first();
+        $approval2 = $rapat->approval2_user_id
+            ? DB::table('users')->where('id', $rapat->approval2_user_id)->first()
+            : null;
+
+        $qrA1 = DB::table('approval_requests')
+            ->where('rapat_id', $rapat->id)
+            ->where('doc_type', 'undangan')
+            ->where('approver_user_id', $rapat->approval1_user_id)
+            ->where('status', 'approved')
+            ->orderByDesc('signed_at')
+            ->value('signature_qr_path');
+
+        $qrA2 = null;
+        if (!empty($rapat->approval2_user_id)) {
+            $qrA2 = DB::table('approval_requests')
+                ->where('rapat_id', $rapat->id)
+                ->where('doc_type', 'undangan')
+                ->where('approver_user_id', $rapat->approval2_user_id)
+                ->where('status', 'approved')
+                ->orderByDesc('signed_at')
+                ->value('signature_qr_path');
+        }
+
+        // ======== Data tambahan untuk halaman Absensi & Notulensi ========
+        $peserta = $daftar_peserta->map(function($r){
+            return (object)[
+                'id_user' => $r->id,
+                'name'    => $r->name,
+                'jabatan' => $r->jabatan,
+            ];
+        });
 
         $pimpinan = (object)[
             'nama'    => $rapat->nama_pimpinan ?? '-',
@@ -485,10 +522,13 @@ class LaporanController extends Controller
         $absensi = DB::table('absensi')
             ->leftJoin('users','users.id','=','absensi.id_user')
             ->select('absensi.*','users.name as nama', DB::raw('COALESCE(users.jabatan,"") as jabatan'))
-            ->where('absensi.id_rapat',$rapat->id)->orderBy('users.name')->get();
+            ->where('absensi.id_rapat',$rapat->id)
+            ->orderByRaw('COALESCE(users.hirarki, 9999) ASC')
+            ->orderBy('users.name','asc')
+            ->get();
 
         $rekapAbsensi = [
-            'diundang'    => DB::table('undangan')->where('id_rapat',$rapat->id)->count(),
+            'diundang'    => $daftar_peserta->count(),
             'hadir'       => DB::table('absensi')->where('id_rapat',$rapat->id)->where('status','hadir')->count(),
             'tidak_hadir' => DB::table('absensi')->where('id_rapat',$rapat->id)->where('status','tidak_hadir')->count(),
             'izin'        => DB::table('absensi')->where('id_rapat',$rapat->id)->where('status','izin')->count(),
@@ -496,7 +536,7 @@ class LaporanController extends Controller
 
         $notulensi = DB::table('notulensi')->where('id_rapat',$rapat->id)->first();
         $detail = collect(); $dokumentasi = collect(); $creator = null;
-        $jumlah_peserta = DB::table('undangan')->where('id_rapat',$rapat->id)->count();
+        $jumlah_peserta = $daftar_peserta->count();
 
         if ($notulensi) {
             $detail = DB::table('notulensi_detail')->where('id_notulensi',$notulensi->id)->orderBy('urut')->get();
@@ -506,17 +546,24 @@ class LaporanController extends Controller
 
         $tmpDir = storage_path('app'); $files = [];
 
-        // Undangan
+        // ================== 1) Undangan ==================
         $fUnd = $tmpDir.'/und-'.Str::random(8).'.pdf';
         Pdf::loadView('rapat.undangan_pdf', [
-            'rapat'          => $rapat,
-            'daftar_peserta' => $daftar_peserta,
-            'pimpinan'       => $pimpinan,
-            'kop_path'       => public_path('Screenshot 2025-08-23 121254.jpeg'),
+            'rapat'                      => $rapat,
+            'daftar_peserta'             => $daftar_peserta,
+            'kop_path'                   => public_path('Screenshot 2025-08-23 121254.jpeg'),
+            // flag lampiran/daftar
+            'tampilkan_lampiran'         => $tampilkan_lampiran,
+            'tampilkan_daftar_di_surat'  => $tampilkan_daftar_di_surat,
+            // approval & QR
+            'approval1'                  => $approval1,
+            'approval2'                  => $approval2,
+            'qrA1'                       => $qrA1,
+            'qrA2'                       => $qrA2,
         ])->setPaper('a4','portrait')->save($fUnd);
         $files[] = $fUnd;
 
-        // Absensi
+        // ================== 2) Absensi ==================
         $fAbs = $tmpDir.'/abs-'.Str::random(8).'.pdf';
         Pdf::loadView('absensi.laporan_pdf', [
             'rapat'    => $rapat,
@@ -528,7 +575,7 @@ class LaporanController extends Controller
         ])->setPaper('a4','portrait')->save($fAbs);
         $files[] = $fAbs;
 
-        // Notulensi (opsional)
+        // ================== 3) Notulensi (opsional) ==================
         if ($notulensi) {
             $dataNot = compact('notulensi','rapat','detail','dokumentasi','creator','jumlah_peserta');
 
@@ -545,6 +592,7 @@ class LaporanController extends Controller
             $files[] = $fP3;
         }
 
+        // ================== Merge & cleanup ==================
         $merger = new Merger();
         foreach ($files as $f) $merger->addFile($f);
         $merged = $merger->merge();
@@ -553,4 +601,33 @@ class LaporanController extends Controller
 
         return $merged;
     }
+
+    public function previewFile($id)
+{
+    $row = DB::table('laporan_files')->where('id', $id)->first() ?? abort(404);
+
+    $abs = storage_path('app/'.$row->file_path);
+    if (!is_file($abs)) {
+        abort(404, 'File tidak ditemukan.');
+    }
+
+    // Hanya beberapa tipe yang nyaman di-embed dalam iframe/img
+    $mime = $row->mime ?: 'application/octet-stream';
+    $inlineAble = str_starts_with($mime, 'application/pdf') || str_starts_with($mime, 'image/');
+
+    $headers = [
+        'Content-Type'        => $mime,
+        // penting: inline agar tampil di iframe <embed>/<img>
+        'Content-Disposition' => 'inline; filename="'.$row->file_name.'"',
+        // cache ringan supaya cepat saat buka ulang
+        'Cache-Control'       => 'private, max-age=600',
+    ];
+
+    if ($inlineAble) {
+        return response()->file($abs, $headers);
+    }
+
+    // fallback: kalau tipe tidak didukung untuk inline, arahkan ke download
+    return response()->download($abs, $row->file_name, ['Content-Type' => $mime]);
+}
 }

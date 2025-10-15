@@ -17,11 +17,11 @@ class RapatController extends Controller
      * Ambil daftar user yang bisa dipilih sebagai peserta:
      * - Sertakan semua user NON-admin/superadmin (jadi termasuk role 'approval', 'peserta', dst.)
      * - (opsional) filter aktif jika kolomnya ada
-     * Return minimal kolom: id, name (karena tampilan diminta nama saja)
+     * Return minimal kolom: id, name (tambah hirarki untuk pengurutan)
      */
     private function getSelectableParticipants()
     {
-        $q = DB::table('users')->select('id', 'name');
+        $q = DB::table('users')->select('id', 'name', 'hirarki');
 
         if (Schema::hasColumn('users', 'role')) {
             $q->whereNotIn('role', ['admin', 'superadmin']);
@@ -34,7 +34,10 @@ class RapatController extends Controller
             $q->where('status', 'aktif');
         }
 
-        return $q->orderBy('name')->get();
+        return $q
+            ->orderByRaw('COALESCE(hirarki, 9999) ASC') // urutkan berdasarkan hirarki (NULL jatuh ke bawah)
+            ->orderBy('name', 'asc')
+            ->get();
     }
 
     // Tampilkan daftar rapat
@@ -84,14 +87,15 @@ class RapatController extends Controller
             $rapat->status_label = $this->getStatusRapat($rapat);
         }
 
-        // === PRELOAD: Peserta terpilih (nama saja) ===
+        // === PRELOAD: Peserta terpilih (nama saja) — urut by hirarki lalu nama
         $rapatIds = $daftar_rapat->pluck('id')->all();
         if (!empty($rapatIds)) {
             $pesertaMap = DB::table('undangan as u')
                 ->join('users as usr', 'usr.id', '=', 'u.id_user')
                 ->whereIn('u.id_rapat', $rapatIds)
-                ->select('u.id_rapat','usr.id as id','usr.name')
-                ->orderBy('usr.name')
+                ->select('u.id_rapat','usr.id as id','usr.name','usr.hirarki')
+                ->orderByRaw('COALESCE(usr.hirarki, 9999) ASC')
+                ->orderBy('usr.name', 'asc')
                 ->get()
                 ->groupBy('id_rapat')
                 ->map(function ($group) {
@@ -145,7 +149,7 @@ class RapatController extends Controller
             }
         }
 
-        // === Master daftar peserta (semua user non-admin; nama saja) ===
+        // === Master daftar peserta (semua user non-admin; nama saja) — sudah terurut by hirarki
         $daftar_peserta = $this->getSelectableParticipants();
 
         // === Daftar Approver ===
@@ -174,7 +178,7 @@ class RapatController extends Controller
     // Form tambah rapat
     public function create()
     {
-        $daftar_peserta  = $this->getSelectableParticipants();  // semua non-admin, nama saja
+        $daftar_peserta  = $this->getSelectableParticipants();  // semua non-admin, nama saja (urut hirarki)
         $daftar_kategori = DB::table('kategori_rapat')->orderBy('nama')->get();
 
         $approval1_list = DB::table('users')
@@ -255,7 +259,7 @@ class RapatController extends Controller
                 ->pluck('id')->all();
         }
 
-        // Insert undangan (nama saja akan ditampilkan di view)
+        // Insert undangan
         $now = now();
         $bulk = [];
         foreach ($allowedIds as $uid) {
@@ -300,10 +304,13 @@ class RapatController extends Controller
 
         if (!$rapat) abort(404);
 
+        // Urutkan daftar peserta berdasarkan hirarki lalu nama
         $daftar_peserta = DB::table('undangan')
             ->join('users', 'undangan.id_user', '=', 'users.id')
             ->where('undangan.id_rapat', $id)
-            ->select('users.name', 'users.email', 'users.jabatan')
+            ->select('users.name', 'users.email', 'users.jabatan', 'users.hirarki')
+            ->orderByRaw('COALESCE(users.hirarki, 9999) ASC')
+            ->orderBy('users.name','asc')
             ->get();
 
         return view('rapat.show', compact('rapat', 'daftar_peserta'));
@@ -315,26 +322,55 @@ class RapatController extends Controller
         $rapat = DB::table('rapat')->where('id', $id)->first();
         if (!$rapat) abort(404);
 
-        $daftar_peserta   = $this->getSelectableParticipants(); // semua non-admin, nama saja
-        $daftar_kategori  = DB::table('kategori_rapat')->orderBy('nama')->get();
-        $peserta_terpilih = DB::table('undangan')->where('id_rapat', $id)->pluck('id_user')->toArray();
+        // === Semua user non-admin untuk daftar peserta (peserta + approval) — urut by hirarki
+        $daftar_peserta = DB::table('users')
+            ->whereNotIn('role', ['admin'])
+            ->select('id','name','hirarki')
+            ->orderByRaw('COALESCE(hirarki, 9999) ASC')
+            ->orderBy('name','asc')
+            ->get();
 
+        // === Peserta yang sudah dipilih di rapat ini (format [{id, text}]) — urut by hirarki
+        $peserta_terpilih = DB::table('undangan as u')
+            ->join('users as usr', 'usr.id', '=', 'u.id_user')
+            ->where('u.id_rapat', $id)
+            ->select('usr.id', 'usr.name', 'usr.hirarki')
+            ->orderByRaw('COALESCE(usr.hirarki, 9999) ASC')
+            ->orderBy('usr.name')
+            ->get()
+            ->map(function($r){
+                return ['id' => (int)$r->id, 'text' => $r->name];
+            })->toArray();
+
+        $daftar_kategori  = DB::table('kategori_rapat')->orderBy('nama')->get();
+
+        // === daftar approver (sama seperti create)
         $approval1_list = DB::table('users')
             ->select('id','name','tingkatan')
-            ->where('role', 'approval')
+            ->where('role','approval')
             ->orderBy('name')
             ->get();
 
         $approval2_list = DB::table('users')
             ->select('id','name','tingkatan')
-            ->where('role', 'approval')
+            ->where('role','approval')
             ->where('tingkatan', 2)
             ->orderBy('name')
             ->get();
 
+        // (opsional) kalau form di dalam modal, kamu bisa set parent ID buat dropdown
+        $dropdownParentId = null;
+        $pesertaWrapperId = 'peserta-wrapper-edit';
+
         return view('rapat.edit', compact(
-            'rapat', 'daftar_peserta', 'peserta_terpilih',
-            'daftar_kategori', 'approval1_list', 'approval2_list'
+            'rapat',
+            'daftar_peserta',
+            'peserta_terpilih',
+            'daftar_kategori',
+            'approval1_list',
+            'approval2_list',
+            'dropdownParentId',
+            'pesertaWrapperId'
         ));
     }
 
@@ -546,10 +582,13 @@ class RapatController extends Controller
         $rapat = DB::table('rapat')->where('id', $id)->first();
         if (!$rapat) abort(404);
 
+        // Urutkan peserta undangan berdasarkan hirarki lalu nama
         $daftar_peserta = DB::table('undangan')
             ->join('users', 'undangan.id_user', '=', 'users.id')
             ->where('undangan.id_rapat', $id)
-            ->select('users.name', 'users.email', 'users.jabatan')
+            ->select('users.name', 'users.email', 'users.jabatan', 'users.hirarki')
+            ->orderByRaw('COALESCE(users.hirarki, 9999) ASC')
+            ->orderBy('users.name','asc')
             ->get();
 
         $approval1 = DB::table('users')->where('id', $rapat->approval1_user_id)->first();

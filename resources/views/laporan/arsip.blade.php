@@ -10,8 +10,9 @@
     display:inline-block; padding:.35rem .6rem; border-radius:999px;
     background: rgba(255,255,255,.06); border:1px solid rgba(226,232,240,.15);
     font-size:.8rem;
-    max-width: 220px;             /* kecil */
+    max-width: 220px;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    cursor: pointer;
   }
 
   .btn-icon{
@@ -31,7 +32,7 @@
   .table.no-hover tbody tr:hover { background: transparent !important; }
   .subtitle{ font-size:12px; color:#9fb0cd; }
 
-  /* ===== Lebar kolom: besarkan Judul & Kategori, kecilkan Nama File */
+  /* ===== Lebar kolom */
   th.col-judul      { width: 34%; }
   th.col-kategori   { width: 260px; }
   th.col-rapat      { width: 260px; }
@@ -60,6 +61,16 @@
       color: #fff;
   }
   .page-item.disabled .page-link{ color: var(--muted); }
+
+  /* ===== Modal Preview */
+  .modal-preview .modal-dialog { max-width: 980px; }
+  .modal-preview .modal-body { padding: 0; background: #0b1220; }
+  #previewIframe { width: 100%; height: 75vh; border: 0; }
+  #previewImg    { max-width: 100%; max-height: 75vh; display: none; margin: 0 auto; }
+  #previewFallback { padding: 1rem; display: none; }
+  .spinner-preview{
+    display:flex; align-items:center; justify-content:center; height:75vh;
+  }
 </style>
 @endsection
 
@@ -169,7 +180,15 @@
               </td>
 
               <td class="col-namafile">
-                <span class="pill-file" title="{{ $u->file_name }}">{{ $u->file_name }}</span>
+                {{-- Klik nama file untuk PREVIEW --}}
+                <a href="#"
+                   class="pill-file preview-link"
+                   title="Preview: {{ $u->file_name }}"
+                   data-url="{{ route('laporan.file.preview',$u->id) }}"
+                   data-mime="{{ $u->mime ?? 'application/octet-stream' }}"
+                   data-filename="{{ $u->file_name }}">
+                  {{ $u->file_name }}
+                </a>
               </td>
 
               <td class="text-center col-aksi">
@@ -229,6 +248,31 @@
       {{ $uploads->appends(request()->query())->links('pagination::bootstrap-4') }}
     </div>
   @endif
+</div>
+
+{{-- MODAL: PREVIEW FILE --}}
+<div class="modal fade modal-preview" id="modalPreview" tabindex="-1" aria-labelledby="modalPreviewLabel" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content modal-solid">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalPreviewLabel">Preview</h5>
+        <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+      </div>
+      <div class="modal-body">
+        <div id="previewSpinner" class="spinner-preview">
+          <div class="spinner-border text-light" role="status"><span class="sr-only">Loading...</span></div>
+        </div>
+        <iframe id="previewIframe" src="" title="Preview" style="display:none;"></iframe>
+        <img id="previewImg" alt="Preview">
+        <div id="previewFallback">
+          <p class="mb-2">Tipe file ini tidak bisa di-preview. Silakan unduh untuk melihat isi.</p>
+          <a id="previewDownloadBtn" href="#" class="btn btn-primary btn-sm">
+            <i class="fas fa-download mr-1"></i> Download
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
 {{-- MODAL: UPLOAD ke ARSIP --}}
@@ -369,5 +413,54 @@
       form.action = "{{ url('/laporan/file') }}/" + id + "/update";
     });
   });
+
+  // ===== PREVIEW: buka modal saat klik nama file
+  (function(){
+    const $modal = $('#modalPreview');
+    const $title = $('#modalPreviewLabel');
+    const $spinner = $('#previewSpinner');
+    const $iframe = $('#previewIframe');
+    const $img = $('#previewImg');
+    const $fallback = $('#previewFallback');
+    const $dlBtn = $('#previewDownloadBtn');
+
+    function resetPreview(){
+      $spinner.show();
+      $iframe.hide().attr('src','');
+      $img.hide().attr('src','');
+      $fallback.hide();
+      $dlBtn.attr('href','#');
+    }
+
+    $(document).on('click', '.preview-link', function(e){
+      e.preventDefault();
+      const url = this.dataset.url;
+      const mime = (this.dataset.mime || '').toLowerCase();
+      const fname = this.dataset.filename || 'Preview';
+
+      resetPreview();
+      $title.text('Preview — ' + fname);
+      $modal.modal('show');
+
+      // Tipe yang didukung langsung: PDF & gambar
+      if (mime.startsWith('application/pdf')) {
+        $iframe.on('load', () => { $spinner.hide(); $iframe.show(); });
+        $iframe.attr('src', url);
+      } else if (mime.startsWith('image/')) {
+        const img = new Image();
+        img.onload = function(){ $spinner.hide(); $img.attr('src', url).show(); };
+        img.onerror = function(){ showFallback(url); };
+        img.src = url;
+      } else {
+        showFallback(url);
+      }
+    });
+
+    function showFallback(downloadUrl){
+      $spinner.hide();
+      $fallback.show();
+      $dlBtn.attr('href', downloadUrl.replace('/preview','/download'));
+    }
+  })();
 </script>
 @endpush

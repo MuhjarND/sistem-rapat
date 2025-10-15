@@ -67,6 +67,7 @@ Route::middleware(['auth', 'cekrole:admin'])->group(function () {
     Route::post('/laporan/file/{id}/archive', 'LaporanController@archiveFile')->name('laporan.file.archive');
     Route::post('/laporan/file/{id}/unarchive', 'LaporanController@unarchiveFile')->name('laporan.file.unarchive');
     Route::post('/laporan/rapat/{id}/archive', 'LaporanController@archiveRapat')->name('laporan.rapat.archive');
+    Route::get('/laporan/file/{id}/preview', 'LaporanController@previewFile')->name('laporan.file.preview');
     
 });
 

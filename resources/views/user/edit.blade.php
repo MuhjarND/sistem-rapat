@@ -67,7 +67,13 @@
                 @error('tingkatan') <div class="invalid-feedback">{{ $message }}</div> @enderror
                 <small class="form-text text-muted">Jika diisi, role user akan menjadi <b>approval</b> secara otomatis.</small>
                 </div>
-
+  
+                <div class="form-group col-md-3">
+                <label>Hirarki <small class="text-muted">(kecil = di atas)</small></label>
+                <input type="number" name="hirarki" class="form-control"
+                        value="{{ old('hirarki', $user->hirarki ?? null) }}" min="0" max="65535" step="1"
+                        placeholder="mis. 0 untuk Pimpinan">
+                </div>
 
                 {{-- Role --}}
                 <div class="form-group mb-3">
