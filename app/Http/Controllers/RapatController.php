@@ -16,13 +16,27 @@ class RapatController extends Controller
 {
     /**
      * Ambil daftar user yang bisa dipilih sebagai peserta:
-     * - Sertakan semua user NON-admin/superadmin (jadi termasuk role 'approval', 'peserta', dst.)
+     * - Sertakan semua user NON-admin/superadmin
      * - (opsional) filter aktif jika kolomnya ada
-     * Return minimal kolom: id, name (tambah hirarki untuk pengurutan)
+     * Return kolom: id, name, hirarki, (jabatan), (unit|bagian as unit)
      */
     private function getSelectableParticipants()
     {
-        $q = DB::table('users')->select('id', 'name', 'hirarki');
+        $q = DB::table('users');
+
+        // Susun daftar kolom dinamis
+        $select = ['id', 'name', 'hirarki'];
+        if (Schema::hasColumn('users', 'jabatan')) {
+            $select[] = 'jabatan';
+        }
+        // Unit (atau alias dari 'bagian')
+        if (Schema::hasColumn('users', 'unit')) {
+            $select[] = 'unit';
+        } elseif (Schema::hasColumn('users', 'bagian')) {
+            $select[] = DB::raw('bagian as unit');
+        }
+
+        $q->select($select);
 
         if (Schema::hasColumn('users', 'role')) {
             $q->whereNotIn('role', ['admin', 'superadmin']);
@@ -36,7 +50,7 @@ class RapatController extends Controller
         }
 
         return $q
-            ->orderByRaw('COALESCE(hirarki, 9999) ASC') // urutkan berdasarkan hirarki (NULL jatuh ke bawah)
+            ->orderByRaw('COALESCE(hirarki, 9999) ASC')
             ->orderBy('name', 'asc')
             ->get();
     }
@@ -101,7 +115,6 @@ class RapatController extends Controller
                 ->groupBy('id_rapat')
                 ->map(function ($group) {
                     return $group->map(function ($row) {
-                        // text = nama saja (tanpa jabatan/unit)
                         return ['id' => (int)$row->id, 'text' => $row->name];
                     })->values()->all();
                 });
@@ -150,7 +163,7 @@ class RapatController extends Controller
             }
         }
 
-        // === Master daftar peserta (semua user non-admin; nama saja) — sudah terurut by hirarki
+        // === Master daftar peserta (non-admin; sudah urut) + kolom unit & jabatan
         $daftar_peserta = $this->getSelectableParticipants();
 
         // === Daftar Approver ===
@@ -179,7 +192,7 @@ class RapatController extends Controller
     // Form tambah rapat
     public function create()
     {
-        $daftar_peserta  = $this->getSelectableParticipants();  // semua non-admin, nama saja (urut hirarki)
+        $daftar_peserta  = $this->getSelectableParticipants();  // berisi unit & jabatan juga
         $daftar_kategori = DB::table('kategori_rapat')->orderBy('nama')->get();
 
         $approval1_list = DB::table('users')
@@ -201,7 +214,6 @@ class RapatController extends Controller
     // Proses simpan rapat & undangan
     public function store(Request $request)
     {
-        // kalau "pilih semua" aktif, izinkan peserta kosong
         $pesertaRule = $request->boolean('pilih_semua') ? 'nullable|array' : 'required|array|min:1';
 
         $request->validate([
@@ -228,7 +240,6 @@ class RapatController extends Controller
             'id_kategori'       => 'required|exists:kategori_rapat,id'
         ]);
 
-        // Simpan rapat
         $id_rapat = DB::table('rapat')->insertGetId([
             'nomor_undangan'    => $request->nomor_undangan,
             'judul'             => $request->judul,
@@ -245,9 +256,6 @@ class RapatController extends Controller
             'updated_at'        => now(),
         ]);
 
-        // Tentukan peserta:
-        // - jika pilih_semua: semua user non-admin
-        // - jika tidak: pakai yang dipilih
         if ($request->boolean('pilih_semua')) {
             $allowedIds = $this->getSelectableParticipants()->pluck('id')->all();
         } else {
@@ -260,7 +268,6 @@ class RapatController extends Controller
                 ->pluck('id')->all();
         }
 
-        // Insert undangan
         $now = now();
         $bulk = [];
         foreach ($allowedIds as $uid) {
@@ -276,11 +283,9 @@ class RapatController extends Controller
             DB::table('undangan')->insert($bulk);
         }
 
-        // Antrean approval
         $this->createApprovalChainForDoc($id_rapat, 'undangan');
         $this->createApprovalChainForDoc($id_rapat, 'absensi');
 
-        // Notif WA approver pertama
         $rapat = DB::table('rapat')->where('id', $id_rapat)->first();
         $this->notifyFirstApprover($id_rapat, 'undangan', $rapat->judul);
 
@@ -288,87 +293,77 @@ class RapatController extends Controller
     }
 
     // Detail rapat
-public function show($id)
-{
-    $rapat = DB::table('rapat')
-        ->leftJoin('users as a1', 'rapat.approval1_user_id', '=', 'a1.id')
-        ->leftJoin('users as a2', 'rapat.approval2_user_id', '=', 'a2.id')
-        ->leftJoin('kategori_rapat', 'rapat.id_kategori', '=', 'kategori_rapat.id')
-        ->select(
-            'rapat.*',
-            'kategori_rapat.nama as nama_kategori',
-            'a1.name as approval1_nama',
-            'a2.name as approval2_nama'
-        )
-        ->where('rapat.id', $id)
-        ->first();
+    public function show($id)
+    {
+        $rapat = DB::table('rapat')
+            ->leftJoin('users as a1', 'rapat.approval1_user_id', '=', 'a1.id')
+            ->leftJoin('users as a2', 'rapat.approval2_user_id', '=', 'a2.id')
+            ->leftJoin('kategori_rapat', 'rapat.id_kategori', '=', 'kategori_rapat.id')
+            ->select(
+                'rapat.*',
+                'kategori_rapat.nama as nama_kategori',
+                'a1.name as approval1_nama',
+                'a2.name as approval2_nama'
+            )
+            ->where('rapat.id', $id)
+            ->first();
 
-    if (!$rapat) abort(404);
+        if (!$rapat) abort(404);
 
-    // Peserta: hirarki ASC (null=9999), lalu nama
-    $daftar_peserta = DB::table('undangan')
-        ->join('users', 'undangan.id_user', '=', 'users.id')
-        ->where('undangan.id_rapat', $id)
-        ->select('users.name', 'users.email', 'users.jabatan', 'users.hirarki')
-        ->orderByRaw('COALESCE(users.hirarki, 9999) ASC')
-        ->orderBy('users.name','asc')
-        ->get();
+        $daftar_peserta = DB::table('undangan')
+            ->join('users', 'undangan.id_user', '=', 'users.id')
+            ->where('undangan.id_rapat', $id)
+            ->select('users.name', 'users.email', 'users.jabatan', 'users.hirarki')
+            ->orderByRaw('COALESCE(users.hirarki, 9999) ASC')
+            ->orderBy('users.name','asc')
+            ->get();
 
-    // Pastikan guest_token ada (jika kolom tersedia)
-    if (\Illuminate\Support\Facades\Schema::hasColumn('rapat', 'guest_token')) {
-        if (empty($rapat->guest_token)) {
-            $newToken = \Illuminate\Support\Str::random(32);
-            DB::table('rapat')->where('id', $id)->update([
-                'guest_token' => $newToken,
-                'updated_at'  => now(),
-            ]);
-            $rapat->guest_token = $newToken;
+        if (\Illuminate\Support\Facades\Schema::hasColumn('rapat', 'guest_token')) {
+            if (empty($rapat->guest_token)) {
+                $newToken = \Illuminate\Support\Str::random(32);
+                DB::table('rapat')->where('id', $id)->update([
+                    'guest_token' => $newToken,
+                    'updated_at'  => now(),
+                ]);
+                $rapat->guest_token = $newToken;
+            }
         }
+
+        $qrPesertaUrl = \Illuminate\Support\Facades\Route::has('absensi.scan')
+            ? route('absensi.scan', $rapat->token_qr)
+            : url('/absensi/scan/'.$rapat->token_qr);
+
+        $qrTamuUrl = null;
+        if (!empty($rapat->guest_token)) {
+            $qrTamuUrl = \Illuminate\Support\Facades\Route::has('absensi.guest.form')
+                ? route('absensi.guest.form', [$rapat->id, $rapat->guest_token])
+                : url('/absensi/guest/'.$rapat->id.'/'.$rapat->guest_token);
+        }
+
+        $qrPesertaImg = 'https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=' . urlencode($qrPesertaUrl);
+        $qrTamuImg    = $qrTamuUrl
+            ? 'https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=' . urlencode($qrTamuUrl)
+            : null;
+
+        $previewAbsensiUrl = \Illuminate\Support\Facades\Route::has('absensi.export.pdf')
+            ? route('absensi.export.pdf', ['id_rapat' => $id, 'preview' => 1])
+            : url("/absensi/laporan/{$id}?preview=1");
+
+        $previewUndanganUrl = \Illuminate\Support\Facades\Route::has('rapat.undangan.pdf')
+            ? route('rapat.undangan.pdf', $id)
+            : url("/rapat/{$id}/undangan");
+
+        return view('rapat.show', compact(
+            'rapat',
+            'daftar_peserta',
+            'qrPesertaUrl',
+            'qrPesertaImg',
+            'qrTamuUrl',
+            'qrTamuImg',
+            'previewUndanganUrl',
+            'previewAbsensiUrl'
+        ));
     }
-
-    // URL QR Peserta (internal)
-    $qrPesertaUrl = \Illuminate\Support\Facades\Route::has('absensi.scan')
-        ? route('absensi.scan', $rapat->token_qr)
-        : url('/absensi/scan/'.$rapat->token_qr);
-
-    // URL QR Tamu (guest)
-    $qrTamuUrl = null;
-    if (!empty($rapat->guest_token)) {
-        $qrTamuUrl = \Illuminate\Support\Facades\Route::has('absensi.guest.form')
-            ? route('absensi.guest.form', [$rapat->id, $rapat->guest_token])
-            : url('/absensi/guest/'.$rapat->id.'/'.$rapat->guest_token);
-    }
-
-    // Gambar QR (via qrserver)
-    $qrPesertaImg = 'https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=' . urlencode($qrPesertaUrl);
-    $qrTamuImg    = $qrTamuUrl
-        ? 'https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=' . urlencode($qrTamuUrl)
-        : null;
-
-    // ===== Preview URLs (iframe) =====
-    // Absensi PDF mendukung ?preview=1 (stream inline)
-    $previewAbsensiUrl = \Illuminate\Support\Facades\Route::has('absensi.export.pdf')
-        ? route('absensi.export.pdf', ['id_rapat' => $id, 'preview' => 1])
-        : url("/absensi/laporan/{$id}?preview=1");
-
-    // Undangan PDF — jika route langsung stream, cukup route biasa;
-    // kalau kamu pakai query ?preview=1, sesuaikan controllernya agar stream.
-    $previewUndanganUrl = \Illuminate\Support\Facades\Route::has('rapat.undangan.pdf')
-        ? route('rapat.undangan.pdf', $id) // atau ->route('rapat.undangan.pdf', [$id, 'preview'=>1]) jika perlu
-        : url("/rapat/{$id}/undangan");
-
-    return view('rapat.show', compact(
-        'rapat',
-        'daftar_peserta',
-        'qrPesertaUrl',
-        'qrPesertaImg',
-        'qrTamuUrl',
-        'qrTamuImg',
-        'previewUndanganUrl',
-        'previewAbsensiUrl'
-    ));
-}
-
 
     // Form edit rapat
     public function edit($id)
@@ -376,15 +371,21 @@ public function show($id)
         $rapat = DB::table('rapat')->where('id', $id)->first();
         if (!$rapat) abort(404);
 
-        // === Semua user non-admin untuk daftar peserta (peserta + approval) — urut by hirarki
-        $daftar_peserta = DB::table('users')
-            ->whereNotIn('role', ['admin'])
-            ->select('id','name','hirarki')
+        // === Semua user non-admin untuk daftar peserta — termasuk jabatan & unit
+        $q = DB::table('users')->whereNotIn('role', ['admin']);
+        $select = ['id','name','hirarki'];
+        if (Schema::hasColumn('users','jabatan')) $select[] = 'jabatan';
+        if (Schema::hasColumn('users','unit')) {
+            $select[] = 'unit';
+        } elseif (Schema::hasColumn('users','bagian')) {
+            $select[] = DB::raw('bagian as unit');
+        }
+        $daftar_peserta = $q->select($select)
             ->orderByRaw('COALESCE(hirarki, 9999) ASC')
             ->orderBy('name','asc')
             ->get();
 
-        // === Peserta yang sudah dipilih di rapat ini (format [{id, text}]) — urut by hirarki
+        // === Peserta yang sudah dipilih di rapat ini
         $peserta_terpilih = DB::table('undangan as u')
             ->join('users as usr', 'usr.id', '=', 'u.id_user')
             ->where('u.id_rapat', $id)
@@ -398,7 +399,6 @@ public function show($id)
 
         $daftar_kategori  = DB::table('kategori_rapat')->orderBy('nama')->get();
 
-        // === daftar approver (sama seperti create)
         $approval1_list = DB::table('users')
             ->select('id','name','tingkatan')
             ->where('role','approval')
@@ -412,7 +412,6 @@ public function show($id)
             ->orderBy('name')
             ->get();
 
-        // (opsional) kalau form di dalam modal, kamu bisa set parent ID buat dropdown
         $dropdownParentId = null;
         $pesertaWrapperId = 'peserta-wrapper-edit';
 
@@ -431,7 +430,6 @@ public function show($id)
     // Update rapat & undangan
     public function update(Request $request, $id)
     {
-        // kalau "pilih semua" aktif, izinkan peserta kosong
         $pesertaRule = $request->boolean('pilih_semua') ? 'nullable|array' : 'required|array|min:1';
 
         $request->validate([
@@ -460,7 +458,6 @@ public function show($id)
 
         DB::beginTransaction();
         try {
-            // 1) Update rapat
             DB::table('rapat')->where('id', $id)->update([
                 'nomor_undangan'    => $request->nomor_undangan,
                 'judul'             => $request->judul,
@@ -474,7 +471,6 @@ public function show($id)
                 'updated_at'        => now(),
             ]);
 
-            // 2) Reset undangan peserta
             DB::table('undangan')->where('id_rapat', $id)->delete();
 
             if ($request->boolean('pilih_semua')) {
@@ -504,7 +500,7 @@ public function show($id)
                 DB::table('undangan')->insert($bulk);
             }
 
-            // 3) Sinkronisasi chain approval UNDANGAN (kode versimu sebelumnya tetap dipakai)
+            // === Sinkronisasi approval UNDANGAN (versimu)
             $desired = [];
             if (!empty($request->approval2_user_id)) $desired[1] = (int)$request->approval2_user_id;
             if (!empty($request->approval1_user_id)) $desired[2] = (int)$request->approval1_user_id;
@@ -554,7 +550,6 @@ public function show($id)
                 }
             }
 
-            // 4) Reopen jika ada REJECT + buka blokir (mengikuti versi terakhirmu)
             $rejected = DB::table('approval_requests')
                 ->where('rapat_id', $id)
                 ->where('doc_type', 'undangan')
@@ -596,7 +591,6 @@ public function show($id)
                     ->update(['status' => 'pending', 'updated_at' => now()]);
             }
 
-            // 5) Cap waktu revisi (jika ada kolom)
             if (Schema::hasColumn('rapat','undangan_revised_at')) {
                 DB::table('rapat')->where('id',$id)->update([
                     'undangan_revised_at' => now(),
@@ -608,7 +602,6 @@ public function show($id)
 
             DB::commit();
 
-            // 6) Notif WA ke approver pertama pending (wording "sudah diperbaiki")
             app(\App\Http\Controllers\ApprovalController::class)
                 ->notifyFirstPendingApproverOnResubmission((int)$id, 'undangan');
 
@@ -630,13 +623,12 @@ public function show($id)
         return redirect()->route('rapat.index')->with('success', 'Rapat berhasil dihapus!');
     }
 
-    // Export undangan PDF
+    // Export undangan PDF (tidak diubah)
     public function undanganPdf($id)
     {
         $rapat = DB::table('rapat')->where('id', $id)->first();
         if (!$rapat) abort(404);
 
-        // Urutkan peserta undangan berdasarkan hirarki lalu nama
         $daftar_peserta = DB::table('undangan')
             ->join('users', 'undangan.id_user', '=', 'users.id')
             ->where('undangan.id_rapat', $id)
@@ -722,9 +714,6 @@ public function show($id)
         return redirect()->route('rapat.index')->with('success', 'Rapat berhasil dibatalkan!');
     }
 
-    /**
-     * Buat antrean approval untuk dokumen (undangan|absensi|notulensi)
-     */
     private function createApprovalChainForDoc($rapatId, $docType)
     {
         $rapat = DB::table('rapat')->where('id',$rapatId)->first();
@@ -752,9 +741,6 @@ public function show($id)
         }
     }
 
-    /**
-     * Kirim WA ke approver tahap pertama untuk dokumen tertentu
-     */
     private function notifyFirstApprover($rapatId, $docType, $judulRapat)
     {
         $firstReq = DB::table('approval_requests')

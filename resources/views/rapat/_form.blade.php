@@ -1,4 +1,4 @@
-{{-- resources/views/rapat/_form.blade.php --}}
+{{-- resources/views/rapat/_form.blade.php --}} 
 
 @php
   $isEdit = isset($rapat) && isset($rapat->id);
@@ -21,6 +21,7 @@
       $selectedIds = array_values(array_unique($selectedIds));
   }
 
+  // label dari master (nama saja)
   $labelsFromMaster = collect($daftar_peserta)->keyBy('id')->map(fn($u)=>$u->name)->all();
   foreach ($selectedIds as $sid) {
     if (!isset($selectedLabels[$sid]) && isset($labelsFromMaster[$sid])) $selectedLabels[$sid]=$labelsFromMaster[$sid];
@@ -48,7 +49,7 @@
     color:#fff;
   }
   .input-group-text{ background:transparent !important; color:#fff !important; border:1px solid rgba(255,255,255,.2) }
-  .toolbar{ display:flex; align-items:center; gap:.5rem }
+  .toolbar{ display:flex; align-items:center; gap:.5rem; flex-wrap:wrap }
   .toolbar .btn{ padding:.35rem .6rem; border-radius:8px; font-weight:500 }
 
   @if(!$isEdit)
@@ -93,21 +94,10 @@
 
   @if($isEdit)
   /* ========== EDIT (Checklist) ========== */
-  .rapat-edit .checklist-head{
-    display:block; /* vertikal */
-    margin-bottom:.5rem;
-  }
-  .rapat-edit .checklist-title{
-    display:block;
-    font-weight:600;
-    margin-bottom:.25rem;  /* judul, lalu "Pilih semua" di bawahnya */
-  }
-  .rapat-edit .checklist-head .form-check{
-    margin:0 0 .5rem 0; /* di bawah judul */
-  }
-
+  .rapat-edit .checklist-head{ margin-bottom:.75rem; }
+  .rapat-edit .checklist-title{ display:block; font-weight:600; margin-bottom:.25rem; }
   .rapat-edit .checklist-grid{
-    display:grid; grid-template-columns: repeat(auto-fill, minmax(240px,1fr));
+    display:grid; grid-template-columns: repeat(auto-fill, minmax(260px,1fr));
     gap:.6rem .9rem;
     background: rgba(255,255,255,.04);
     border: 1px solid rgba(255,255,255,.12);
@@ -121,26 +111,14 @@
   }
   .rapat-edit .check-item input[type="checkbox"]{
     width:1.2rem; height:1.2rem;
-    transform: translateY(1px) scale(1.08);  /* sedikit diperbesar */
+    transform: translateY(1px) scale(1.08);
   }
-  /* >>> Specificity tinggi + !important supaya pasti menang */
   html body .rapat-edit .check-item .name{
-    font-size:1.35rem !important;   /* ~21-22px */
-    font-weight:700 !important;
-    line-height:1.28 !important;
-    color:#f9fafb !important;
-    letter-spacing:.2px;
-    user-select:none;
+    font-size:1.05rem !important; font-weight:700 !important; line-height:1.35 !important; color:#f9fafb !important;
   }
-  .rapat-edit .check-item.is-checked{
-    background: rgba(99,102,241,.16);  /* indigo-500 16% */
-    border-color: rgba(99,102,241,.38);
-  }
+  .rapat-edit .check-item.is-checked{ background: rgba(99,102,241,.16); border-color: rgba(99,102,241,.38); }
   .rapat-edit .muted{ color:#9ca3af; font-style:italic }
-  .rapat-edit .badge-missing{
-    display:inline-block; font-size:.75rem; padding:.15rem .4rem;
-    border-radius:.4rem; background:#4b5563; color:#fff; margin-left:.35rem;
-  }
+  .rapat-edit .badge-missing{ display:inline-block; font-size:.75rem; padding:.15rem .4rem; border-radius:.4rem; background:#4b5563; color:#fff; margin-left:.35rem; }
   @endif
 </style>
 @endpush
@@ -226,35 +204,41 @@
 
 {{-- ====== PESERTA ====== --}}
 @if($isEdit)
-  {{-- =========== EDIT: CHECKLIST =========== --}}
+  {{-- =========== EDIT: CHECKLIST (tampilkan NAMA SAJA) =========== --}}
   <section class="rapat-edit">
-    <div class="checklist-head">
-      <span class="checklist-title">Peserta (Checklist)</span>
-      <div class="form-check">
-        <input type="checkbox" id="chkAllPeserta" class="form-check-input">
-        <label for="chkAllPeserta" class="form-check-label">Pilih semua</label>
+    <div class="d-flex align-items-center justify-content-between checklist-head">
+      <div>
+        <span class="checklist-title">Peserta (Checklist)</span>
+        @if(count($missingSelected))
+        <div class="alert alert-warning py-2 mb-2">
+          <strong>Catatan:</strong> Ada peserta yang sebelumnya terundang tetapi tidak ada di daftar saat ini:
+          @foreach($missingSelected as $sid)
+            <span class="badge-missing">
+              {{ $selectedLabels[$sid] ?? ('Pengguna #'.$sid) }} (ID: {{ $sid }})
+            </span>
+            <input type="hidden" name="peserta[]" value="{{ $sid }}">
+          @endforeach
+          <div class="mt-1 muted">Jika ingin menghapus, hapus dari undangan atau ubah role pengguna terkait.</div>
+        </div>
+        @endif
+      </div>
+      <div class="toolbar">
+        <button type="button" class="btn btn-outline-light btn-sm" id="chkBtnAll">Pilih semua</button>
+        <button type="button" class="btn btn-outline-success btn-sm" data-unit-pick="Kesekretariatan">Kesekretariatan</button>
+        <button type="button" class="btn btn-outline-info btn-sm" data-unit-pick="Kepaniteraan">Kepaniteraan</button>
+        <button type="button" class="btn btn-outline-danger btn-sm" id="chkBtnClear">Hapus semua</button>
       </div>
     </div>
 
-    @if(count($missingSelected))
-      <div class="alert alert-warning py-2">
-        <strong>Catatan:</strong> Ada peserta yang sebelumnya terundang tetapi tidak ada di daftar saat ini:
-        @foreach($missingSelected as $sid)
-          <span class="badge-missing">
-            {{ $selectedLabels[$sid] ?? ('Pengguna #'.$sid) }} (ID: {{ $sid }})
-          </span>
-          <input type="hidden" name="peserta[]" value="{{ $sid }}">
-        @endforeach
-        <div class="mt-1 muted">Jika ingin menghapus, hapus dari undangan atau ubah role pengguna terkait.</div>
-      </div>
-    @endif
-
     <div class="checklist-grid" id="checklistPeserta">
       @forelse($daftar_peserta as $p)
-        @php $checked = isset($selectedSet[$p->id]); @endphp
-        <label class="check-item {{ $checked ? 'is-checked' : '' }}">
+        @php
+          $checked = isset($selectedSet[$p->id]);
+          $unitTxt = trim($p->unit ?? '');   // tetap dipakai untuk filter tombol, tapi TIDAK ditampilkan
+        @endphp
+        <label class="check-item {{ $checked ? 'is-checked' : '' }}" @if($unitTxt!=='') data-unit="{{ $unitTxt }}" @endif>
           <input type="checkbox" name="peserta[]" value="{{ $p->id }}" {{ $checked ? 'checked' : '' }}>
-          <span class="name">{{ $p->name }}</span>
+          <span class="name">{{ $p->name }}</span> {{-- **NAMA SAJA** --}}
         </label>
       @empty
         <div class="muted">Belum ada pengguna non-admin yang dapat dipilih.</div>
@@ -263,13 +247,15 @@
   </section>
 
 @else
-  {{-- =========== CREATE: SELECT2 MULTIPLE =========== --}}
+  {{-- =========== CREATE: SELECT2 MULTIPLE (tampilkan NAMA SAJA) =========== --}}
   <div class="d-flex align-items-center justify-content-between mb-1">
     <label class="mb-0">Peserta</label>
     <div class="toolbar">
       <button type="button" class="btn btn-outline-light btn-sm" id="btnSelectAll">
         <i class="fas fa-check-double mr-1"></i> Pilih semua
       </button>
+      <button type="button" class="btn btn-outline-success btn-sm" data-unit-pick-create="Kesekretariatan">Kesekretariatan</button>
+      <button type="button" class="btn btn-outline-info btn-sm" data-unit-pick-create="Kepaniteraan">Kepaniteraan</button>
       <button type="button" class="btn btn-outline-light btn-sm" id="btnClearAll">
         <i class="fas fa-times mr-1"></i> Hapus semua
       </button>
@@ -285,6 +271,7 @@
       data-placeholder="Pilih peserta rapat"
       data-preselect='{{ $preselectJson }}'
     >
+      {{-- Jika ada selected yang tidak ada di master, tetap tampilkan --}}
       @foreach($missingSelected as $sid)
         <option value="{{ $sid }}" selected>
           {{ $selectedLabels[$sid] ?? 'Pengguna #'.$sid }}
@@ -292,9 +279,14 @@
       @endforeach
 
       @foreach($daftar_peserta as $peserta)
-        @php $isSel = isset($selectedSet[$peserta->id]); @endphp
-        <option value="{{ $peserta->id }}" {{ $isSel ? 'selected' : '' }}>
-          {{ $labelsFromMaster[$peserta->id] ?? $peserta->name }}
+        @php
+          $isSel  = isset($selectedSet[$peserta->id]);
+          $unitTx = trim($peserta->unit ?? '');   // disimpan untuk filter tombol
+        @endphp
+        <option value="{{ $peserta->id }}"
+                @if($unitTx!=='') data-unit="{{ $unitTx }}" @endif
+                {{ $isSel ? 'selected' : '' }}>
+          {{ $labelsFromMaster[$peserta->id] ?? $peserta->name }} {{-- **NAMA SAJA** --}}
         </option>
       @endforeach
     </select>
@@ -304,7 +296,7 @@
 
 @push('scripts')
 @if(!$isEdit)
-  {{-- CREATE: jQuery -> Select2 --}}
+  {{-- CREATE: jQuery -> Select2 + Quick-Select per Unit --}}
   <script>
   (function(){
     function loadScript(src){return new Promise(function(res,rej){var s=document.createElement('script');s.src=src;s.onload=res;s.onerror=rej;document.head.appendChild(s);});}
@@ -320,22 +312,58 @@
       if($sel.hasClass('select2-hidden-accessible')){try{$sel.select2('destroy')}catch(e){}}
       $sel.next('.select2-container').remove();
       var $w=$('#{{ $wrapperId }}');
-      $sel.select2({width:'100%',placeholder:$sel.data('placeholder')||'Pilih peserta rapat',closeOnSelect:false,dropdownParent:$w.length?$w:$(document.body)});
-      try{var preset=JSON.parse($sel.attr('data-preselect')||'[]').map(String);$sel.val(preset).trigger('change');}catch(e){}
-      $('#btnSelectAll').off('click').on('click',function(){var vals=[];$sel.find('option').each(function(){this.selected=true;vals.push(this.value);});$sel.val(vals).trigger('change');});
-      $('#btnClearAll').off('click').on('click',function(){$sel.find('option').prop('selected',false);$sel.val([]).trigger('change');});
+      $sel.select2({
+        width:'100%',
+        placeholder:$sel.data('placeholder')||'Pilih peserta rapat',
+        closeOnSelect:false,
+        dropdownParent:$w.length?$w:$(document.body)
+      });
+      // Preselect
+      try{
+        var preset=JSON.parse($sel.attr('data-preselect')||'[]').map(String);
+        $sel.val(preset).trigger('change');
+      }catch(e){}
+
+      // Pilih semua
+      $('#btnSelectAll').off('click').on('click',function(){
+        var vals=[]; $sel.find('option').each(function(){ this.selected=true; vals.push(this.value); });
+        $sel.val(vals).trigger('change');
+      });
+
+      // Hapus semua
+      $('#btnClearAll').off('click').on('click',function(){
+        $sel.find('option').prop('selected',false);
+        $sel.val([]).trigger('change');
+      });
+
+      // Quick-Select per Unit (merge pilihan)
+      $('[data-unit-pick-create]').off('click').on('click', function(){
+        var unit = ($(this).data('unit-pick-create')||'').toString().toLowerCase();
+        var picked = $sel.find('option').filter(function(){
+          var u = (this.getAttribute('data-unit')||'').toLowerCase();
+          return u === unit;  // sesuaikan jika perlu contains()
+        }).map(function(){ return this.value; }).get();
+
+        var now = $sel.val() || [];
+        var merged = Array.from(new Set([ ...now, ...picked ]));
+        $sel.val(merged).trigger('change');
+      });
     }
-    ensureJQandS2().then(function(){if(document.readyState!=='loading')init();else document.addEventListener('DOMContentLoaded',init);window.addEventListener('load',init);});
+    ensureJQandS2().then(function(){
+      if(document.readyState!=='loading') init(); else document.addEventListener('DOMContentLoaded',init);
+      window.addEventListener('load',init);
+    });
   })();
   </script>
 @else
-  {{-- EDIT: "Pilih semua" + highlight --}}
+  {{-- EDIT: Checklist + Quick-Select per Unit --}}
   <script>
   (function(){
     function initChecklist(){
-      var master = document.getElementById('chkAllPeserta');
+      var allBtn = document.getElementById('chkBtnAll');
+      var clearB = document.getElementById('chkBtnClear');
       var grid   = document.getElementById('checklistPeserta');
-      if(!master || !grid) return;
+      if(!grid) return;
 
       var boxes = Array.prototype.slice.call(grid.querySelectorAll('input[type="checkbox"][name="peserta[]"]'));
 
@@ -346,24 +374,30 @@
         else{ label.classList.remove('is-checked'); }
       }
 
-      function refreshMaster(){
-        var total=boxes.length, checked=boxes.filter(b=>b.checked).length;
-        if(checked===0){ master.checked=false; master.indeterminate=false; }
-        else if(checked===total){ master.checked=true; master.indeterminate=false; }
-        else { master.checked=false; master.indeterminate=true; }
+      function setAll(on){
+        boxes.forEach(function(b){ b.checked=on; applyHighlight(b); });
       }
 
-      master.addEventListener('change', function(){
-        var on = master.checked; master.indeterminate=false;
-        boxes.forEach(function(b){ b.checked=on; applyHighlight(b); });
+      if(allBtn) allBtn.addEventListener('click', function(){ setAll(true); });
+      if(clearB) clearB.addEventListener('click', function(){ setAll(false); });
+
+      // Tombol unit
+      document.querySelectorAll('[data-unit-pick]').forEach(function(btn){
+        btn.addEventListener('click', function(){
+          var unit = (btn.getAttribute('data-unit-pick')||'').toLowerCase();
+          boxes.forEach(function(b){
+            var label = b.closest('label.check-item');
+            var u = (label ? (label.getAttribute('data-unit')||'') : '').toLowerCase();
+            if(u === unit){ b.checked = true; applyHighlight(b); }
+          });
+        });
       });
 
+      // Highlight awal + listener per item
       boxes.forEach(function(b){
         applyHighlight(b);
-        b.addEventListener('change', function(){ applyHighlight(b); refreshMaster(); });
+        b.addEventListener('change', function(){ applyHighlight(b); });
       });
-
-      refreshMaster();
     }
 
     if(document.readyState!=='loading') initChecklist();
