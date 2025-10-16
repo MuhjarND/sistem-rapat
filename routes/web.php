@@ -51,6 +51,7 @@ Route::middleware(['auth', 'cekrole:admin'])->group(function () {
 
     //ABSENSI
     Route::resource('absensi', 'AbsensiController');
+    Route::post('/absensi/{id}/wa-start', 'AbsensiController@notifyStart')->name('absensi.notify.start');
     //INPUT DATA
     Route::resource('pimpinan', 'PimpinanRapatController');
     Route::resource('user', 'UserController');
@@ -68,7 +69,6 @@ Route::middleware(['auth', 'cekrole:admin'])->group(function () {
     Route::post('/laporan/file/{id}/unarchive', 'LaporanController@unarchiveFile')->name('laporan.file.unarchive');
     Route::post('/laporan/rapat/{id}/archive', 'LaporanController@archiveRapat')->name('laporan.rapat.archive');
     Route::get('/laporan/file/{id}/preview', 'LaporanController@previewFile')->name('laporan.file.preview');
-    
 });
 
 //NOTULENSI

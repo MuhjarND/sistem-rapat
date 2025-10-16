@@ -812,4 +812,85 @@ foreach ($pesertaRaw as $row) {
             // Log::warning('Fonnte guest error: '.$e->getMessage());
         }
     }
+
+    public function notifyStart(Request $request, int $rapatId)
+    {
+        $rapat = DB::table('rapat')->where('id', $rapatId)->first();
+        if (!$rapat) return back()->with('error', 'Rapat tidak ditemukan.');
+
+        $sendAll = $request->boolean('all'); // dari form hidden input name="all" value="1"
+
+        // URL absensi internal (peserta)
+        $absensiUrl = route('absensi.scan', $rapat->token_qr);
+
+        // Target peserta internal (users yang diundang)
+        $q = DB::table('undangan as u')
+            ->join('users as usr', 'usr.id', '=', 'u.id_user')
+            ->leftJoin('absensi as a', function($j) use ($rapatId){
+                $j->on('a.id_user', '=', 'u.id_user')
+                ->where('a.id_rapat', '=', $rapatId);
+            })
+            ->where('u.id_rapat', $rapatId)
+            ->select(
+                'usr.id',
+                'usr.name',
+                'usr.no_hp',
+                'a.status as abs_status'
+            );
+
+        // Jika BUKAN "all", batasi hanya yang belum HADIR
+        if (!$sendAll) {
+            $q->where(function($w){
+                $w->whereNull('a.status')            // belum ada baris absensi
+                ->orWhere('a.status', '!=', 'hadir'); // ada tapi bukan hadir
+            });
+        }
+
+        // Ambil daftar unik per user (jaga-jaga)
+        $targets = $q->get()->unique('id')->values();
+
+        if ($targets->isEmpty()) {
+            return back()->with('success', 'Tidak ada penerima yang memenuhi kriteria.');
+        }
+
+        // Rakit pesan
+        \Carbon\Carbon::setLocale('id');
+        $tgl  = \Carbon\Carbon::parse($rapat->tanggal)->isoFormat('dddd, D MMMM Y');
+        $jam  = $rapat->waktu_mulai;
+        $tempat = $rapat->tempat;
+        $sender = env('FONNTE_SENDER', 'Sistem Rapat');
+
+        $sent = 0; $skipped = 0;
+        foreach ($targets as $t) {
+            // Normalisasi nomor HP
+            $msisdn = $this->normalizeMsisdn($t->no_hp ?? null);
+            if (!$msisdn) { $skipped++; continue; }
+
+            // Pesan formal
+            $msg =
+                "Assalamu’alaikum Wr. Wb.\n\n".
+                "*{$sender}*\n\n".
+                "Yth. *{$t->name}*,\n".
+                "Rapat berikut telah dimulai. Mohon kesediaannya untuk melakukan *absensi* melalui tautan di bawah ini:\n\n".
+                "📄 *{$rapat->judul}*\n".
+                "🗓️ {$tgl}\n".
+                "⏰ {$jam} WIT\n".
+                "📍 {$tempat}\n\n".
+                "Tautan absensi:\n{$absensiUrl}\n\n".
+                "Terima kasih.\n".
+                "Wassalamu’alaikum Wr. Wb.";
+
+            try {
+                if ($this->sendWaFonnte($msisdn, $msg)) $sent++; else $skipped++;
+            } catch (\Throwable $e) {
+                $skipped++;
+            }
+        }
+
+        $note = $sendAll
+            ? "Kirim WA (SEMUA peserta)"
+            : "Kirim WA (yang BELUM absen)";
+        return back()->with('success', "{$note}: terkirim {$sent}, dilewati {$skipped}.");
+    }
+
 }
