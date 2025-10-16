@@ -25,18 +25,71 @@
     </style>
 </head>
 <body>
-    @if(!empty($kop) && @file_exists($kop))
+@php
+  // Helper aman: ambil nilai dari array/objek
+  $get = function ($row, $key, $default = null) {
+      if (is_array($row))  return array_key_exists($key, $row) ? $row[$key] : $default;
+      if (is_object($row)) return isset($row->{$key}) ? $row->{$key} : $default;
+      return $default;
+  };
+
+  // Sumber data rapat: variabelmu adalah $rap (array), fallback ke $rapat bila ada
+  $R = isset($rap) ? $rap : (isset($rapat) ? $rapat : []);
+
+  // Ambil nilai meta
+  $nama_kategori = $get($R, 'nama_kategori', '-');
+  $judul         = $get($R, 'judul', '-');
+  $tanggalHuman  = $get($R, 'tanggal_human'); // kamu sudah siapkan di controller
+  $tanggal       = $get($R, 'tanggal');       // fallback jika tanggal_human kosong
+  $waktu_mulai   = $get($R, 'waktu_mulai');
+  $tempat        = $get($R, 'tempat', '-');
+
+  if (!$tanggalHuman && $tanggal) {
+      try {
+          \Carbon\Carbon::setLocale('id');
+          $tanggalHuman = \Carbon\Carbon::parse($tanggal)->isoFormat('dddd, D MMMM Y');
+      } catch (\Throwable $e) {
+          $tanggalHuman = $tanggal;
+      }
+  }
+  if (!$tanggalHuman) $tanggalHuman = '-';
+
+  // Approver sebagai array/objek skalar
+  $approver_nama    = isset($approver) ? $get($approver,'nama','-') : '-';
+  $approver_jabatan = isset($approver) ? $get($approver,'jabatan','Penanggung Jawab') : 'Penanggung Jawab';
+
+  // Pastikan peserta iterable
+  $peserta = is_iterable($peserta ?? null) ? $peserta : [];
+@endphp
+
+    {{-- KOP (opsional) --}}
+    @if(!empty($kop) && @is_file($kop))
         <div><img src="{{ $kop }}" style="width:100%; height:auto;"></div>
         <br>
     @endif
 
     {{-- Meta rapat --}}
     <table class="meta" style="margin-bottom: 10px;">
-        <tr><td width="22%">Jenis Kegiatan</td><td width="2%">:</td><td>{{ $rap['nama_kategori'] }}</td></tr>
-        <tr><td>Nama Kegiatan</td><td>:</td><td>{{ $rap['judul'] }}</td></tr>
-        <tr><td>Hari/Tanggal</td><td>:</td><td>{{ $rap['tanggal_human'] }}</td></tr>
-        <tr><td>Waktu</td><td>:</td><td>{{ $rap['waktu_mulai'] ? $rap['waktu_mulai'].' WIT s/d selesai' : '-' }}</td></tr>
-        <tr><td>Tempat</td><td>:</td><td>{{ $rap['tempat'] }}</td></tr>
+        <tr>
+            <td width="22%">Jenis Kegiatan</td><td width="2%">:</td>
+            <td>{{ $nama_kategori }}</td>
+        </tr>
+        <tr>
+            <td>Nama Kegiatan</td><td>:</td>
+            <td>{{ $judul }}</td>
+        </tr>
+        <tr>
+            <td>Hari/Tanggal</td><td>:</td>
+            <td>{{ $tanggalHuman }}</td>
+        </tr>
+        <tr>
+            <td>Waktu</td><td>:</td>
+            <td>{{ $waktu_mulai ? ($waktu_mulai.' WIT s/d selesai') : '-' }}</td>
+        </tr>
+        <tr>
+            <td>Tempat</td><td>:</td>
+            <td>{{ $tempat }}</td>
+        </tr>
     </table>
     <br>
 
@@ -52,24 +105,32 @@
             </tr>
         </thead>
         <tbody>
-            @forelse($peserta as $i => $p)
+            @php $no=1; @endphp
+            @forelse($peserta as $p)
+                @php
+                  $nm    = $get($p,'name', $get($p,'nama','-'));
+                  $jab   = $get($p,'jabatan','-');
+                  $stat  = strtoupper($get($p,'status','-'));
+                  $ttd   = $get($p,'ttd_data');      // data URI (lebih aman untuk DomPDF)
+                  $wabs  = $get($p,'waktu_absen');   // bisa sudah diformat dari controller
+                @endphp
                 <tr>
-                    <td class="center">{{ $i+1 }}</td>
-                    <td><b>{{ $p['name'] }}</b></td>
-                    <td>{{ $p['jabatan'] ?: '-' }}</td>
+                    <td class="center">{{ $no++ }}</td>
+                    <td><b>{{ $nm }}</b></td>
+                    <td>{{ $jab ?: '-' }}</td>
                     <td class="ttd-col">
                         <div class="ttd-box">
-                            @if(!empty($p['ttd_data']))
-                                <img class="ttd-img" src="{{ $p['ttd_data'] }}" alt="TTD {{ $p['name'] }}">
+                            @if(!empty($ttd))
+                                <img class="ttd-img" src="{{ $ttd }}" alt="TTD {{ $nm }}">
                             @else
                                 <div class="ttd-empty"></div>
                             @endif
                         </div>
-                        @if(!empty($p['waktu_absen']))
-                            <div class="muted">{{ $p['waktu_absen'] }}</div>
+                        @if(!empty($wabs))
+                            <div class="muted">{{ $wabs }}</div>
                         @endif
                     </td>
-                    <td class="center">{{ $p['status'] ? strtoupper($p['status']) : '-' }}</td>
+                    <td class="center">{{ $stat ?: '-' }}</td>
                 </tr>
             @empty
                 <tr><td colspan="5" class="center">Tidak ada data peserta.</td></tr>
@@ -83,7 +144,7 @@
         <table class="ttd">
             <tr>
                 <td>
-                    <div>{{ $approver['jabatan'] ?: 'Penanggung Jawab' }},</div>
+                    <div>{{ $approver_jabatan ?: 'Penanggung Jawab' }},</div>
 
                     @if(!empty($qrSrc))
                         <img src="{{ $qrSrc }}" style="width:130px; height:auto; margin:8px 0;">
@@ -95,11 +156,10 @@
                         </div>
                     @endif
 
-                    <b>{{ $approver['nama'] ?: '-' }}</b>
+                    <b>{{ $approver_nama ?: '-' }}</b>
                 </td>
             </tr>
         </table>
     </div>
 </body>
 </html>
-    

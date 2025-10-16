@@ -80,20 +80,24 @@
     </style>
 
     @php
+        // Warna badge pop tombol "Cek Status"
         $popBadgeClass = function (string $overall) {
             return $overall === 'approved' ? 'badge-success'
                  : ($overall === 'rejected' ? 'badge-danger' : 'badge-warning');
         };
+        // Icon ringkas tiap step
         $stepIcon = function ($s) {
             return $s === 'approved' ? '✔'
                  : ($s === 'rejected' ? '✖'
                  : ($s === 'blocked'  ? '🔒' : '⏳'));
         };
+        // Class ringkas tiap step
         $stepClass = function ($s) {
             return $s === 'approved' ? 'step-badge step-ok'
                  : ($s === 'rejected' ? 'step-badge step-reject'
                  : ($s === 'blocked'  ? 'step-badge step-blocked' : 'step-badge step-pending'));
         };
+        // Overall status dari 2 jenis dokumen
         $overallStatus = function (array $map) {
             $types = ['undangan','absensi'];
             $hasReject = false; $allApproved = true; $hasAny = false;
@@ -112,6 +116,12 @@
             if ($hasReject) return 'rejected';
             if ($hasAny && $allApproved) return 'approved';
             return 'pending';
+        };
+        // Label status utama untuk ditampilkan di cell
+        $overallLabel = function (string $overall) {
+            return $overall === 'approved' ? 'Semua Disetujui'
+                 : ($overall === 'rejected' ? 'Ada Penolakan'
+                 : 'Menunggu / Proses');
         };
     @endphp
 
@@ -133,7 +143,7 @@
                 <tbody>
                     @forelse($daftar_rapat as $no => $rapat)
                     @php
-                        // Rakitan peta approval (UNDANGAN & ABSENSI) + deduplikasi ABSENSI
+                        // Bangun peta approval (UNDANGAN & ABSENSI) dan deduplikasi jika ada duplikat
                         $approvalMap = $rapat->approval_map ?? null;
                         if (!$approvalMap) {
                             $steps = DB::table('approval_requests as ar')
@@ -205,7 +215,7 @@
                             </span>
                         </td>
 
-                        {{-- ====== Badge "Cek Status" + Modal Pop ====== --}}
+                        {{-- ====== Approval: tombol + keterangan utama saja ====== --}}
                         <td class="text-center">
                             <button type="button"
                                     class="btn btn-sm badge {{ $popBadgeClass($overall) }}"
@@ -215,7 +225,13 @@
                                 Cek Status
                             </button>
 
-                            {{-- Modal --}}
+                            {{-- Keterangan status utama (tanpa per-dokumen) --}}
+                            <div class="mt-1" style="font-size:.8rem;
+                                 color: {{ $overall==='approved' ? '#22c55e' : ($overall==='rejected' ? '#ef4444' : '#f59e0b') }};">
+                              {{ $overallLabel($overall) }}
+                            </div>
+
+                            {{-- Modal detail --}}
                             <div class="modal fade" id="{{ $modalId }}" tabindex="-1" role="dialog" aria-hidden="true">
                               <div class="modal-dialog modal-lg" role="document">
                                 <div class="modal-content modal-solid">
@@ -309,8 +325,8 @@
 
                                   @php
                                     $hasReject =
-                                      collect($approvalMap['undangan'] ?? [])->contains(function($s){ return $s['status']==='rejected'; }) ||
-                                      collect($approvalMap['absensi']  ?? [])->contains(function($s){ return $s['status']==='rejected'; });
+                                      collect($approvalMap['undangan'] ?? [])->contains(fn($s)=>$s['status']==='rejected') ||
+                                      collect($approvalMap['absensi']  ?? [])->contains(fn($s)=>$s['status']==='rejected');
                                   @endphp
 
                                   <div class="modal-footer">

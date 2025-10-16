@@ -450,307 +450,378 @@ class LaporanController extends Controller
      * Helper: render PDF gabungan (binary string) agar reusable
      * Dipakai oleh cetakGabunganRapat() dan archiveRapat()
      * ========================================================== */
-private function renderGabunganPdfBinary(int $rapatId): string
-{
-    $rapat = DB::table('rapat')
-        ->leftJoin('pimpinan_rapat','rapat.id_pimpinan','=','pimpinan_rapat.id')
-        ->leftJoin('kategori_rapat','rapat.id_kategori','=','kategori_rapat.id')
-        ->select(
-            'rapat.*',
-            'pimpinan_rapat.nama as nama_pimpinan',
-            'pimpinan_rapat.jabatan as jabatan_pimpinan',
-            'kategori_rapat.nama as nama_kategori'
-        )->where('rapat.id',$rapatId)->first() ?? abort(404);
+    private function renderGabunganPdfBinary(int $rapatId): string
+    {
+        $rapat = DB::table('rapat')
+            ->leftJoin('pimpinan_rapat','rapat.id_pimpinan','=','pimpinan_rapat.id')
+            ->leftJoin('kategori_rapat','rapat.id_kategori','=','kategori_rapat.id')
+            ->select(
+                'rapat.*',
+                'pimpinan_rapat.nama as nama_pimpinan',
+                'pimpinan_rapat.jabatan as jabatan_pimpinan',
+                'kategori_rapat.nama as nama_kategori'
+            )->where('rapat.id',$rapatId)->first() ?? abort(404);
 
-    // ===== Peserta (urut hirarki) =====
-    $daftar_peserta = DB::table('undangan')
-        ->join('users','users.id','=','undangan.id_user')
-        ->where('undangan.id_rapat',$rapat->id)
-        ->select('users.id','users.name', DB::raw('COALESCE(users.jabatan,"") as jabatan'), 'users.hirarki')
-        ->orderByRaw('COALESCE(users.hirarki, 9999) ASC')
-        ->orderBy('users.name','asc')
-        ->get();
+        // ===== Peserta (urut hirarki) =====
+        $daftar_peserta = DB::table('undangan')
+            ->join('users','users.id','=','undangan.id_user')
+            ->where('undangan.id_rapat',$rapat->id)
+            ->select('users.id','users.name', DB::raw('COALESCE(users.jabatan,"") as jabatan'), 'users.hirarki')
+            ->orderByRaw('COALESCE(users.hirarki, 9999) ASC')
+            ->orderBy('users.name','asc')
+            ->get();
 
-    $tampilkan_lampiran        = $daftar_peserta->count() > 5;
-    $tampilkan_daftar_di_surat = !$tampilkan_lampiran;
+        $tampilkan_lampiran        = $daftar_peserta->count() > 5;
+        $tampilkan_daftar_di_surat = !$tampilkan_lampiran;
 
-    // ===== Approval & QR: UNDANGAN =====
-    $approval1 = DB::table('users')->where('id', $rapat->approval1_user_id)->first();
-    $approval2 = $rapat->approval2_user_id
-        ? DB::table('users')->where('id', $rapat->approval2_user_id)->first()
-        : null;
+        // ===== Approval & QR: UNDANGAN =====
+        $approval1 = DB::table('users')->where('id', $rapat->approval1_user_id)->first();
+        $approval2 = $rapat->approval2_user_id
+            ? DB::table('users')->where('id', $rapat->approval2_user_id)->first()
+            : null;
 
-    $qrA1 = DB::table('approval_requests')
-        ->where('rapat_id', $rapat->id)
-        ->where('doc_type', 'undangan')
-        ->where('approver_user_id', $rapat->approval1_user_id)
-        ->where('status', 'approved')
-        ->orderByDesc('signed_at')
-        ->value('signature_qr_path');
-
-    $qrA2 = null;
-    if (!empty($rapat->approval2_user_id)) {
-        $qrA2 = DB::table('approval_requests')
+        $qrA1 = DB::table('approval_requests')
             ->where('rapat_id', $rapat->id)
             ->where('doc_type', 'undangan')
-            ->where('approver_user_id', $rapat->approval2_user_id)
+            ->where('approver_user_id', $rapat->approval1_user_id)
             ->where('status', 'approved')
             ->orderByDesc('signed_at')
             ->value('signature_qr_path');
-    }
 
-    // ===== Approval & QR: ABSENSI =====
-    $absensiReq = DB::table('approval_requests')
-        ->where('rapat_id', $rapat->id)
-        ->where('doc_type', 'absensi')
-        ->where('approver_user_id', $rapat->approval1_user_id)
-        ->where('status', 'approved')
-        ->orderByDesc('signed_at')
-        ->first();
-
-    $absensi_qr_data = null; $absensi_qr_web = null; $absensi_qr_fs = null;
-    if ($absensiReq && $absensiReq->signature_qr_path) {
-        $absensi_qr_fs = public_path($absensiReq->signature_qr_path);
-        if (is_file($absensi_qr_fs)) {
-            $absensi_qr_data = 'data:image/png;base64,' . base64_encode(file_get_contents($absensi_qr_fs));
-            $absensi_qr_web  = url($absensiReq->signature_qr_path);
-        }
-    }
-    $approverFinal = DB::table('users')->where('id', $rapat->approval1_user_id)->first();
-    $approver_final_nama    = $approverFinal->name ?? null;
-    $approver_final_jabatan = $approverFinal->jabatan ?? 'Penanggung Jawab';
-
-    // ===== APPROVAL NOTULENSI + QR (lengkap) =====
-    $notulensiApprovals = DB::table('approval_requests as ar')
-        ->leftJoin('users as u','u.id','=','ar.approver_user_id')
-        ->where('ar.rapat_id', $rapat->id)
-        ->where('ar.doc_type', 'notulensi')
-        ->orderBy('ar.order_index')
-        ->get([
-            'ar.order_index',
-            'ar.status',
-            'ar.signed_at',
-            'ar.rejected_at',
-            'ar.rejection_note',
-            'ar.signature_qr_path',
-            'u.name as approver_name',
-            DB::raw('COALESCE(u.jabatan,"") as approver_jabatan')
-        ]);
-
-    $notulensi_approvals = $notulensiApprovals->map(function($r){
-        $qr_data = null; $qr_web = null; $qr_fs = null;
-        if (!empty($r->signature_qr_path)) {
-            $qr_fs = public_path($r->signature_qr_path);
-            if (is_file($qr_fs)) {
-                $qr_data = 'data:image/png;base64,'.base64_encode(@file_get_contents($qr_fs));
-                $qr_web  = url($r->signature_qr_path);
-            }
-        }
-        return [
-            'order'     => (int)$r->order_index,
-            'status'    => $r->status, // approved|pending|blocked|rejected
-            'signed_at' => $r->signed_at,
-            'name'      => $r->approver_name ?: 'Approver',
-            'jabatan'   => $r->approver_jabatan ?: 'Pejabat',
-            'qr_data'   => $qr_data,
-            'qr_web'    => $qr_web,
-            'qr_fs'     => $qr_fs,
-        ];
-    })->values()->all();
-
-    // Kompat lama (array path saja)
-    $notulensi_qr_paths = $notulensiApprovals->pluck('signature_qr_path')->filter()->values()->all();
-
-    // ===== Data tambahan Absensi & Notulensi =====
-    $peserta = $daftar_peserta->map(fn($r)=>(object)['id_user'=>$r->id,'name'=>$r->name,'jabatan'=>$r->jabatan]);
-
-    $pimpinan = (object)[
-        'nama'    => $rapat->nama_pimpinan ?? '-',
-        'jabatan' => $rapat->jabatan_pimpinan ?? 'Pimpinan Rapat',
-    ];
-
-    $absensi = DB::table('absensi')
-        ->leftJoin('users','users.id','=','absensi.id_user')
-        ->select('absensi.*','users.name as nama', DB::raw('COALESCE(users.jabatan,"") as jabatan'))
-        ->where('absensi.id_rapat',$rapat->id)
-        ->orderByRaw('COALESCE(users.hirarki, 9999) ASC')
-        ->orderBy('users.name','asc')
-        ->get();
-
-    $rekapAbsensi = [
-        'diundang'    => $daftar_peserta->count(),
-        'hadir'       => DB::table('absensi')->where('id_rapat',$rapat->id)->where('status','hadir')->count(),
-        'tidak_hadir' => DB::table('absensi')->where('id_rapat',$rapat->id)->where('status','tidak_hadir')->count(),
-        'izin'        => DB::table('absensi')->where('id_rapat',$rapat->id)->where('status','izin')->count(),
-    ];
-
-    $notulensi = DB::table('notulensi')->where('id_rapat',$rapat->id)->first();
-    $detail = collect(); $dokumentasi = collect(); $creator = null;
-    $jumlah_peserta = $daftar_peserta->count();
-
-    if ($notulensi) {
-        $detail = DB::table('notulensi_detail')->where('id_notulensi',$notulensi->id)->orderBy('urut')->get();
-        $dokumentasi = DB::table('notulensi_dokumentasi')->where('id_notulensi',$notulensi->id)->get();
-        $creator = DB::table('users')->where('id',$notulensi->id_user)->first();
-    }
-
-    // === Variabel khusus yang dibutuhkan cetak_p2 (sesuai Blade-mu)
-    // 1) Identitas Notulis
-    $notulis_nama    = $creator->name    ?? ($creator->nama ?? 'Notulis');
-    $notulis_jabatan = $creator->jabatan ?? 'Notulis';
-
-    // 2) QR Notulis (cari dari beberapa kemungkinan kolom di notulensi; jika tidak ada, fallback ke approval notulensi oleh notulis bila ada)
-    $qr_notulis_data = null;
-    $qr_notulis_fs   = null;
-    if ($notulensi) {
-        foreach (['signature_qr_path','qr_notulis_path','notulis_qr_path'] as $col) {
-            if (!empty($notulensi->{$col})) {
-                $qr_notulis_fs = public_path($notulensi->{$col});
-                if (is_file($qr_notulis_fs)) {
-                    $qr_notulis_data = 'data:image/png;base64,'.base64_encode(@file_get_contents($qr_notulis_fs));
-                    break;
-                }
-            }
-        }
-        if (!$qr_notulis_data && !empty($notulensi->id_user)) {
-            $notulisReq = DB::table('approval_requests')
+        $qrA2 = null;
+        if (!empty($rapat->approval2_user_id)) {
+            $qrA2 = DB::table('approval_requests')
                 ->where('rapat_id', $rapat->id)
-                ->where('doc_type', 'notulensi')
-                ->where('approver_user_id', $notulensi->id_user)
+                ->where('doc_type', 'undangan')
+                ->where('approver_user_id', $rapat->approval2_user_id)
                 ->where('status', 'approved')
                 ->orderByDesc('signed_at')
-                ->first();
-            if ($notulisReq && $notulisReq->signature_qr_path) {
-                $qr_notulis_fs = public_path($notulisReq->signature_qr_path);
-                if (is_file($qr_notulis_fs)) {
-                    $qr_notulis_data = 'data:image/png;base64,'.base64_encode(@file_get_contents($qr_notulis_fs));
+                ->value('signature_qr_path');
+        }
+
+        // ===== Approval & QR: ABSENSI =====
+        $absensiReq = DB::table('approval_requests')
+            ->where('rapat_id', $rapat->id)
+            ->where('doc_type', 'absensi')
+            ->where('approver_user_id', $rapat->approval1_user_id)
+            ->where('status', 'approved')
+            ->orderByDesc('signed_at')
+            ->first();
+
+        $absensi_qr_data = null; $absensi_qr_web = null; $absensi_qr_fs = null;
+        if ($absensiReq && $absensiReq->signature_qr_path) {
+            $absensi_qr_fs = public_path($absensiReq->signature_qr_path);
+            if (is_file($absensi_qr_fs)) {
+                $absensi_qr_data = 'data:image/png;base64,' . base64_encode(file_get_contents($absensi_qr_fs));
+                $absensi_qr_web  = url($absensiReq->signature_qr_path);
+            }
+        }
+        $approverFinal = DB::table('users')->where('id', $rapat->approval1_user_id)->first();
+        $approver_final_nama    = $approverFinal->name ?? null;
+        $approver_final_jabatan = $approverFinal->jabatan ?? 'Penanggung Jawab';
+
+        // ===== APPROVAL NOTULENSI + QR (lengkap) =====
+        $notulensiApprovals = DB::table('approval_requests as ar')
+            ->leftJoin('users as u','u.id','=','ar.approver_user_id')
+            ->where('ar.rapat_id', $rapat->id)
+            ->where('ar.doc_type', 'notulensi')
+            ->orderBy('ar.order_index')
+            ->get([
+                'ar.order_index',
+                'ar.status',
+                'ar.signed_at',
+                'ar.rejected_at',
+                'ar.rejection_note',
+                'ar.signature_qr_path',
+                'u.name as approver_name',
+                DB::raw('COALESCE(u.jabatan,"") as approver_jabatan')
+            ]);
+
+        $notulensi_approvals = $notulensiApprovals->map(function($r){
+            $qr_data = null; $qr_web = null; $qr_fs = null;
+            if (!empty($r->signature_qr_path)) {
+                $qr_fs = public_path($r->signature_qr_path);
+                if (is_file($qr_fs)) {
+                    $qr_data = 'data:image/png;base64,'.base64_encode(@file_get_contents($qr_fs));
+                    $qr_web  = url($r->signature_qr_path);
+                }
+            }
+            return [
+                'order'     => (int)$r->order_index,
+                'status'    => $r->status, // approved|pending|blocked|rejected
+                'signed_at' => $r->signed_at,
+                'name'      => $r->approver_name ?: 'Approver',
+                'jabatan'   => $r->approver_jabatan ?: 'Pejabat',
+                'qr_data'   => $qr_data,
+                'qr_web'    => $qr_web,
+                'qr_fs'     => $qr_fs,
+            ];
+        })->values()->all();
+
+        // Kompat lama (array path saja)
+        $notulensi_qr_paths = $notulensiApprovals->pluck('signature_qr_path')->filter()->values()->all();
+
+        // ===== Data tambahan Absensi & Notulensi =====
+        $pesertaMinimal = $daftar_peserta->map(fn($r)=>(object)['id_user'=>$r->id,'name'=>$r->name,'jabatan'=>$r->jabatan]);
+
+        $pimpinan = (object)[
+            'nama'    => $rapat->nama_pimpinan ?? '-',
+            'jabatan' => $rapat->jabatan_pimpinan ?? 'Pimpinan Rapat',
+        ];
+
+        $absensi = DB::table('absensi')
+            ->leftJoin('users','users.id','=','absensi.id_user')
+            ->select('absensi.*','users.name as nama', DB::raw('COALESCE(users.jabatan,"") as jabatan'))
+            ->where('absensi.id_rapat',$rapat->id)
+            ->orderByRaw('COALESCE(users.hirarki, 9999) ASC')
+            ->orderBy('users.name','asc')
+            ->get();
+
+        $rekapAbsensi = [
+            'diundang'    => $daftar_peserta->count(),
+            'hadir'       => DB::table('absensi')->where('id_rapat',$rapat->id)->where('status','hadir')->count(),
+            'tidak_hadir' => DB::table('absensi')->where('id_rapat',$rapat->id)->where('status','tidak_hadir')->count(),
+            'izin'        => DB::table('absensi')->where('id_rapat',$rapat->id)->where('status','izin')->count(),
+        ];
+
+        $notulensi = DB::table('notulensi')->where('id_rapat',$rapat->id)->first();
+        $detail = collect(); $dokumentasi = collect(); $creator = null;
+        $jumlah_peserta = $daftar_peserta->count();
+
+        if ($notulensi) {
+            $detail = DB::table('notulensi_detail')->where('id_notulensi',$notulensi->id)->orderBy('urut')->get();
+            $dokumentasi = DB::table('notulensi_dokumentasi')->where('id_notulensi',$notulensi->id)->get();
+            $creator = DB::table('users')->where('id',$notulensi->id_user)->first();
+        }
+
+        // === Variabel khusus yang dibutuhkan cetak_p2
+        $notulis_nama    = $creator->name    ?? ($creator->nama ?? 'Notulis');
+        $notulis_jabatan = $creator->jabatan ?? 'Notulis';
+
+        $qr_notulis_data = null;
+        $qr_notulis_fs   = null;
+        if ($notulensi) {
+            foreach (['signature_qr_path','qr_notulis_path','notulis_qr_path'] as $col) {
+                if (!empty($notulensi->{$col})) {
+                    $qr_notulis_fs = public_path($notulensi->{$col});
+                    if (is_file($qr_notulis_fs)) {
+                        $qr_notulis_data = 'data:image/png;base64,'.base64_encode(@file_get_contents($qr_notulis_fs));
+                        break;
+                    }
+                }
+            }
+            if (!$qr_notulis_data && !empty($notulensi->id_user)) {
+                $notulisReq = DB::table('approval_requests')
+                    ->where('rapat_id', $rapat->id)
+                    ->where('doc_type', 'notulensi')
+                    ->where('approver_user_id', $notulensi->id_user)
+                    ->where('status', 'approved')
+                    ->orderByDesc('signed_at')
+                    ->first();
+                if ($notulisReq && $notulisReq->signature_qr_path) {
+                    $qr_notulis_fs = public_path($notulisReq->signature_qr_path);
+                    if (is_file($qr_notulis_fs)) {
+                        $qr_notulis_data = 'data:image/png;base64,'.base64_encode(@file_get_contents($qr_notulis_fs));
+                    }
                 }
             }
         }
-    }
 
-    // 3) QR Pimpinan (Approval 1) untuk NOTULENSI
-    $pimpinan_nama  = ($approval1->name ?? 'Approval 1');
-    $qr_pimpinan_data = null;
-    $pimpinanReq = DB::table('approval_requests')
-        ->where('rapat_id', $rapat->id)
-        ->where('doc_type', 'notulensi')
-        ->where('approver_user_id', $rapat->approval1_user_id)
-        ->where('status', 'approved')
-        ->orderByDesc('signed_at')
-        ->first();
-    if ($pimpinanReq && $pimpinanReq->signature_qr_path) {
-        $qr_pimpinan_fs = public_path($pimpinanReq->signature_qr_path);
-        if (is_file($qr_pimpinan_fs)) {
-            $qr_pimpinan_data = 'data:image/png;base64,'.base64_encode(@file_get_contents($qr_pimpinan_fs));
+        $pimpinan_nama  = ($approval1->name ?? 'Approval 1');
+        $qr_pimpinan_data = null;
+        $pimpinanReq = DB::table('approval_requests')
+            ->where('rapat_id', $rapat->id)
+            ->where('doc_type', 'notulensi')
+            ->where('approver_user_id', $rapat->approval1_user_id)
+            ->where('status', 'approved')
+            ->orderByDesc('signed_at')
+            ->first();
+        if ($pimpinanReq && $pimpinanReq->signature_qr_path) {
+            $qr_pimpinan_fs = public_path($pimpinanReq->signature_qr_path);
+            if (is_file($qr_pimpinan_fs)) {
+                $qr_pimpinan_data = 'data:image/png;base64,'.base64_encode(@file_get_contents($qr_pimpinan_fs));
+            }
         }
-    }
 
-    $tmpDir = storage_path('app'); $files = [];
+        $tmpDir = storage_path('app'); $files = [];
 
-    // =============== 1) Undangan ===============
-    $fUnd = $tmpDir.'/und-'.Str::random(8).'.pdf';
-    Pdf::loadView('rapat.undangan_pdf', [
-        'rapat'                      => $rapat,
-        'daftar_peserta'             => $daftar_peserta,
-        'kop_path'                   => public_path('Screenshot 2025-08-23 121254.jpeg'),
-        'tampilkan_lampiran'         => $tampilkan_lampiran,
-        'tampilkan_daftar_di_surat'  => $tampilkan_daftar_di_surat,
-        'approval1'                  => $approval1,
-        'approval2'                  => $approval2,
-        'qrA1'                       => $qrA1,
-        'qrA2'                       => $qrA2,
-    ])->setPaper('a4','portrait')->save($fUnd);
-    $files[] = $fUnd;
+        // =============== 1) Undangan ===============
+        $fUnd = $tmpDir.'/und-'.Str::random(8).'.pdf';
+        Pdf::loadView('rapat.undangan_pdf', [
+            'rapat'                      => $rapat,
+            'daftar_peserta'             => $daftar_peserta,
+            'kop_path'                   => public_path('Screenshot 2025-08-23 121254.jpeg'),
+            'tampilkan_lampiran'         => $tampilkan_lampiran,
+            'tampilkan_daftar_di_surat'  => $tampilkan_daftar_di_surat,
+            'approval1'                  => $approval1,
+            'approval2'                  => $approval2,
+            'qrA1'                       => $qrA1,
+            'qrA2'                       => $qrA2,
+        ])->setPaper('a4','portrait')->save($fUnd);
+        $files[] = $fUnd;
 
-    // =============== 2) Absensi ===============
-    $fAbs = $tmpDir.'/abs-'.Str::random(8).'.pdf';
-    Pdf::loadView('absensi.laporan_pdf', [
-        'rapat'                  => $rapat,
-        'peserta'                => $peserta,
-        'absensi'                => $absensi,
-        'rekap'                  => $rekapAbsensi,
-        'pimpinan'               => $pimpinan,
-        'kop'                    => public_path('kop_absen.jpg'),
-        'absensi_qr_data'        => $absensi_qr_data,
-        'absensi_qr_web'         => $absensi_qr_web,
-        'absensi_qr_fs'          => $absensi_qr_fs,
-        'approver_final_nama'    => $approver_final_nama,
-        'approver_final_jabatan' => $approver_final_jabatan,
-    ])->setPaper('a4','portrait')->save($fAbs);
-    $files[] = $fAbs;
+        // =============== 2) Absensi ===============
+        /**
+         * SUSUN PESERTA SESUAI BLADE absensi.laporan_pdf:
+         * - name, jabatan
+         * - status (hadir/izin/tidak_hadir)
+         * - waktu_absen (formatted)
+         * - ttd_data (data URI PNG)
+         */
+        $pesertaRows = DB::table('undangan as u')
+            ->join('users as usr', 'usr.id', '=', 'u.id_user')
+            ->leftJoin('absensi as a', function($q) use ($rapat) {
+                $q->on('a.id_user', '=', 'u.id_user')
+                  ->where('a.id_rapat', '=', $rapat->id);
+            })
+            ->where('u.id_rapat', $rapat->id)
+            ->select(
+                'usr.name',
+                DB::raw('COALESCE(usr.jabatan,"") as jabatan'),
+                'a.status',
+                'a.waktu_absen',
+                'a.ttd_path'
+            )
+            ->orderByRaw('COALESCE(usr.hirarki, 9999) ASC')
+            ->orderBy('usr.name','asc')
+            ->get();
 
-    // =============== 3) Notulensi (opsional) ===============
-    if ($notulensi) {
-        $dataNot = [
-            'notulensi'            => $notulensi,
-            'rapat'                => $rapat,
-            'detail'               => $detail,
-            'dokumentasi'          => $dokumentasi,
-            'creator'              => $creator,
-            'jumlah_peserta'       => $jumlah_peserta,
+        $peserta = [];
+        foreach ($pesertaRows as $row) {
+            // ttd_data → data URI
+            $ttd_data = null;
+            if (!empty($row->ttd_path)) {
+                $fs = public_path($row->ttd_path);
+                if (is_file($fs)) {
+                    $ttd_data = 'data:image/png;base64,'.base64_encode(@file_get_contents($fs));
+                }
+            }
+            // format waktu_absen
+            $waktu_absen_fmt = null;
+            if (!empty($row->waktu_absen)) {
+                try {
+                    $waktu_absen_fmt = Carbon::parse($row->waktu_absen)->format('d/m/Y H:i');
+                } catch (\Throwable $e) {
+                    $waktu_absen_fmt = $row->waktu_absen;
+                }
+            }
+            $peserta[] = [
+                'name'        => $row->name,
+                'jabatan'     => $row->jabatan ?: '-',
+                'status'      => $row->status ?: '-',
+                'waktu_absen' => $waktu_absen_fmt,
+                'ttd_data'    => $ttd_data,
+            ];
+        }
 
-            // — variabel umum (bila dipakai di p1/p3)
-            'notulensi_approvals'  => $notulensi_approvals,
-            'notulensi_qr_paths'   => $notulensi_qr_paths,
+        // QR ABSENSI → data URI lebih stabil untuk DomPDF
+        $qrSrc = null;
+        if (!empty($absensi_qr_data)) {
+            $qrSrc = $absensi_qr_data; // sudah data URI
+        } elseif (!empty($absensi_qr_fs) && is_file($absensi_qr_fs)) {
+            $qrSrc = 'data:image/png;base64,'.base64_encode(@file_get_contents($absensi_qr_fs));
+        }
 
-            // — khusus kebutuhan cetak_p2 yang kamu tunjukkan
-            'qr_notulis_data'      => $qr_notulis_data,
-            'notulis_nama'         => $notulis_nama,
-            'notulis_jabatan'      => $notulis_jabatan,
-            'qr_pimpinan_data'     => $qr_pimpinan_data,
-            'pimpinan_nama'        => $pimpinan_nama,
+        // Approver (label pada blok QR)
+        $approver = [
+            'nama'    => $approver_final_nama ?: '-',
+            'jabatan' => $approver_final_jabatan ?: 'Penanggung Jawab',
         ];
 
-        $fP1 = $tmpDir.'/p1-'.Str::random(8).'.pdf';
-        Pdf::loadView('notulensi.cetak_p1',$dataNot)->setPaper('a4','portrait')->save($fP1);
-        $files[] = $fP1;
+        // Meta rapat untuk Blade (rap['...'])
+        Carbon::setLocale('id');
+        $rap = [
+            'nama_kategori' => $rapat->nama_kategori ?? '-',
+            'judul'         => $rapat->judul ?? '-',
+            'tanggal_human' => (function($tgl){
+                if (!$tgl) return '-';
+                try {
+                    return Carbon::parse($tgl)->isoFormat('dddd, D MMMM Y');
+                } catch (\Throwable $e) {
+                    return $tgl;
+                }
+            })($rapat->tanggal ?? null),
+            'waktu_mulai'   => $rapat->waktu_mulai ?? null,
+            'tempat'        => $rapat->tempat ?? '-',
+        ];
 
-        $fP2 = $tmpDir.'/p2-'.Str::random(8).'.pdf';
-        Pdf::loadView('notulensi.cetak_p2',$dataNot)->setPaper('a4','landscape')->save($fP2);
-        $files[] = $fP2;
+        $fAbs = $tmpDir.'/abs-'.Str::random(8).'.pdf';
+        Pdf::loadView('absensi.laporan_pdf', [
+            'rap'      => $rap,
+            'peserta'  => $peserta,
+            'rekap'    => $rekapAbsensi,
+            'qrSrc'    => $qrSrc,
+            'approver' => $approver,
+            'kop'      => public_path('kop_absen.jpg'),
+        ])->setPaper('a4','portrait')->save($fAbs);
+        $files[] = $fAbs;
 
-        $fP3 = $tmpDir.'/p3-'.Str::random(8).'.pdf';
-        Pdf::loadView('notulensi.cetak_p3',$dataNot)->setPaper('a4','portrait')->save($fP3);
-        $files[] = $fP3;
+        // =============== 3) Notulensi (opsional) ===============
+        if ($notulensi) {
+            $dataNot = [
+                'notulensi'            => $notulensi,
+                'rapat'                => $rapat,
+                'detail'               => $detail,
+                'dokumentasi'          => $dokumentasi,
+                'creator'              => $creator,
+                'jumlah_peserta'       => $jumlah_peserta,
+
+                'notulensi_approvals'  => $notulensi_approvals,
+                'notulensi_qr_paths'   => $notulensi_qr_paths,
+
+                'qr_notulis_data'      => $qr_notulis_data,
+                'notulis_nama'         => $notulis_nama,
+                'notulis_jabatan'      => $notulis_jabatan,
+                'qr_pimpinan_data'     => $qr_pimpinan_data,
+                'pimpinan_nama'        => $pimpinan_nama,
+            ];
+
+            $fP1 = $tmpDir.'/p1-'.Str::random(8).'.pdf';
+            Pdf::loadView('notulensi.cetak_p1',$dataNot)->setPaper('a4','portrait')->save($fP1);
+            $files[] = $fP1;
+
+            $fP2 = $tmpDir.'/p2-'.Str::random(8).'.pdf';
+            Pdf::loadView('notulensi.cetak_p2',$dataNot)->setPaper('a4','landscape')->save($fP2);
+            $files[] = $fP2;
+
+            $fP3 = $tmpDir.'/p3-'.Str::random(8).'.pdf';
+            Pdf::loadView('notulensi.cetak_p3',$dataNot)->setPaper('a4','portrait')->save($fP3);
+            $files[] = $fP3;
+        }
+
+        // Merge & cleanup
+        $merger = new \iio\libmergepdf\Merger();
+        foreach ($files as $f) $merger->addFile($f);
+        $merged = $merger->merge();
+
+        foreach ($files as $f) @unlink($f);
+
+        return $merged;
     }
 
-    // Merge & cleanup
-    $merger = new \iio\libmergepdf\Merger();
-    foreach ($files as $f) $merger->addFile($f);
-    $merged = $merger->merge();
+    public function previewFile(Request $r, $id)
+    {
+        $row = DB::table('laporan_files')->where('id',$id)->first() ?? abort(404);
 
-    foreach ($files as $f) @unlink($f);
+        // LIVE preview: render gabungan terbaru
+        if ($r->boolean('live') && !empty($row->id_rapat)) {
+            $binary = $this->renderGabunganPdfBinary((int)$row->id_rapat);
+            return response($binary, 200, [
+                'Content-Type'        => 'application/pdf',
+                'Content-Disposition' => 'inline; filename="'.($row->file_name ?: 'preview.pdf').'"',
+                'Cache-Control'       => 'private, max-age=0, no-store',
+            ]);
+        }
 
-    return $merged;
-}
+        $abs = storage_path('app/'.$row->file_path);
+        if (!is_file($abs)) abort(404, 'File tidak ditemukan.');
 
-
-
-public function previewFile(Request $r, $id)
-{
-    $row = DB::table('laporan_files')->where('id',$id)->first() ?? abort(404);
-
-    // LIVE preview: render gabungan terbaru
-    if ($r->boolean('live') && !empty($row->id_rapat)) {
-        $binary = $this->renderGabunganPdfBinary((int)$row->id_rapat);
-        return response($binary, 200, [
-            'Content-Type'        => 'application/pdf',
-            'Content-Disposition' => 'inline; filename="'.($row->file_name ?: 'preview.pdf').'"',
-            'Cache-Control'       => 'private, max-age=0, no-store',
-        ]);
+        $mime = $row->mime ?: 'application/pdf';
+        $headers = [
+            'Content-Type'        => $mime,
+            'Content-Disposition' => 'inline; filename="'.$row->file_name.'"',
+            'Cache-Control'       => 'private, max-age=600',
+        ];
+        return response()->file($abs, $headers);
     }
-
-    $abs = storage_path('app/'.$row->file_path);
-    if (!is_file($abs)) abort(404, 'File tidak ditemukan.');
-
-    $mime = $row->mime ?: 'application/pdf';
-    $headers = [
-        'Content-Type'        => $mime,
-        'Content-Disposition' => 'inline; filename="'.$row->file_name.'"',
-        'Cache-Control'       => 'private, max-age=600',
-    ];
-    return response()->file($abs, $headers);
-}
-
 }
