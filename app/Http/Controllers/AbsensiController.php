@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Carbon\Carbon;
 
 class AbsensiController extends Controller
@@ -203,43 +204,45 @@ class AbsensiController extends Controller
         return view('absensi.saya', compact('absensi', 'undangan'));
     }
 
-public function scan($token)
-{
-    $rapat = DB::table('rapat')->where('token_qr', $token)->first();
-    if (!$rapat) abort(404);
+    /** ================== SCAN (login user internal) ================== */
+    public function scan($token)
+    {
+        $rapat = DB::table('rapat')->where('token_qr', $token)->first();
+        if (!$rapat) abort(404);
 
-    if (!Auth::check()) {
-        return redirect()->route('login')->with('error', 'Silakan login untuk absen.');
+        if (!Auth::check()) {
+            return redirect()->route('login')->with('error', 'Silakan login untuk absen.');
+        }
+
+        $diundang = DB::table('undangan')
+            ->where('id_rapat', $rapat->id)
+            ->where('id_user', Auth::id())
+            ->exists();
+
+        if (!$diundang) {
+            return redirect()->route('home')->with('error', 'Anda tidak terdaftar pada rapat ini.');
+        }
+
+        $sudah_absen = DB::table('absensi')
+            ->where('id_rapat', $rapat->id)
+            ->where('id_user', Auth::id())
+            ->exists();
+
+        // === status jendela absensi (mulai-selesai) ===
+        $win = $this->getAbsensiWindow($rapat);
+
+        return view('absensi.scan', [
+            'rapat'               => $rapat,
+            'sudah_absen'         => $sudah_absen,
+            'abs_start'           => $win['start'],           // Carbon
+            'abs_end'             => $win['end'],             // Carbon
+            'abs_open'            => $win['open'],            // bool
+            'abs_before'          => $win['before'],          // bool
+            'abs_after'           => $win['after'],           // bool
+            'abs_window_minutes'  => $win['window_minutes'],  // int (menit)
+        ]);
     }
 
-    $diundang = DB::table('undangan')
-        ->where('id_rapat', $rapat->id)
-        ->where('id_user', Auth::id())
-        ->exists();
-
-    if (!$diundang) {
-        return redirect()->route('home')->with('error', 'Anda tidak terdaftar pada rapat ini.');
-    }
-
-    $sudah_absen = DB::table('absensi')
-        ->where('id_rapat', $rapat->id)
-        ->where('id_user', Auth::id())
-        ->exists();
-
-    // === status jendela absensi (mulai-selesai) ===
-    $win = $this->getAbsensiWindow($rapat);
-
-    return view('absensi.scan', [
-        'rapat'               => $rapat,
-        'sudah_absen'         => $sudah_absen,
-        'abs_start'           => $win['start'],           // Carbon
-        'abs_end'             => $win['end'],             // Carbon
-        'abs_open'            => $win['open'],            // bool
-        'abs_before'          => $win['before'],          // bool
-        'abs_after'           => $win['after'],           // bool
-        'abs_window_minutes'  => $win['window_minutes'],  // int (menit)
-    ]);
-}
     public function simpanScan(Request $request, $token)
     {
         $rapat = DB::table('rapat')->where('token_qr', $token)->first();
@@ -324,10 +327,82 @@ public function scan($token)
             ]));
         }
 
-        // === NOTIFIKASI WA ===
+        // === NOTIFIKASI WA (user internal) ===
         $this->notifyAbsensiWa(Auth::id(), $rapat, 'hadir');
 
         return redirect()->route('absensi.scan', $token)->with('success', 'Absensi (TTD) berhasil direkam. Terima kasih!');
+    }
+
+    /** ================== GUEST ACCESS (tanpa login) ================== */
+
+    /** Form Absensi Tamu */
+    public function guestForm($rapatId, $token, Request $request)
+    {
+        $rapat = DB::table('rapat')->where('id', $rapatId)->first();
+        if (!$rapat || empty($rapat->guest_token) || !hash_equals((string)$rapat->guest_token, (string)$token)) {
+            abort(403, 'Token tidak valid.');
+        }
+
+        // Opsional: batasi masa aktif form tamu
+        // $win = $this->getAbsensiWindow($rapat);
+        // if (!$win['open']) abort(403,'Masa absensi tamu telah berakhir.');
+
+        return view('absensi.guest_form', compact('rapat','token'));
+    }
+
+    /** Submit Absensi Tamu + simpan TTD (PNG) */
+    public function guestSubmit($rapatId, $token, Request $request)
+    {
+        $rapat = DB::table('rapat')->where('id', $rapatId)->first();
+        if (!$rapat || empty($rapat->guest_token) || !hash_equals((string)$rapat->guest_token, (string)$token)) {
+            return back()->with('error','Token tidak valid.')->withInput();
+        }
+
+        $request->validate([
+            'nama'     => 'required|string|max:120',
+            'instansi' => 'nullable|string|max:150',
+            'jabatan'  => 'nullable|string|max:120',
+            'no_hp'    => 'nullable|regex:/^0[0-9]{9,13}$/',
+            'status'   => 'nullable|in:hadir,tidak_hadir,izin',
+            'ttd_data' => 'nullable|string', // data:image/png;base64,....
+        ],[
+            'no_hp.regex' => 'Format no HP tidak valid (harus diawali 0).'
+        ]);
+
+        // Simpan TTD (opsional)
+        $ttdPath = null; $ttdHash = null;
+        if ($request->filled('ttd_data') && str_starts_with($request->ttd_data, 'data:image/png;base64,')) {
+            $raw = base64_decode(substr($request->ttd_data, 22));
+            if ($raw !== false && strlen($raw) > 0) {
+                @is_dir(public_path('ttd')) || @mkdir(public_path('ttd'), 0755, true);
+                $fname = 'ttd/guest_'.$rapatId.'_'.Str::random(8).'.png';
+                file_put_contents(public_path($fname), $raw);
+                $ttdPath = $fname;
+                $ttdHash = hash('sha256', $raw);
+            }
+        }
+
+        DB::table('absensi_guest')->insert([
+            'id_rapat'     => $rapatId,
+            'nama'         => $request->nama,
+            'instansi'     => $request->instansi,
+            'jabatan'      => $request->jabatan,
+            'no_hp'        => $request->no_hp,
+            'status'       => $request->input('status','hadir'),
+            'waktu_absen'  => now(),
+            'ttd_path'     => $ttdPath,
+            'ttd_hash'     => $ttdHash,
+            'ip'           => $request->ip(),
+            'user_agent'   => substr($request->userAgent() ?? '', 255),
+            'created_at'   => now(),
+            'updated_at'   => now(),
+        ]);
+
+        // WA ke tamu (jika isi No HP)
+        $this->notifyAbsensiWaGuest($request->no_hp, $rapat, $request->input('status','hadir'), $request->nama);
+
+        return redirect()->route('absensi.guest.form', [$rapatId, $token])
+            ->with('ok','Terima kasih, absensi tamu berhasil terekam.');
     }
 
     /**
@@ -498,97 +573,154 @@ public function scan($token)
     /**
      * Export PDF Laporan Absensi 1 rapat
      */
+public function exportPdf(Request $request, $id_rapat)
+{
+    // Pastikan QR absensi sudah ada & up-to-date
+    $this->ensureAbsensiQrMirrorsUndangan((int) $id_rapat);
 
-    public function exportPdf(Request $request, $id_rapat)
-    {
-        // Pastikan QR absensi sudah ada & up-to-date
-        $this->ensureAbsensiQrMirrorsUndangan((int) $id_rapat);
+    // Data rapat + kategori
+    $rapat = DB::table('rapat')
+        ->leftJoin('kategori_rapat', 'rapat.id_kategori', '=', 'kategori_rapat.id')
+        ->select('rapat.*', 'kategori_rapat.nama as nama_kategori')
+        ->where('rapat.id', $id_rapat)
+        ->first();
 
-        // Data rapat + kategori
-        $rapat = DB::table('rapat')
-            ->leftJoin('kategori_rapat', 'rapat.id_kategori', '=', 'kategori_rapat.id')
-            ->select('rapat.*', 'kategori_rapat.nama as nama_kategori')
-            ->where('rapat.id', $id_rapat)
-            ->first();
+    if (!$rapat) abort(404);
 
-        if (!$rapat) abort(404);
+    // ======= Peserta internal (user) =======
+    $pesertaUser = DB::table('undangan')
+        ->join('users','users.id','=','undangan.id_user')
+        ->leftJoin('absensi', function ($q) use ($id_rapat) {
+            $q->on('absensi.id_user','=','undangan.id_user')
+              ->where('absensi.id_rapat','=',$id_rapat);
+        })
+        ->where('undangan.id_rapat', $id_rapat)
+        ->select(
+            DB::raw("'user' as tipe"),
+            'users.id as user_id',
+            'users.name as nama',
+            'users.jabatan',
+            'users.unit',
+            'absensi.status',
+            'absensi.waktu_absen',
+            'absensi.ttd_path',
+            'absensi.ttd_hash',
+            DB::raw('COALESCE(users.hirarki, 9999) as hirarki')
+        );
 
-        // Daftar peserta + status absensi + TTD
-        $peserta = DB::table('undangan')
-            ->join('users', 'undangan.id_user', '=', 'users.id')
-            ->leftJoin('absensi', function ($q) use ($id_rapat) {
-                $q->on('absensi.id_user', '=', 'undangan.id_user')
-                ->where('absensi.id_rapat', '=', $id_rapat);
-            })
-            ->where('undangan.id_rapat', $id_rapat)
-            ->select(
-                'users.id as user_id',
-                'users.name',
-                'users.jabatan',
-                'users.unit',
-                'absensi.status',
-                'absensi.waktu_absen',
-                'absensi.ttd_path',
-                'absensi.ttd_hash'
-            )
-            ->orderBy('users.name')
-            ->get();
+    // ======= Peserta tamu (guest) =======
+    $pesertaGuest = DB::table('absensi_guest')
+        ->where('id_rapat',$id_rapat)
+        ->select(
+            DB::raw("'guest' as tipe"),
+            DB::raw('NULL as user_id'),
+            'nama',
+            'jabatan',
+            DB::raw('instansi as unit'),
+            'status',
+            'waktu_absen',
+            'ttd_path',
+            'ttd_hash',
+            DB::raw('99999 as hirarki')
+        );
 
-        foreach ($peserta as $p) {
-            $p->ttd_data = null; // data URI base64 PNG untuk ditanam di view
-            if (!empty($p->ttd_path)) {
-                $fs = public_path($p->ttd_path);
-                if (is_file($fs)) {
-                    $p->ttd_data = 'data:image/png;base64,' . base64_encode(@file_get_contents($fs));
-                }
-            }
-        }
+    // UNION + sort (hasil masih collection of stdClass)
+$pesertaRaw = $pesertaUser->unionAll($pesertaGuest)->get();
 
-        // Ambil QR ABSENSI (approved QR)
-        $absensiReq = DB::table('approval_requests')
-            ->where('rapat_id', $id_rapat)
-            ->where('doc_type', 'absensi')
-            ->where('approver_user_id', $rapat->approval1_user_id)
-            ->first();
-
-        $absensi_qr_data = null; $absensi_qr_web = null; $absensi_qr_fs = null;
-        if ($absensiReq && $absensiReq->signature_qr_path) {
-            $absensi_qr_fs = public_path($absensiReq->signature_qr_path);
-            if (is_file($absensi_qr_fs)) {
-                $absensi_qr_data = 'data:image/png;base64,' . base64_encode(file_get_contents($absensi_qr_fs));
-                $absensi_qr_web  = url($absensiReq->signature_qr_path);
-            }
-        }
-
-        // Approver final (approval1_user_id)
-        $approverFinal = DB::table('users')->where('id', $rapat->approval1_user_id)->first();
-        $approver_final_nama    = $approverFinal->name ?? null;
-        $approver_final_jabatan = $approverFinal->jabatan ?? 'Penanggung Jawab';
-
-        // Render PDF
-        $pdf = Pdf::loadView('absensi.laporan_pdf', [
-            'rapat'                  => $rapat,
-            'peserta'                => $peserta,
-            'absensi_qr_data'        => $absensi_qr_data,
-            'absensi_qr_web'         => $absensi_qr_web,
-            'absensi_qr_fs'          => $absensi_qr_fs,
-            'absensi_req'            => $absensiReq,
-            'approver_final_nama'    => $approver_final_nama,
-            'approver_final_jabatan' => $approver_final_jabatan,
-            'kop'                    => public_path('kop_absen.jpg'),
-        ])->setPaper('A4', 'portrait');
-
-        $filename = 'Laporan-Absensi-' . str_replace(' ', '-', $rapat->judul) . '.pdf';
-
-        // === MODE: preview vs download ===
-        if ($request->boolean('preview')) {
-            // tampilkan inline (bisa di <iframe> / modal)
-            return $pdf->stream($filename); // Content-Disposition: inline
-        }
-
-        // default: unduh file
-        return $pdf->download($filename);   // Content-Disposition: attachment
+/* Sort multi-kolom: hirarki ASC, lalu nama ASC (case-insensitive) */
+$pesertaRaw = $pesertaRaw->sort(function ($a, $b) {
+    $ha = (int) ($a->hirarki ?? 99999);
+    $hb = (int) ($b->hirarki ?? 99999);
+    if ($ha !== $hb) {
+        return $ha <=> $hb;
     }
+    return strcasecmp((string)($a->nama ?? ''), (string)($b->nama ?? ''));
+})->values();
+
+/* lanjutkan normalisasi ke array skalar seperti sebelumnya */
+$peserta = [];
+foreach ($pesertaRaw as $row) {
+    $ttdData = null;
+    if (!empty($row->ttd_path)) {
+        $fs = public_path($row->ttd_path);
+        if (is_file($fs)) {
+            $bin = @file_get_contents($fs);
+            if ($bin !== false) {
+                $ttdData = 'data:image/png;base64,' . base64_encode($bin);
+            }
+        }
+    }
+    $peserta[] = [
+        'name'        => (string) ($row->nama ?? ''),
+        'jabatan'     => (string) ($row->jabatan ?? ''),
+        'status'      => (string) ($row->status ?? ''),
+        'waktu_absen' => $row->waktu_absen ? \Carbon\Carbon::parse($row->waktu_absen)->format('d/m/Y H:i') : null,
+        'ttd_data'    => $ttdData,
+    ];
+}
+
+    // ===== Rekap gabungan (skalar)
+    $rekap = [
+        'diundang'    => (int) DB::table('undangan')->where('id_rapat',$id_rapat)->count()
+                          + (int) DB::table('absensi_guest')->where('id_rapat',$id_rapat)->count(),
+        'hadir'       => (int) DB::table('absensi')->where('id_rapat',$id_rapat)->where('status','hadir')->count()
+                          + (int) DB::table('absensi_guest')->where('id_rapat',$id_rapat)->where('status','hadir')->count(),
+        'tidak_hadir' => (int) DB::table('absensi')->where('id_rapat',$id_rapat)->where('status','tidak_hadir')->count()
+                          + (int) DB::table('absensi_guest')->where('id_rapat',$id_rapat)->where('status','tidak_hadir')->count(),
+        'izin'        => (int) DB::table('absensi')->where('id_rapat',$id_rapat)->where('status','izin')->count()
+                          + (int) DB::table('absensi_guest')->where('id_rapat',$id_rapat)->where('status','izin')->count(),
+    ];
+
+    // ===== Ambil QR ABSENSI (approved QR) -> pilih 1 sumber string untuk Blade
+    $absensiReq = DB::table('approval_requests')
+        ->where('rapat_id', $id_rapat)
+        ->where('doc_type', 'absensi')
+        ->where('approver_user_id', $rapat->approval1_user_id)
+        ->first();
+
+    $qrSrc = null;
+    if ($absensiReq && $absensiReq->signature_qr_path) {
+        $fs = public_path($absensiReq->signature_qr_path);
+        $qrSrc = is_file($fs) ? $fs : url($absensiReq->signature_qr_path);
+    }
+
+    // ===== Approver final (skalar)
+    $approverFinal = DB::table('users')->where('id', $rapat->approval1_user_id)->first();
+    $approver = [
+        'nama'    => (string) ($approverFinal->name ?? ''),
+        'jabatan' => (string) ($approverFinal->jabatan ?? 'Penanggung Jawab'),
+    ];
+
+    // ===== Normalisasi meta rapat (skalar)
+    $rap = [
+        'nama_kategori' => (string) ($rapat->nama_kategori ?? '-'),
+        'judul'         => (string) ($rapat->judul ?? '-'),
+        'tanggal_human' => $rapat->tanggal ? \Carbon\Carbon::parse($rapat->tanggal)->isoFormat('dddd, D MMMM Y') : '-',
+        'waktu_mulai'   => (string) ($rapat->waktu_mulai ?? ''),
+        'tempat'        => (string) ($rapat->tempat ?? '-'),
+    ];
+
+    // Render PDF (pass hanya skalar & array skalar)
+    $pdf = Pdf::loadView('absensi.laporan_pdf', [
+        'rap'       => $rap,
+        'peserta'   => $peserta,   // array of arrays
+        'rekap'     => $rekap,     // opsional (kalau dipakai di Blade)
+        'qrSrc'     => $qrSrc,     // string atau null
+        'approver'  => $approver,  // array skalar
+        'kop'       => public_path('kop_absen.jpg'),
+    ])->setPaper('A4', 'portrait');
+
+    $filename = 'Laporan-Absensi-' . str_replace(' ', '-', $rap['judul']) . '.pdf';
+
+    // === MODE: preview vs download ===
+    if ($request->boolean('preview')) {
+        return $pdf->stream($filename); // inline
+    }
+    return $pdf->download($filename);   // attachment
+}
+
+
+    /** ====================== Helper WA ======================= */
 
     private function normalizeMsisdn(?string $raw): ?string
     {
@@ -627,7 +759,7 @@ public function scan($token)
         return $ok;
     }
 
-    // ——— Rakit & kirim pesan absensi
+    // ——— Rakit & kirim pesan absensi (user internal)
     private function notifyAbsensiWa(int $userId, \stdClass $rapat, string $status): void
     {
         $user = DB::table('users')->where('id', $userId)->select('name','no_hp')->first();
@@ -652,7 +784,32 @@ public function scan($token)
         try {
             $this->sendWaFonnte($msisdn, $msg);
         } catch (\Throwable $e) {
-            // optional: Log::warning('Fonnte error: '.$e->getMessage());
+            // Log::warning('Fonnte error: '.$e->getMessage());
+        }
+    }
+
+    // ——— Rakit & kirim pesan absensi (tamu)
+    private function notifyAbsensiWaGuest(?string $noHp, \stdClass $rapat, string $status, string $nama): void
+    {
+        $msisdn = $this->normalizeMsisdn($noHp ?? null);
+        if (!$msisdn) return;
+
+        Carbon::setLocale('id');
+        $tgl = Carbon::parse($rapat->tanggal)->isoFormat('dddd, D MMMM Y');
+        $sender = env('FONNTE_SENDER', 'Sistem Rapat');
+
+        $msg = "*{$sender}*\n"
+             . "Terima kasih *{$nama}* sudah melakukan absensi.\n\n"
+             . "*Rapat*   : {$rapat->judul}\n"
+             . "*Tanggal* : {$tgl}\n"
+             . "*Waktu*   : {$rapat->waktu_mulai} WIT\n"
+             . "*Tempat*  : {$rapat->tempat}\n"
+             . "*Status*  : *".strtoupper($status)."*\n\n"
+             . "_Pesan otomatis dari sistem._";
+        try {
+            $this->sendWaFonnte($msisdn, $msg);
+        } catch (\Throwable $e) {
+            // Log::warning('Fonnte guest error: '.$e->getMessage());
         }
     }
 }

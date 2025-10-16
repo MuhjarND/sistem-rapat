@@ -288,34 +288,87 @@ class RapatController extends Controller
     }
 
     // Detail rapat
-    public function show($id)
-    {
-        $rapat = DB::table('rapat')
-            ->leftJoin('users as a1', 'rapat.approval1_user_id', '=', 'a1.id')
-            ->leftJoin('users as a2', 'rapat.approval2_user_id', '=', 'a2.id')
-            ->leftJoin('kategori_rapat', 'rapat.id_kategori', '=', 'kategori_rapat.id')
-            ->select(
-                'rapat.*',
-                'kategori_rapat.nama as nama_kategori',
-                'a1.name as approval1_nama',
-                'a2.name as approval2_nama'
-            )
-            ->where('rapat.id', $id)
-            ->first();
+public function show($id)
+{
+    $rapat = DB::table('rapat')
+        ->leftJoin('users as a1', 'rapat.approval1_user_id', '=', 'a1.id')
+        ->leftJoin('users as a2', 'rapat.approval2_user_id', '=', 'a2.id')
+        ->leftJoin('kategori_rapat', 'rapat.id_kategori', '=', 'kategori_rapat.id')
+        ->select(
+            'rapat.*',
+            'kategori_rapat.nama as nama_kategori',
+            'a1.name as approval1_nama',
+            'a2.name as approval2_nama'
+        )
+        ->where('rapat.id', $id)
+        ->first();
 
-        if (!$rapat) abort(404);
+    if (!$rapat) abort(404);
 
-        // Urutkan daftar peserta berdasarkan hirarki lalu nama
-        $daftar_peserta = DB::table('undangan')
-            ->join('users', 'undangan.id_user', '=', 'users.id')
-            ->where('undangan.id_rapat', $id)
-            ->select('users.name', 'users.email', 'users.jabatan', 'users.hirarki')
-            ->orderByRaw('COALESCE(users.hirarki, 9999) ASC')
-            ->orderBy('users.name','asc')
-            ->get();
+    // Peserta: hirarki ASC (null=9999), lalu nama
+    $daftar_peserta = DB::table('undangan')
+        ->join('users', 'undangan.id_user', '=', 'users.id')
+        ->where('undangan.id_rapat', $id)
+        ->select('users.name', 'users.email', 'users.jabatan', 'users.hirarki')
+        ->orderByRaw('COALESCE(users.hirarki, 9999) ASC')
+        ->orderBy('users.name','asc')
+        ->get();
 
-        return view('rapat.show', compact('rapat', 'daftar_peserta'));
+    // Pastikan guest_token ada (jika kolom tersedia)
+    if (\Illuminate\Support\Facades\Schema::hasColumn('rapat', 'guest_token')) {
+        if (empty($rapat->guest_token)) {
+            $newToken = \Illuminate\Support\Str::random(32);
+            DB::table('rapat')->where('id', $id)->update([
+                'guest_token' => $newToken,
+                'updated_at'  => now(),
+            ]);
+            $rapat->guest_token = $newToken;
+        }
     }
+
+    // URL QR Peserta (internal)
+    $qrPesertaUrl = \Illuminate\Support\Facades\Route::has('absensi.scan')
+        ? route('absensi.scan', $rapat->token_qr)
+        : url('/absensi/scan/'.$rapat->token_qr);
+
+    // URL QR Tamu (guest)
+    $qrTamuUrl = null;
+    if (!empty($rapat->guest_token)) {
+        $qrTamuUrl = \Illuminate\Support\Facades\Route::has('absensi.guest.form')
+            ? route('absensi.guest.form', [$rapat->id, $rapat->guest_token])
+            : url('/absensi/guest/'.$rapat->id.'/'.$rapat->guest_token);
+    }
+
+    // Gambar QR (via qrserver)
+    $qrPesertaImg = 'https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=' . urlencode($qrPesertaUrl);
+    $qrTamuImg    = $qrTamuUrl
+        ? 'https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=' . urlencode($qrTamuUrl)
+        : null;
+
+    // ===== Preview URLs (iframe) =====
+    // Absensi PDF mendukung ?preview=1 (stream inline)
+    $previewAbsensiUrl = \Illuminate\Support\Facades\Route::has('absensi.export.pdf')
+        ? route('absensi.export.pdf', ['id_rapat' => $id, 'preview' => 1])
+        : url("/absensi/laporan/{$id}?preview=1");
+
+    // Undangan PDF — jika route langsung stream, cukup route biasa;
+    // kalau kamu pakai query ?preview=1, sesuaikan controllernya agar stream.
+    $previewUndanganUrl = \Illuminate\Support\Facades\Route::has('rapat.undangan.pdf')
+        ? route('rapat.undangan.pdf', $id) // atau ->route('rapat.undangan.pdf', [$id, 'preview'=>1]) jika perlu
+        : url("/rapat/{$id}/undangan");
+
+    return view('rapat.show', compact(
+        'rapat',
+        'daftar_peserta',
+        'qrPesertaUrl',
+        'qrPesertaImg',
+        'qrTamuUrl',
+        'qrTamuImg',
+        'previewUndanganUrl',
+        'previewAbsensiUrl'
+    ));
+}
+
 
     // Form edit rapat
     public function edit($id)

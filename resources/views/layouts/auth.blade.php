@@ -2,95 +2,91 @@
 <html lang="id">
 <head>
     <meta charset="utf-8">
-    <title>Login - Sistem Manajemen Rapat</title>
+    <title>@yield('title','Login') - Sistem Manajemen Rapat</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <!-- Bootstrap -->
+
+    {{-- Bootstrap 4 --}}
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+
+    {{-- Font Awesome (CSS CDN) --}}
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
     <style>
-        body {
-            background: #101820;
-            min-height: 100vh;
-            position: relative;
+        :root{
+            --bg:#101820;
+            --card:#0f172a;
+            --border: rgba(255,255,255,.1);
+            --text:#e5e7eb;
+            --accent:#FEE715;
         }
-        .login-wrapper {
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+        body{
+            background: var(--bg);
+            color: var(--text);
+            min-height:100vh;
+            display:flex; align-items:center; justify-content:center;
         }
-        .login-card {
-            background: #fff;
-            border-radius: 12px;
-            box-shadow: 0 6px 32px rgba(0,0,0,0.16), 0 1.5px 5px rgba(16,24,32,.11);
-            padding: 38px 32px 30px 32px;
-            max-width: 360px;
-            width: 100%;
-            position: relative;
+        .login-card{
+            width:100%; max-width:380px;
+            background:#111827;
+            border-radius:14px;
+            border:1px solid var(--border);
+            padding:28px 26px 20px 26px;
+            box-shadow:0 12px 40px rgba(0,0,0,.3);
         }
-        .login-title {
-            color: #101820;
-            font-size: 22px;
-            text-align: center;
-            margin-bottom: 24px;
-            font-weight: bold;
-            letter-spacing: 1px;
+        .login-logo{
+            width:80px; height:80px;
+            border-radius:50%; margin:-64px auto 10px auto;
+            display:flex; align-items:center; justify-content:center;
+            background: radial-gradient(circle at 50% 40%, rgba(254,231,21,.12), rgba(254,231,21,.06));
+            border:1px dashed rgba(254,231,21,.4);
+            box-shadow:0 10px 26px rgba(254,231,21,.12);
         }
-        .login-logo {
-            display: block;
-            margin: 0 auto 18px auto;
-            background: #101820;
-            color: #FEE715;
-            border-radius: 50%;
-            padding: 18px 18px 10px 18px;
-            width: 74px;
-            height: 74px;
-            text-align: center;
-            box-shadow: 0 3px 16px rgba(16,24,32,0.09);
+        .login-logo i{ font-size:40px; color:var(--accent) }
+        .login-title{
+            text-align:center; font-weight:700; font-size:22px; color:#fff;
+            margin-bottom:10px;
         }
-        .login-logo i {
-            font-size: 38px;
-            color: #FEE715;
+        .login-sub{ display:block; font-size:13px; color:#c7d2fe; font-weight:400 }
+        .form-label{ font-weight:600; font-size:12.5px; color:#cbd5e1; margin-bottom:.35rem }
+        .form-control{
+            background:#0b1220; border:1px solid var(--border); color:#fff;
         }
-        .btn-login {
-            background: #FEE715;
-            color: #101820;
-            font-weight: bold;
-            border: none;
-            box-shadow: 0 1.5px 5px rgba(254,231,21,.13);
+        .form-control:focus{
+            border-color:rgba(254,231,21,.55);
+            box-shadow:0 0 0 .15rem rgba(254,231,21,.15);
         }
-        .btn-login:hover, .btn-login:focus {
-            background: #fff700;
-            color: #000;
+        .input-group-text{ background:#0b1220; border:1px solid var(--border); color:#cbd5e1 }
+        .btn-login{
+            background:var(--accent); color:#101820; font-weight:700; border:none;
+            box-shadow:0 6px 24px rgba(254,231,21,.18);
         }
-        .login-footer {
-            text-align: center;
-            font-size: 12px;
-            color: #c8c8c8;
-            margin-top: 30px;
+        .btn-login:hover{ background:#fff700; color:#000 }
+        .login-footer{
+            text-align:center; font-size:12px; color:#9fb0cd; margin-top:16px;
         }
-        .form-control:focus {
-            border-color: #FEE715;
-            box-shadow: 0 0 0 0.08rem #FEE7156e;
-        }
+        .caps-indicator{ display:none; font-size:12px; color:#fca5a5; margin-top:6px }
     </style>
     @yield('style')
 </head>
 <body>
-    <div class="login-wrapper">
-        <div class="login-card">
-            <div class="login-logo">
-                <i class="fas fa-users-cog"></i>
-            </div>
-            <div class="login-title">
-                Selamat Datang<br>
-                <span style="font-size: 13px; font-weight:normal;">Sistem Manajemen Rapat</span>
-            </div>
-            @yield('content')
-            <div class="login-footer mt-3">
-                &copy; {{ date('Y') }} - Manajemen Rapat
-            </div>
+    <div class="login-card">
+        <div class="login-logo">
+            <i class="fas fa-users-cog"></i>
+        </div>
+        <div class="login-title">
+            Selamat Datang
+            <span class="login-sub">Sistem Manajemen Rapat</span>
+        </div>
+
+        @yield('content')
+
+        <div class="login-footer">
+            &copy; {{ date('Y') }} • Manajemen Rapat
         </div>
     </div>
-    <script src="https://kit.fontawesome.com/6ee476ff68.js" crossorigin="anonymous"></script>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.bundle.min.js"></script>
+    @yield('script')
 </body>
 </html>

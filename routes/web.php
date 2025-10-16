@@ -135,3 +135,9 @@ Route::middleware(['auth', 'cekrole:approval,notulis,admin'])->group(function ()
     Route::get('absensi/laporan/{id_rapat}', 'AbsensiController@exportPdf')->name('absensi.export.pdf');
     Route::get('notulensi/{id}/cetak', 'NotulensiController@cetakGabung')->name('notulensi.cetak');
 });
+
+//GUEST (TAMU)
+Route::get ('/absensi/guest/{rapat}/{token}', 'AbsensiController@guestForm')->name('absensi.guest.form');
+Route::post('/absensi/guest/{rapat}/{token}', 'AbsensiController@guestSubmit')
+    ->name('absensi.guest.submit')
+    ->middleware('throttle:30,1'); // rate-limit 30 req/menit
