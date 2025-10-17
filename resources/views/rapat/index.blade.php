@@ -5,7 +5,7 @@
 
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h3 class="mb-0">Daftar Rapat</h3>
-        @if(Auth::user()->role == 'admin')
+        @if(in_array(Auth::user()->role, ['admin','operator']))
             <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#modalTambahRapat">
                 + Tambah Rapat
             </button>
@@ -351,7 +351,7 @@
                                     <i class="fa fa-eye"></i>
                                 </a>
 
-                                @if(Auth::user()->role == 'admin')
+                                @if(in_array(Auth::user()->role, ['admin','operator']))
                                     <button type="button"
                                             class="aksi-btn aksi-edit"
                                             data-toggle="modal"

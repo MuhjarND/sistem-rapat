@@ -205,6 +205,7 @@
                   $isPeserta  = $role === 'peserta';
                   $isNotulis  = in_array($role, ['notulis','notulensi']);
                   $isApproval = $role === 'approval';
+                  $isOperator = $role === 'operator';
                 @endphp
 
                 @if($isPeserta)
@@ -303,83 +304,134 @@
                         </div>
                     </nav>
 
-                    @elseif($isApproval)
-                        {{-- =================== SIDEBAR KHUSUS APPROVAL =================== --}}
-                        @php
-                            $uid = Auth::id();
+                @elseif($isApproval)
+                    {{-- =================== SIDEBAR KHUSUS APPROVAL =================== --}}
+                    @php
+                        $uid = Auth::id();
 
-                            // Semua pending milik user
-                            $pendingAll = \DB::table('approval_requests as ar')
-                                ->where('ar.approver_user_id',$uid)
-                                ->where('ar.status','pending');
+                        $pendingAll = \DB::table('approval_requests as ar')
+                            ->where('ar.approver_user_id',$uid)
+                            ->where('ar.status','pending');
 
-                            // pending siap ditandatangani (tidak terblokir)
-                            $pendingOpen = (clone $pendingAll)
-                                ->whereNotExists(function($q){
-                                    $q->select(\DB::raw(1))
-                                    ->from('approval_requests as prev')
-                                    ->whereColumn('prev.rapat_id','ar.rapat_id')
-                                    ->whereColumn('prev.doc_type','ar.doc_type')
-                                    ->whereColumn('prev.order_index','<','ar.order_index')
-                                    ->where('prev.status','!=','approved');
-                                })->count();
+                        $pendingOpen = (clone $pendingAll)
+                            ->whereNotExists(function($q){
+                                $q->select(\DB::raw(1))
+                                ->from('approval_requests as prev')
+                                ->whereColumn('prev.rapat_id','ar.rapat_id')
+                                ->whereColumn('prev.doc_type','ar.doc_type')
+                                ->whereColumn('prev.order_index','<','ar.order_index')
+                                ->where('prev.status','!=','approved');
+                            })->count();
 
-                            // pending terblokir
-                            $pendingBlocked = (clone $pendingAll)
-                                ->whereExists(function($q){
-                                    $q->select(\DB::raw(1))
-                                    ->from('approval_requests as prev')
-                                    ->whereColumn('prev.rapat_id','ar.rapat_id')
-                                    ->whereColumn('prev.doc_type','ar.doc_type')
-                                    ->whereColumn('prev.order_index','<','ar.order_index')
-                                    ->where('prev.status','!=','approved');
-                                })->count();
+                        $byType = \DB::table('approval_requests as ar')
+                            ->select('doc_type', \DB::raw('COUNT(*) as total'))
+                            ->where('approver_user_id',$uid)
+                            ->where('status','pending')
+                            ->groupBy('doc_type')
+                            ->pluck('total','doc_type');
+                        $pUndangan  = (int) ($byType['undangan']  ?? 0);
+                        $pNotulensi = (int) ($byType['notulensi'] ?? 0);
+                        $pAbsensi   = (int) ($byType['absensi']   ?? 0);
+                    @endphp
 
-                            // ringkasan per jenis
-                            $byType = \DB::table('approval_requests as ar')
-                                ->select('doc_type', \DB::raw('COUNT(*) as total'))
-                                ->where('approver_user_id',$uid)
-                                ->where('status','pending')
-                                ->groupBy('doc_type')
-                                ->pluck('total','doc_type');
-                            $pUndangan  = (int) ($byType['undangan']  ?? 0);
-                            $pNotulensi = (int) ($byType['notulensi'] ?? 0);
-                            $pAbsensi   = (int) ($byType['absensi']   ?? 0);
+                    <nav class="nav flex-column">
+                        <a class="nav-link {{ request()->routeIs('approval.dashboard') ? 'active' : '' }}"
+                        href="{{ route('approval.dashboard') }}">
+                            <i class="fas fa-user-check"></i> Dashboard Approval
+                        </a>
 
-                            // ringkasan riwayat 30 hari terakhir
-                            $approved30d = \DB::table('approval_requests')
-                                ->where('approver_user_id',$uid)
-                                ->where('status','approved')
-                                ->where('signed_at','>=', now()->subDays(30))
-                                ->count();
-                        @endphp
+                        <a class="nav-link d-flex align-items-center {{ request()->routeIs('approval.pending') ? 'active' : '' }}"
+                        href="{{ route('approval.pending') }}">
+                            <i class="fas fa-inbox"></i> Antrian Tanda Tangan
+                            @if($pendingOpen>0)
+                            <span class="badge-chip info" title="Siap ditandatangani">{{ $pendingOpen }}</span>
+                            @endif
+                        </a>
 
-                        <nav class="nav flex-column">
-                            {{-- Dashboard --}}
-                            <a class="nav-link {{ request()->routeIs('approval.dashboard') ? 'active' : '' }}"
-                            href="{{ route('approval.dashboard') }}">
-                                <i class="fas fa-user-check"></i> Dashboard Approval
-                            </a>
-
-                            {{-- Antrian --}}
-                            <a class="nav-link d-flex align-items-center {{ request()->routeIs('approval.pending') ? 'active' : '' }}"
-                            href="{{ route('approval.pending') }}">
-                                <i class="fas fa-inbox"></i> Antrian Tanda Tangan
-                                @if($pendingOpen>0)
-                                <span class="badge-chip info" title="Siap ditandatangani">{{ $pendingOpen }}</span>
-                                @endif
-                            </a>
-
-                            <a class="nav-link d-flex align-items-center {{ request()->routeIs('approval.approved') ? 'active' : '' }}"
-                            href="{{ route('approval.approved') }}">
+                        <a class="nav-link d-flex align-items-center {{ request()->routeIs('approval.approved') ? 'active' : '' }}"
+                        href="{{ route('approval.approved') }}">
                             <i class="fas fa-file-signature"></i> Dokumen Disetujui
-                            </a>
-                            
-                            <a class="nav-link d-flex align-items-center {{ request()->routeIs('approval.rapat') ? 'active' : '' }}"
-                            href="{{ route('approval.rapat') }}">
-                                <i class="fas fa-calendar-alt"></i> Rapat
-                            </a>
-                        </nav>
+                        </a>
+                        
+                        <a class="nav-link d-flex align-items-center {{ request()->routeIs('approval.rapat') ? 'active' : '' }}"
+                        href="{{ route('approval.rapat') }}">
+                            <i class="fas fa-calendar-alt"></i> Rapat
+                        </a>
+                    </nav>
+
+                @elseif($isOperator)
+                    {{-- =================== SIDEBAR KHUSUS OPERATOR =================== --}}
+                    @php
+                        // Notulensi counter (sama seperti admin)
+                        $countBelum = \DB::table('rapat')
+                                        ->leftJoin('notulensi','notulensi.id_rapat','=','rapat.id')
+                                        ->whereNull('notulensi.id')->count();
+                        $countSudah = \DB::table('rapat')
+                                        ->join('notulensi','notulensi.id_rapat','=','rapat.id')
+                                        ->count();
+
+                        // Laporan badge (sama seperti admin)
+                        $countRapatAktif = \DB::table('rapat')
+                            ->leftJoin('laporan_archived_meetings as lam','lam.rapat_id','=','rapat.id')
+                            ->whereNull('lam.id')->count();
+                        $countUploadsAktif = \DB::table('laporan_files')->where('is_archived',0)->count();
+                        $badgeLaporan = $countRapatAktif + $countUploadsAktif;
+                        $badgeArsip   = \DB::table('laporan_files')->where('is_archived',1)->count();
+
+                        // Tugas saya (reuse halaman peserta)
+                        $myId = Auth::id();
+                        $tugasPendingCount = \DB::table('notulensi_tugas')
+                            ->where('user_id', $myId)
+                            ->where('status', 'pending')
+                            ->count();
+                    @endphp
+
+                    <nav class="nav flex-column">
+                        <a class="nav-link {{ request()->is('dashboard') ? 'active' : '' }}" href="{{ url('/dashboard') }}">
+                            <i class="fas fa-home"></i> Dashboard
+                        </a>
+
+                        <a class="nav-link {{ request()->is('rapat*') ? 'active' : '' }}" href="{{ route('rapat.index') }}">
+                            <i class="fas fa-calendar-alt"></i> Rapat
+                        </a>
+
+                        <a class="nav-link {{ request()->is('absensi*') ? 'active' : '' }}" href="{{ route('absensi.index') }}">
+                            <i class="fas fa-clipboard-list"></i> Absensi
+                        </a>
+
+                        {{-- Laporan --}}
+                        <a class="nav-link d-flex align-items-center" data-toggle="collapse" href="#menuLaporanOp" role="button" aria-expanded="true" aria-controls="menuLaporanOp">
+                            <i class="fas fa-folder-open"></i> Laporan
+                            <i class="ml-auto fas fa-angle-down"></i>
+                        </a>
+                        <div class="collapse show" id="menuLaporanOp">
+                            <div class="nav flex-column submenu">
+                                <a class="nav-link d-flex justify-content-between align-items-center {{ request()->routeIs('laporan.index') ? 'active' : '' }}"
+                                   href="{{ route('laporan.index') }}">
+                                    <span class="d-inline-flex align-items-center">
+                                      <i class="fas fa-file-invoice mr-2"></i> Laporan
+                                    </span>
+                                    @if($badgeLaporan>0) <span class="badge-chip info">{{ $badgeLaporan }}</span> @endif
+                                </a>
+                                <a class="nav-link d-flex justify-content-between align-items-center {{ request()->routeIs('laporan.arsip') ? 'active' : '' }}"
+                                   href="{{ route('laporan.arsip') }}">
+                                    <span class="d-inline-flex align-items-center">
+                                      <i class="fas fa-archive mr-2"></i> Arsip Laporan
+                                    </span>
+                                    @if($badgeArsip>0) <span class="badge-chip">{{ $badgeArsip }}</span> @endif
+                                </a>
+                            </div>
+                        </div>
+
+                        {{-- Tugas Saya (reuse route peserta.tugas.index) --}}
+                        <a class="nav-link d-flex align-items-center {{ request()->routeIs('peserta.tugas.*') ? 'active' : '' }}"
+                           href="{{ route('peserta.tugas.index') }}">
+                            <i class="fas fa-tasks"></i> Tugas Saya
+                            @if($tugasPendingCount>0)
+                            <span class="badge-chip warn" title="Tugas perlu diselesaikan">{{ $tugasPendingCount }}</span>
+                            @endif
+                        </a>
+                    </nav>
 
                 @else
                     {{-- =================== SIDEBAR DEFAULT (ADMIN/DLL) =================== --}}
@@ -517,7 +569,7 @@
         $col.addClass('show');
         var targetId = $col.attr('id');
         if (targetId){
-          var $toggle = $('[data-toggle="collapse"][href="#'+targetId+'"], [data-toggle="collapse"][data-target="#'+targetId+'"]');
+          var $toggle = $('[data-toggle="collapse'][href="#'+targetId+'"], [data-toggle="collapse"][data-target="#'+targetId+'"]');
           $toggle.removeClass('collapsed').attr('aria-expanded','true');
         }
       });

@@ -9,7 +9,7 @@
         <h3 class="mb-0">Detail Rapat</h3>
 
         @auth
-        @if(in_array(Auth::user()->role, ['admin','notulis','approval']))
+        @if(in_array(Auth::user()->role, ['admin','notulis','approval','operator']))
         <div class="btn-group">
             <a href="{{ route('absensi.export.pdf', $rapat->id) }}" class="btn btn-primary btn-sm">
                 <i class="fas fa-file-pdf mr-1"></i> Laporan Absensi
@@ -49,7 +49,7 @@
 
                 {{-- ===== PREVIEW DOKUMEN (Undangan & Laporan Absensi) ===== --}}
                 @auth
-                @if(in_array(Auth::user()->role, ['admin','notulis','approval']))
+                @if(in_array(Auth::user()->role, ['admin','notulis','approval','operator']))
                 <div class="mb-4">
                     <h5 class="mb-2">Preview Dokumen</h5>
 
@@ -103,7 +103,7 @@
             {{-- Kolom Kanan: QR --}}
             <div class="col-lg-5 border-left">
                 @auth
-                @if(in_array(Auth::user()->role, ['admin','notulis']))
+                @if(in_array(Auth::user()->role, ['admin','notulis','operator']))
                     {{-- === QR Peserta (Internal) === --}}
                     <h5 class="mt-2">QR Code Absensi Peserta</h5>
                     <p class="text-muted">Peserta internal (akun sistem) memindai QR ini untuk absen.</p>

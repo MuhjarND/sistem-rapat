@@ -35,6 +35,8 @@ protected function redirectTo()
             return '/dashboard';
         case 'notulis':
             return 'notulensi/dashboard';
+        case 'operator':
+            return '/dashboard';
         case 'peserta':
             return '/peserta/dashboard';
         case 'approval':

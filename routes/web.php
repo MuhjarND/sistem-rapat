@@ -43,19 +43,20 @@ Route::middleware(['auth'])->group(function() {
     Route::get('/dashboard', 'DashboardController@index')->name('dashboard');
 });
 
-// ADMIN
 Route::middleware(['auth', 'cekrole:admin'])->group(function () {
-    //RAPAT
-    Route::resource('rapat', 'RapatController');
-    Route::resource('undangan', 'UndanganController');
-
-    //ABSENSI
-    Route::resource('absensi', 'AbsensiController');
-    Route::post('/absensi/{id}/wa-start', 'AbsensiController@notifyStart')->name('absensi.notify.start');
     //INPUT DATA
     Route::resource('pimpinan', 'PimpinanRapatController');
     Route::resource('user', 'UserController');
     Route::resource('kategori', 'KategoriRapatController');
+});
+
+// ADMIN
+Route::middleware(['auth', 'cekrole:admin,operator'])->group(function () {
+    //RAPAT
+    Route::resource('rapat', 'RapatController');
+    //ABSENSI
+    Route::resource('absensi', 'AbsensiController');
+    Route::post('/absensi/{id}/wa-start', 'AbsensiController@notifyStart')->name('absensi.notify.start');
     //LAPORAN
     Route::get('laporan', 'LaporanController@index')->name('laporan.index');
     Route::get('laporan/cetak', 'LaporanController@cetak')->name('laporan.cetak');
@@ -95,7 +96,7 @@ Route::middleware(['auth', 'cekrole:admin,notulis'])->group(function () {
 });
 
 // PESERTA
-Route::middleware(['auth', 'cekrole:admin,peserta,approval'])->group(function () {
+Route::middleware(['auth', 'cekrole:admin,peserta,approval,operator,notulis'])->group(function () {
     Route::get('undangan-saya', 'UndanganController@undanganSaya')->name('undangan.saya');
     Route::get('absensi-saya', 'AbsensiController@absensiSaya')->name('absensi.saya');
     Route::post('absensi/isi', 'AbsensiController@isiAbsensi')->name('absensi.isi');
@@ -119,7 +120,7 @@ Route::middleware(['auth', 'cekrole:admin,peserta,approval'])->group(function ()
     Route::put('/peserta/tugas/{id}', 'PesertaController@tugasUpdateStatus')->name('peserta.tugas.update');
 });
 
-Route::middleware(['auth', 'cekrole:approval,notulis,admin'])->group(function () {
+Route::middleware(['auth', 'cekrole:approval,admin'])->group(function () {
     Route::get('/approval', 'ApprovalController@dashboard')->name('approval.dashboard');
     Route::get('/approval/pending', 'ApprovalController@pending')->name('approval.pending');
     Route::get('/approval/sign/{token}', 'ApprovalController@signForm')->name('approval.sign');
@@ -129,11 +130,17 @@ Route::middleware(['auth', 'cekrole:approval,notulis,admin'])->group(function ()
     Route::get('/approval/approved',  'ApprovalController@approved')->name('approval.approved');
 
     // rapat
-    Route::get('/approval/rapat', 'ApprovalController@meetings')->name('approval.rapat'); // halaman rapat (versi approver)
-    Route::get('rapat/{id}/show', 'RapatController@show')->name('rapat.show');
+    Route::get('/approval/rapat', 'ApprovalController@meetings')->name('approval.rapat');
     // preview
     Route::get('absensi/laporan/{id_rapat}', 'AbsensiController@exportPdf')->name('absensi.export.pdf');
     Route::get('notulensi/{id}/cetak', 'NotulensiController@cetakGabung')->name('notulensi.cetak');
+});
+
+Route::middleware(['auth', 'cekrole:approval,notulis,admin,operator'])->group(function () {
+    // preview
+    Route::get('absensi/laporan/{id_rapat}', 'AbsensiController@exportPdf')->name('absensi.export.pdf');
+    Route::get('notulensi/{id}/cetak', 'NotulensiController@cetakGabung')->name('notulensi.cetak');
+    Route::get('rapat/{id}/show', 'RapatController@show')->name('rapat.show');
 });
 
 //GUEST (TAMU)

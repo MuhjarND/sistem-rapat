@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Hash;
 
 class UserController extends Controller
@@ -23,8 +22,9 @@ class UserController extends Controller
 
     public function create()
     {
-        // role tetap tampil admin/notulis/peserta; role 'approval' diatur otomatis ketika tingkatan diisi
-        $daftar_role = ['admin', 'notulis', 'peserta'];
+        // Tambahkan 'operator' sebagai role yang bisa dipilih
+        // Catatan: role 'approval' tetap tidak dipilih manual — otomatis jika ada tingkatan
+        $daftar_role = ['admin', 'operator', 'notulis', 'peserta'];
         $daftar_unit = ['kepaniteraan', 'kesekretariatan'];
         $daftar_tingkatan = [1,2];
 
@@ -40,13 +40,24 @@ class UserController extends Controller
             'no_hp'     => 'nullable|regex:/^0[0-9]{9,13}$/',
             'unit'      => 'required|in:kepaniteraan,kesekretariatan',
             'tingkatan' => 'nullable|in:1,2',
-            'role'      => 'required|in:admin,notulis,peserta', // input awal
+            // izinkan operator dipilih
+            'role'      => 'required|in:admin,operator,notulis,peserta',
             'password'  => 'required|min:6|confirmed',
-            'hirarki'   => 'nullable|integer|min:0|max:65535',   // <<< tambahan
+            'hirarki'   => 'nullable|integer|min:0|max:65535',
         ]);
 
-        // Jika tingkatan diisi, override role jadi 'approval'
-        $role = $request->filled('tingkatan') ? 'approval' : $request->role;
+        // Normalisasi role & tingkatan:
+        // - Jika role = operator, paksa tingkatan NULL (operator bukan approver)
+        // - Jika role ≠ operator dan tingkatan diisi, override role -> approval
+        $roleInput = $request->role;
+        $tingkatan = $request->tingkatan;
+
+        if ($roleInput === 'operator') {
+            $tingkatan = null;        // operator tidak punya tingkatan
+            $role      = 'operator';
+        } else {
+            $role      = $request->filled('tingkatan') ? 'approval' : $roleInput;
+        }
 
         DB::table('users')->insert([
             'name'       => $request->name,
@@ -54,9 +65,9 @@ class UserController extends Controller
             'email'      => $request->email,
             'no_hp'      => $request->no_hp,
             'unit'       => $request->unit,
-            'tingkatan'  => $request->tingkatan, // 1/2/null
+            'tingkatan'  => $tingkatan, // 1/2/null
             'role'       => $role,
-            'hirarki'    => $request->filled('hirarki') ? (int)$request->hirarki : null, // <<< simpan
+            'hirarki'    => $request->filled('hirarki') ? (int)$request->hirarki : null,
             'password'   => Hash::make($request->password),
             'created_at' => now(),
             'updated_at' => now(),
@@ -70,7 +81,8 @@ class UserController extends Controller
         $user = DB::table('users')->where('id', $id)->first();
         if (!$user) abort(404);
 
-        $daftar_role = ['admin', 'notulis', 'peserta']; // approval tidak dipilih manual
+        // Tambahkan operator di pilihan role saat edit juga
+        $daftar_role = ['admin', 'operator', 'notulis', 'peserta']; // approval tetap tidak dipilih manual
         $daftar_unit = ['kepaniteraan', 'kesekretariatan'];
         $daftar_tingkatan = [1,2];
 
@@ -89,13 +101,22 @@ class UserController extends Controller
             'no_hp'     => 'nullable|regex:/^0[0-9]{9,13}$/',
             'unit'      => 'required|in:kepaniteraan,kesekretariatan',
             'tingkatan' => 'nullable|in:1,2',
-            'role'      => 'required|in:admin,notulis,peserta',
+            // izinkan operator dipilih
+            'role'      => 'required|in:admin,operator,notulis,peserta',
             'password'  => 'nullable|min:6|confirmed',
-            'hirarki'   => 'nullable|integer|min:0|max:65535',   // <<< tambahan
+            'hirarki'   => 'nullable|integer|min:0|max:65535',
         ]);
 
-        // Override role jika tingkatan diisi
-        $role = $request->filled('tingkatan') ? 'approval' : $request->role;
+        // Normalisasi role & tingkatan (konsisten dengan store)
+        $roleInput = $request->role;
+        $tingkatan = $request->tingkatan;
+
+        if ($roleInput === 'operator') {
+            $tingkatan = null;
+            $role      = 'operator';
+        } else {
+            $role      = $request->filled('tingkatan') ? 'approval' : $roleInput;
+        }
 
         $data = [
             'name'       => $request->name,
@@ -103,9 +124,9 @@ class UserController extends Controller
             'email'      => $request->email,
             'no_hp'      => $request->no_hp,
             'unit'       => $request->unit,
-            'tingkatan'  => $request->tingkatan,
+            'tingkatan'  => $tingkatan,
             'role'       => $role,
-            'hirarki'    => $request->filled('hirarki') ? (int)$request->hirarki : null, // <<< simpan
+            'hirarki'    => $request->filled('hirarki') ? (int)$request->hirarki : null,
             'updated_at' => now(),
         ];
         if ($request->filled('password')) {
