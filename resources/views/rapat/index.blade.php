@@ -77,6 +77,38 @@
         .mini th { background: rgba(148,163,184,.12); }
         .nowrap { white-space: nowrap; }
         .w-notes { max-width: 340px; }
+
+        /* ===== Mobile Cards ===== */
+        .m-wrap{padding:0}
+        .m-card{
+            background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.02));
+            border:1px solid rgba(226,232,240,.15);
+            border-radius:12px;
+            color:var(--text);
+            padding:12px;
+            margin-bottom:10px;
+        }
+        .m-title{font-weight:800; color:#fff; line-height:1.25}
+        .m-sub{color:#9fb0cd; font-size:.86rem}
+        .m-meta{display:flex; flex-wrap:wrap; gap:8px; margin-top:8px}
+        .mchip{
+            display:inline-flex; align-items:center; gap:.3rem;
+            padding:.18rem .5rem; border-radius:999px; font-size:.72rem; font-weight:800;
+            background:rgba(79,70,229,.22); border:1px solid rgba(79,70,229,.35); color:#fff;
+        }
+        .mchip.ok{ background:rgba(34,197,94,.22); border-color:rgba(34,197,94,.35) }
+        .mchip.warn{ background:rgba(245,158,11,.2); border-color:rgba(245,158,11,.35) }
+        .mchip.err{ background:rgba(239,68,68,.18); border-color:rgba(239,68,68,.35) }
+        .m-actions{display:flex; flex-wrap:wrap; gap:8px; margin-top:10px}
+        .btn-pill{
+            display:inline-flex; align-items:center; gap:6px;
+            border:1px solid rgba(255,255,255,.18);
+            padding:.42rem .7rem; border-radius:10px; font-size:.88rem; color:#fff; text-decoration:none;
+            background:rgba(255,255,255,.06);
+        }
+        .btn-pill.primary{ background:linear-gradient(180deg,var(--primary),var(--primary-700)); border-color:transparent; }
+        .btn-pill.warn{ background:#f59e0b; border-color:#f59e0b }
+        .btn-pill.danger{ background:#ef4444; border-color:#ef4444 }
     </style>
 
     @php
@@ -117,7 +149,7 @@
             if ($hasAny && $allApproved) return 'approved';
             return 'pending';
         };
-        // Label status utama untuk ditampilkan di cell
+        // Label status utama untuk ditampilkan
         $overallLabel = function (string $overall) {
             return $overall === 'approved' ? 'Semua Disetujui'
                  : ($overall === 'rejected' ? 'Ada Penolakan'
@@ -125,7 +157,8 @@
         };
     @endphp
 
-    <div class="card">
+    {{-- ===== Desktop Table ===== --}}
+    <div class="card d-none d-md-block">
         <div class="card-body p-0">
             <table class="table table-striped table-sm m-0">
                 <thead>
@@ -215,7 +248,7 @@
                             </span>
                         </td>
 
-                        {{-- ====== Approval: tombol + keterangan utama saja ====== --}}
+                        {{-- ====== Approval: tombol + keterangan utama ====== --}}
                         <td class="text-center">
                             <button type="button"
                                     class="btn btn-sm badge {{ $popBadgeClass($overall) }}"
@@ -225,123 +258,21 @@
                                 Cek Status
                             </button>
 
-                            {{-- Keterangan status utama (tanpa per-dokumen) --}}
                             <div class="mt-1" style="font-size:.8rem;
                                  color: {{ $overall==='approved' ? '#22c55e' : ($overall==='rejected' ? '#ef4444' : '#f59e0b') }};">
                               {{ $overallLabel($overall) }}
                             </div>
 
-                            {{-- Modal detail --}}
-                            <div class="modal fade" id="{{ $modalId }}" tabindex="-1" role="dialog" aria-hidden="true">
-                              <div class="modal-dialog modal-lg" role="document">
-                                <div class="modal-content modal-solid">
-                                  <div class="modal-header">
-                                    <h5 class="modal-title">Status Approval</h5>
-                                    <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
-                                  </div>
-                                  <div class="modal-body">
-                                    <div class="mb-3">
-                                      <span class="badge {{ $popBadgeClass($overall) }}">
-                                        {{ $overall === 'approved' ? 'Semua Disetujui' : ($overall === 'rejected' ? 'Ada Penolakan' : 'Menunggu/Pending') }}
-                                      </span>
-                                    </div>
-
-                                    <div class="mb-2">
-                                      <div class="text-muted mb-1">Ringkas</div>
-                                      @foreach (['undangan','absensi'] as $tp)
-                                        @php $rows = $approvalMap[$tp] ?? []; @endphp
-                                        <div class="mb-1"><b class="text-light text-uppercase" style="font-size:.8rem">{{ $tp }}</b></div>
-                                        @if(count($rows))
-                                          @foreach($rows as $st)
-                                            <span class="{{ $stepClass($st['status']) }}"
-                                                  title="{{ $st['name'] }} • Step {{ $st['order'] }} • {{ ucfirst($st['status']) }}">
-                                              <b>{{ $stepIcon($st['status']) }}</b> Step {{ $st['order'] }}
-                                            </span>
-                                          @endforeach
-                                        @else
-                                          <div class="muted">Belum ada konfigurasi approval.</div>
-                                        @endif
-                                      @endforeach
-                                    </div>
-
-                                    @foreach (['undangan'=>'Undangan','absensi'=>'Absensi'] as $tpKey => $tpTitle)
-                                      @php $rows = $approvalMap[$tpKey] ?? []; @endphp
-                                      <hr>
-                                      <h6 class="mb-2">{{ $tpTitle }}</h6>
-                                      @if(count($rows))
-                                        <div class="table-responsive">
-                                          <table class="table table-sm mini">
-                                            <thead>
-                                              <tr>
-                                                <th class="nowrap" style="width:8%">Step</th>
-                                                <th style="width:28%">Approver</th>
-                                                <th style="width:12%">Status</th>
-                                                <th style="width:20%">Waktu</th>
-                                                <th class="w-notes">Catatan Penolakan</th>
-                                              </tr>
-                                            </thead>
-                                            <tbody>
-                                              @foreach($rows as $st)
-                                                <tr>
-                                                  <td class="nowrap">#{{ $st['order'] }}</td>
-                                                  <td>{{ $st['name'] }}</td>
-                                                  <td class="nowrap">
-                                                    @if($st['status']==='approved')
-                                                      <span class="badge badge-success">Approved</span>
-                                                    @elseif($st['status']==='rejected')
-                                                      <span class="badge badge-danger">Rejected</span>
-                                                    @elseif($st['status']==='blocked')
-                                                      <span class="badge badge-secondary">Blocked</span>
-                                                    @else
-                                                      <span class="badge badge-warning">Pending</span>
-                                                    @endif
-                                                  </td>
-                                                  <td class="nowrap">
-                                                    @if($st['status']==='approved' && $st['signed_at'])
-                                                      {{ \Carbon\Carbon::parse($st['signed_at'])->translatedFormat('d M Y H:i') }}
-                                                    @elseif($st['status']==='rejected' && $st['rejected_at'])
-                                                      {{ \Carbon\Carbon::parse($st['rejected_at'])->translatedFormat('d M Y H:i') }}
-                                                    @else
-                                                      —
-                                                    @endif
-                                                  </td>
-                                                  <td>
-                                                    @if($st['status']==='rejected' && $st['rejection_note'])
-                                                      {{ $st['rejection_note'] }}
-                                                    @else
-                                                      <span class="muted">—</span>
-                                                    @endif
-                                                  </td>
-                                                </tr>
-                                              @endforeach
-                                            </tbody>
-                                          </table>
-                                        </div>
-                                      @else
-                                        <div class="muted">Belum ada konfigurasi approval.</div>
-                                      @endif
-                                    @endforeach
-                                  </div>
-
-                                  @php
-                                    $hasReject =
-                                      collect($approvalMap['undangan'] ?? [])->contains(fn($s)=>$s['status']==='rejected') ||
-                                      collect($approvalMap['absensi']  ?? [])->contains(fn($s)=>$s['status']==='rejected');
-                                  @endphp
-
-                                  <div class="modal-footer">
-                                    @if($hasReject)
-                                      <button type="button"
-                                              class="btn btn-danger btn-sm"
-                                              onclick="openEditFromApproval('{{ $modalId }}','modalEditRapat-{{ $rapat->id }}')">
-                                        <i class="fas fa-tools mr-1"></i> Perbaiki
-                                      </button>
-                                    @endif
-                                    <button class="btn btn-outline-light btn-sm" data-dismiss="modal">Tutup</button>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
+                            {{-- Modal detail (dipakai juga oleh mobile) --}}
+                            @include('rapat.partials._approval_modal', [
+                                'modalId' => $modalId,
+                                'overall' => $overall,
+                                'approvalMap' => $approvalMap,
+                                'stepIcon' => $stepIcon,
+                                'stepClass' => $stepClass,
+                                'popBadgeClass' => $popBadgeClass,
+                                'rapat' => $rapat
+                            ])
                         </td>
 
                         <td class="text-center td-aksi">
@@ -381,6 +312,119 @@
                 </tbody>
             </table>
         </div>
+    </div>
+
+    {{-- ===== Mobile Cards ===== --}}
+    <div class="d-block d-md-none">
+        @forelse($daftar_rapat as $no => $rapat)
+            @php
+                $approvalMap = $rapat->approval_map ?? null;
+                if (!$approvalMap) {
+                    $steps = DB::table('approval_requests as ar')
+                        ->leftJoin('users as u','u.id','=','ar.approver_user_id')
+                        ->select(
+                            'ar.doc_type','ar.order_index','ar.status',
+                            'ar.signed_at','ar.rejected_at','ar.rejection_note',
+                            'u.name'
+                        )
+                        ->where('ar.rapat_id', $rapat->id)
+                        ->whereIn('ar.doc_type', ['undangan','absensi'])
+                        ->orderBy('ar.doc_type')->orderBy('ar.order_index')->get();
+
+                    $approvalMap = $steps->groupBy('doc_type')->map(function($g){
+                        return $g->unique(function($r){
+                            return ($r->order_index ?? 0).'|'.($r->name ?? '');
+                        })->values()->map(function($r){
+                            return [
+                                'order'          => (int)$r->order_index,
+                                'name'           => $r->name ?: 'Approver',
+                                'status'         => $r->status,
+                                'signed_at'      => $r->signed_at,
+                                'rejected_at'    => $r->rejected_at,
+                                'rejection_note' => $r->rejection_note,
+                            ];
+                        })->all();
+                    })->toArray();
+                }
+
+                $overall = $overallStatus($approvalMap);
+                $modalId = 'apprModal-'.$rapat->id;
+
+                $overallChipClass = $overall==='approved' ? 'ok' : ($overall==='rejected' ? 'err' : 'warn');
+            @endphp
+
+            <div class="m-card">
+                <div class="m-title">{{ $rapat->judul }}</div>
+                @if(!empty($rapat->nama_kategori))
+                    <div class="m-sub">{{ $rapat->nama_kategori }}</div>
+                @endif>
+
+                <div class="m-meta">
+                    <span class="mchip">
+                        No: {{ $rapat->nomor_undangan ?? '—' }}
+                    </span>
+                    <span class="mchip">
+                        {{ \Carbon\Carbon::parse($rapat->tanggal)->translatedFormat('d M Y') }} • {{ $rapat->waktu_mulai }}
+                    </span>
+                    <span class="mchip">{{ $rapat->tempat }}</span>
+                    <span class="mchip {{ $overallChipClass }}">{{ $overallLabel($overall) }}</span>
+                    <span class="mchip" style="
+                        background:
+                        @if($rapat->status_label=='Akan Datang') rgba(14,165,233,.22)
+                        @elseif($rapat->status_label=='Berlangsung') rgba(34,197,94,.22)
+                        @elseif($rapat->status_label=='Selesai') rgba(148,163,184,.22)
+                        @else rgba(239,68,68,.22) @endif;
+                        border-color: rgba(255,255,255,.25);">
+                        Status: {{ $rapat->status_label }}
+                    </span>
+                </div>
+
+                <div class="m-actions">
+                    <a href="{{ route('rapat.show', $rapat->id) }}" class="btn-pill">
+                        <i class="fas fa-eye"></i> Detail
+                    </a>
+
+                    <button type="button"
+                            class="btn-pill primary"
+                            data-toggle="modal"
+                            data-target="#{{ $modalId }}">
+                        <i class="fas fa-clipboard-check"></i> Cek Status
+                    </button>
+
+                    @if(in_array(Auth::user()->role, ['admin','operator']))
+                        <button type="button"
+                                class="btn-pill warn"
+                                data-toggle="modal"
+                                data-target="#modalEditRapat-{{ $rapat->id }}">
+                            <i class="fas fa-edit"></i> Edit
+                        </button>
+
+                        <form action="{{ route('rapat.destroy', $rapat->id) }}"
+                              method="POST"
+                              onsubmit="return confirm('Hapus rapat ini?')"
+                              class="d-inline">
+                            @csrf @method('DELETE')
+                            <button class="btn-pill danger" type="submit">
+                                <i class="fas fa-trash"></i> Hapus
+                            </button>
+                        </form>
+                    @endif
+                </div>
+
+                {{-- Modal detail approval untuk mobile (reuse partial) --}}
+                @include('rapat.partials._approval_modal', [
+                    'modalId' => $modalId,
+                    'overall' => $overall,
+                    'approvalMap' => $approvalMap,
+                    'stepIcon' => $stepIcon,
+                    'stepClass' => $stepClass,
+                    'popBadgeClass' => $popBadgeClass,
+                    'rapat' => $rapat
+                ])
+            </div>
+        @empty
+            <div class="text-center text-muted">Belum ada data rapat.</div>
+        @endforelse
     </div>
 
     {{-- Pagination --}}

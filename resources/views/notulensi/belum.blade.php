@@ -15,11 +15,29 @@
   .btn-indigo { background: linear-gradient(180deg,#6366f1,#4f46e5); }
   .btn-icon:hover{ filter:brightness(1.06); }
 
-  /* Header tabel rapih */
+  /* Header tabel rapi */
   .table thead th{ text-align:center; vertical-align:middle; }
-
-  /* Hilangkan hover bawaan bila perlu */
   .table.no-hover tbody tr:hover{ background:transparent!important; }
+
+  /* ===== Mobile cards ===== */
+  .nl-card{
+    border:1px solid var(--border);
+    border-radius:14px;
+    background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.02));
+    box-shadow:var(--shadow); color:var(--text);
+    margin-bottom:12px;
+  }
+  .nl-card .card-body{ padding:14px 16px; }
+  .nl-head{ display:flex; align-items:flex-start; gap:.6rem; }
+  .nl-title{ font-weight:800; line-height:1.25; }
+  .nl-sub{ font-size:.8rem; color:var(--muted); }
+  .nl-row{ display:flex; flex-wrap:wrap; gap:.45rem .7rem; margin-top:6px; font-size:.9rem; }
+  .nl-row .dot{ opacity:.5 }
+  .nl-loc{ color:var(--muted); font-size:.88rem; margin-top:4px; }
+  .nl-actions{ display:flex; justify-content:flex-end; margin-top:10px; }
+  .nl-badge{ display:inline-flex; align-items:center; gap:.35rem; background:rgba(255,255,255,.08);
+             border:1px solid rgba(255,255,255,.18); border-radius:999px; padding:.18rem .5rem;
+             font-weight:700; font-size:.78rem; }
 </style>
 @endsection
 
@@ -74,8 +92,8 @@
     </div>
   </form>
 
-  {{-- DATA --}}
-  <div class="card">
+  {{-- ================= DESKTOP (TABLE) ================= --}}
+  <div class="card d-none d-md-block">
     <div class="card-body p-0">
       <table class="table table-sm mb-0">
         <thead>
@@ -138,6 +156,53 @@
         </tbody>
       </table>
     </div>
+  </div>
+
+  {{-- ================= MOBILE (CARD LIST) ================= --}}
+  <div class="d-md-none">
+    @forelse(($isPaginator ? $daftar : collect($daftar)) as $i => $r)
+      @php
+        $jumlahHadir = \DB::table('absensi')
+            ->where('id_rapat', $r->id)
+            ->where('status', 'hadir')
+            ->count();
+      @endphp
+      <div class="nl-card">
+        <div class="card-body">
+          <div class="nl-head">
+            <div class="flex-fill">
+              <div class="nl-title">{{ $r->judul }}</div>
+              <div class="nl-sub">
+                No: {{ $r->nomor_undangan ?? '—' }} • {{ $r->nama_kategori ?? '-' }}
+              </div>
+            </div>
+          </div>
+
+          <div class="nl-row">
+            <span>{{ \Carbon\Carbon::parse($r->tanggal)->translatedFormat('d M Y') }}</span>
+            <span class="dot">•</span>
+            <span>{{ $r->waktu_mulai }}</span>
+          </div>
+          <div class="nl-loc">
+            <i class="fas fa-map-marker-alt mr-1"></i>{{ $r->tempat }}
+          </div>
+
+          <div class="nl-row" style="margin-top:6px;">
+            <span class="nl-badge">
+              <i class="fas fa-user-check"></i> {{ $jumlahHadir }} hadir
+            </span>
+          </div>
+
+          <div class="nl-actions">
+            <a href="{{ route('notulensi.create', $r->id) }}" class="btn-icon btn-amber" title="Buat Notulen">
+              <i class="fas fa-plus"></i>
+            </a>
+          </div>
+        </div>
+      </div>
+    @empty
+      <div class="text-center text-muted p-3">Semua rapat sudah memiliki notulensi.</div>
+    @endforelse
   </div>
 
   {{-- PAGINATION di luar card --}}

@@ -69,39 +69,6 @@
     </div>
   @endif
 
-  {{-- Rangkuman pembahasan (khusus notulensi) --}}
-  @if($req->doc_type === 'notulensi' && isset($detail) && count($detail))
-    <div class="sheet mb-3">
-      <div class="sheet-head">Rangkuman Pembahasan</div>
-      <div class="sheet-body">
-        <table class="table table-bordered table-sm mb-0 tight">
-          <thead class="text-center">
-            <tr>
-              <th style="width:4%">No</th>
-              <th>Hasil Pembahasan</th>
-              <th style="width:26%">Rekomendasi</th>
-              <th style="width:20%">Penanggung Jawab</th>
-              <th style="width:14%">Tgl. Penyelesaian</th>
-            </tr>
-          </thead>
-          <tbody>
-            @foreach($detail as $i => $d)
-              <tr>
-                <td class="text-center">{{ $i+1 }}</td>
-                <td>{!! $d->hasil_pembahasan !!}</td>
-                <td>{!! $d->rekomendasi !!}</td>
-                <td>{{ $d->pj_text ?? '-' }}</td>
-                <td class="text-center">
-                  {{ $d->tgl_penyelesaian ? \Carbon\Carbon::parse($d->tgl_penyelesaian)->translatedFormat('d F Y') : '-' }}
-                </td>
-              </tr>
-            @endforeach
-          </tbody>
-        </table>
-      </div>
-    </div>
-  @endif
-
   {{-- ==== PREVIEW DOKUMEN (PDF) ==== --}}
   <div class="sheet mb-3">
     <div class="sheet-head d-flex align-items-center">

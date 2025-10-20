@@ -29,6 +29,37 @@
 
   .status-badge-wrap{ margin-top:6px; min-height:24px; }
   .status-badge{ font-weight:700; font-size:.8rem; padding:4px 10px; border-radius:12px; }
+
+  /* ===== Mobile cards ===== */
+  .m-wrap{padding:10px}
+  .m-card{
+    background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.02));
+    border:1px solid rgba(226,232,240,.15);
+    border-radius:12px;
+    color:var(--text);
+    padding:12px;
+    margin-bottom:10px;
+  }
+  .m-title{font-weight:800; color:#fff; line-height:1.25}
+  .m-sub{color:#9fb0cd; font-size:.85rem}
+  .m-meta{display:flex; flex-wrap:wrap; gap:8px; margin-top:6px}
+  .mchip{
+    display:inline-flex; align-items:center; gap:.3rem;
+    padding:.18rem .5rem; border-radius:999px; font-size:.72rem; font-weight:800;
+    background:rgba(79,70,229,.22); border:1px solid rgba(79,70,229,.35); color:#fff;
+  }
+  .mchip.info{ background:rgba(14,165,233,.22); border-color:rgba(14,165,233,.35) }
+  .mchip.warn{ background:rgba(245,158,11,.2); border-color:rgba(245,158,11,.35) }
+  .mchip.ok{ background:rgba(34,197,94,.22); border-color:rgba(34,197,94,.35) }
+  .m-actions{display:flex; flex-wrap:wrap; gap:8px; margin-top:10px}
+  .btn-pill{
+    display:inline-flex; align-items:center; gap:6px;
+    border:1px solid rgba(255,255,255,.18);
+    padding:.38rem .65rem; border-radius:10px; font-size:.86rem; color:#fff; text-decoration:none;
+    background:rgba(255,255,255,.06);
+  }
+  .btn-pill.primary{ background:linear-gradient(180deg,var(--primary),var(--primary-700)); border-color:transparent; }
+  .m-select{min-width:150px}
 </style>
 @endpush
 
@@ -74,8 +105,8 @@
         </div>
       </form>
 
-      {{-- Tabel --}}
-      <div class="table-responsive">
+      {{-- ===== Desktop Table ===== --}}
+      <div class="table-responsive d-none d-md-block">
         <table class="table table-mini table-hover mb-0">
           <thead>
             <tr>
@@ -112,20 +143,15 @@
                 <td class="text-center">
                   <form class="frm-update-status d-inline" method="POST" action="{{ route('peserta.tugas.update', $t->id) }}">
                     @csrf @method('PUT')
-
-                    {{-- dropdown status bersih --}}
                     <select name="status" class="form-control form-control-sm sel-status" style="min-width:150px;">
                       <option value="pending" {{ $t->status === 'pending' ? 'selected' : '' }}>Pending</option>
                       <option value="done" {{ $t->status === 'done' ? 'selected' : '' }}>Selesai</option>
                     </select>
-
-                    {{-- badge info --}}
                     <div class="status-badge-wrap">
                       <span class="badge {{ $t->status === 'done' ? 'badge-success' : 'badge-secondary' }} status-badge">
                         {{ $t->status === 'done' ? 'Selesai' : 'Pending' }}
                       </span>
                     </div>
-
                     <button type="submit" class="btn btn-sm btn-primary mt-1 btn-submit-fallback">Update</button>
                   </form>
                 </td>
@@ -138,6 +164,58 @@
             @endforelse
           </tbody>
         </table>
+      </div>
+
+      {{-- ===== Mobile Cards ===== --}}
+      <div class="d-block d-md-none m-wrap">
+        @forelse($tugas as $t)
+          @php
+            $tglSelesai = $t->tgl_penyelesaian_surat ?? $t->tgl_penyelesaian;
+            $tglSelesaiCarbon = $tglSelesai ? \Carbon\Carbon::parse($tglSelesai) : null;
+          @endphp
+          <div class="m-card">
+            <div class="m-title">{{ $t->rapat_judul }}</div>
+            <div class="m-sub">
+              {{ \Carbon\Carbon::parse($t->rapat_tanggal)->isoFormat('ddd, D MMM Y') }}
+              • {{ $t->rapat_waktu_mulai }} WIT • {{ $t->rapat_tempat }}
+            </div>
+
+            <div class="mt-2">
+              <div class="font-weight-bold mb-1">Uraian</div>
+              <div class="text-light">{!! $t->hasil_pembahasan ?? '—' !!}</div>
+              @if(!empty($t->rekomendasi))
+                <div class="mt-1"><span class="mchip info">Rekomendasi</span></div>
+              @endif
+            </div>
+
+            <div class="m-meta">
+              <span class="mchip">Tenggat:
+                {{ $tglSelesaiCarbon ? $tglSelesaiCarbon->isoFormat('D MMM Y') : '—' }}
+              </span>
+            </div>
+
+            <div class="m-actions">
+              {{-- Status (AJAX) --}}
+              <form class="frm-update-status d-inline-flex align-items-center" method="POST" action="{{ route('peserta.tugas.update', $t->id) }}">
+                @csrf @method('PUT')
+                <select name="status" class="form-control form-control-sm sel-status m-select">
+                  <option value="pending" {{ $t->status === 'pending' ? 'selected' : '' }}>Pending</option>
+                  <option value="done" {{ $t->status === 'done' ? 'selected' : '' }}>Selesai</option>
+                </select>
+                <button type="submit" class="btn btn-sm btn-primary ml-2 btn-submit-fallback">Update</button>
+                <span class="ml-2 badge {{ $t->status === 'done' ? 'badge-success' : 'badge-secondary' }} status-badge">
+                  {{ $t->status === 'done' ? 'Selesai' : 'Pending' }}
+                </span>
+              </form>
+
+              <a href="{{ route('peserta.rapat.show', $t->id_rapat) }}" class="btn-pill primary">
+                <i class="fas fa-eye"></i> Detail
+              </a>
+            </div>
+          </div>
+        @empty
+          <div class="text-center text-muted">Belum ada tugas.</div>
+        @endforelse
       </div>
     </div>
 
@@ -174,8 +252,13 @@ document.addEventListener('DOMContentLoaded', function(){
         },
         body: new URLSearchParams([...formData, ['_method','PUT']])
       })
-      .then(r => r.ok ? r.json() : Promise.reject())
-      .then(res => console.log(res.message || 'Status tugas diperbarui'))
+      .then(async r => {
+        const ct = r.headers.get('content-type') || '';
+        if (!ct.includes('application/json')) { frm.submit(); return; }
+        const res = await r.json();
+        if (!r.ok) throw res;
+        console.log(res.message || 'Status tugas diperbarui');
+      })
       .catch(() => frm.submit());
     });
   });

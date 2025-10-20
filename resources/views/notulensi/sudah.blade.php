@@ -28,6 +28,33 @@
   .mini th { background: rgba(148,163,184,.12); }
   .nowrap { white-space: nowrap; }
   .w-notes { max-width: 360px; }
+
+  /* ===== Mobile cards ===== */
+  .nl-card{
+    border:1px solid var(--border);
+    border-radius:14px;
+    background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.02));
+    box-shadow:var(--shadow); color:var(--text);
+    margin-bottom:12px;
+  }
+  .nl-card .card-body{ padding:14px 16px; }
+  .nl-title{ font-weight:800; line-height:1.25; }
+  .nl-sub{ font-size:.8rem; color:var(--muted); }
+  .nl-row{ display:flex; flex-wrap:wrap; gap:.45rem .7rem; margin-top:6px; font-size:.9rem; }
+  .nl-row .dot{ opacity:.5 }
+  .nl-loc{ color:var(--muted); font-size:.88rem; margin-top:4px; }
+  .nl-badges{ display:flex; flex-wrap:wrap; gap:.35rem; margin-top:8px; }
+  .chip{
+    display:inline-flex; align-items:center; gap:.35rem;
+    background:rgba(255,255,255,.08);
+    border:1px solid rgba(255,255,255,.18);
+    border-radius:999px; padding:.18rem .5rem;
+    font-weight:800; font-size:.78rem;
+  }
+  .chip.success{ background:rgba(34,197,94,.18) }
+  .chip.warn{ background:rgba(245,158,11,.18) }
+  .chip.danger{ background:rgba(239,68,68,.18) }
+  .nl-actions{ display:flex; gap:6px; margin-top:10px; }
 </style>
 @endsection
 
@@ -85,8 +112,8 @@
     </div>
   </form>
 
-  {{-- DATA --}}
-  <div class="card">
+  {{-- ================= DESKTOP (TABLE) ================= --}}
+  <div class="card d-none d-md-block">
     <div class="card-body p-0">
       <table class="table table-sm mb-0">
         <thead>
@@ -125,26 +152,18 @@
 
             <tr>
               <td class="text-center">{{ $startNumber + $i }}</td>
-
-              {{-- Nomor undangan rata kiri --}}
               <td>{{ $r->nomor_undangan ?? '—' }}</td>
-
-              {{-- Judul + Kategori --}}
               <td>
                 <strong>{{ $r->judul }}</strong>
                 <div class="text-muted" style="font-size:12px;">
                   {{ $r->nama_kategori ?? '-' }}
                 </div>
               </td>
-
-              {{-- Tanggal & Tempat --}}
               <td>
                 {{ \Carbon\Carbon::parse($r->tanggal)->translatedFormat('l, d F Y') }}
                 <div class="text-muted" style="font-size:12px;">{{ $r->waktu_mulai }}</div>
                 <div class="text-muted" style="font-size:13px;"><i class="fas fa-map-marker-alt mr-1"></i>{{ $r->tempat }}</div>
               </td>
-
-              {{-- Jumlah Hadir --}}
               <td class="text-center">
                 {{ $jumlahHadir }} <span class="text-muted" style="font-size:12px">Orang</span>
               </td>
@@ -156,7 +175,7 @@
                   Cek Status
                 </button>
 
-                {{-- Pop-up modal --}}
+                {{-- Modal --}}
                 <div class="modal fade" id="{{ $modalId }}" tabindex="-1" role="dialog" aria-hidden="true">
                   <div class="modal-dialog modal-lg" role="document">
                     <div class="modal-content modal-solid">
@@ -276,6 +295,178 @@
         </tbody>
       </table>
     </div>
+  </div>
+
+  {{-- ================= MOBILE (CARD LIST) ================= --}}
+  <div class="d-md-none">
+    @forelse(($isPaginator ? $daftar : collect($daftar)) as $i => $r)
+      @php
+        $jumlahHadir = \DB::table('absensi')
+            ->where('id_rapat', $r->id)
+            ->where('status', 'hadir')
+            ->count();
+
+        $notulensiSteps = \DB::table('approval_requests as ar')
+            ->leftJoin('users as u','u.id','=','ar.approver_user_id')
+            ->select('ar.order_index','ar.status','ar.signed_at','ar.rejected_at','ar.rejection_note','u.name')
+            ->where('ar.rapat_id',$r->id)
+            ->where('ar.doc_type','notulensi')
+            ->orderBy('ar.order_index')
+            ->get();
+
+        $hasSteps=$notulensiSteps->count()>0;
+        $hasReject=$notulensiSteps->contains(fn($s)=>$s->status==='rejected');
+        $allApproved=$hasSteps && $notulensiSteps->every(fn($s)=>$s->status==='approved');
+        $overall=$hasReject?'rejected':($allApproved?'approved':'pending');
+        $modalId='apprNotulensi-mob-'.$r->id;
+      @endphp
+
+      <div class="nl-card">
+        <div class="card-body">
+          <div class="nl-title">{{ $r->judul }}</div>
+          <div class="nl-sub">
+            No: {{ $r->nomor_undangan ?? '—' }} • {{ $r->nama_kategori ?? '-' }}
+          </div>
+
+          <div class="nl-row">
+            <span>{{ \Carbon\Carbon::parse($r->tanggal)->translatedFormat('d M Y') }}</span>
+            <span class="dot">•</span>
+            <span>{{ $r->waktu_mulai }}</span>
+          </div>
+          <div class="nl-loc">
+            <i class="fas fa-map-marker-alt mr-1"></i>{{ $r->tempat }}
+          </div>
+
+          <div class="nl-badges">
+            <span class="chip"><i class="fas fa-user-check"></i> {{ $jumlahHadir }} hadir</span>
+            <span class="chip {{ $overall==='approved'?'success':($overall==='rejected'?'danger':'warn') }}">
+              @if($overall==='approved') Disetujui
+              @elseif($overall==='rejected') Ditolak
+              @else Pending
+              @endif
+            </span>
+          </div>
+
+          <div class="nl-actions">
+            {{-- Status modal --}}
+            <button type="button" class="btn btn-sm badge {{ $popBadgeClass($overall) }}"
+                    data-toggle="modal" data-target="#{{ $modalId }}">
+              Status
+            </button>
+
+            <a href="{{ route('notulensi.show', $r->id_notulensi) }}" class="btn-icon btn-teal" title="Lihat Notulen">
+              <i class="fas fa-eye"></i>
+            </a>
+            <a href="{{ route('notulensi.edit', $r->id_notulensi) }}" class="btn-icon btn-indigo" title="Edit Notulen">
+              <i class="fas fa-edit"></i>
+            </a>
+            @if(Route::has('notulensi.cetak.gabung'))
+            <a href="{{ route('notulensi.cetak.gabung', $r->id_notulensi) }}" target="_blank" class="btn-icon btn-purple" title="Cetak Gabung (PDF)">
+              <i class="fas fa-file-pdf"></i>
+            </a>
+            @endif
+          </div>
+        </div>
+      </div>
+
+      {{-- Modal mobile (reuse konten yang sama) --}}
+      <div class="modal fade" id="{{ $modalId }}" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal-dialog modal-lg" role="document">
+          <div class="modal-content modal-solid">
+            <div class="modal-header">
+              <h5 class="modal-title">Status Approval Notulensi</h5>
+              <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+            </div>
+            <div class="modal-body">
+              <div class="mb-3">
+                <span class="badge {{ $popBadgeClass($overall) }}">
+                  {{ $overall==='approved'?'Semua Disetujui':($overall==='rejected'?'Ada Penolakan':'Menunggu/Pending') }}
+                </span>
+              </div>
+
+              <div class="mb-2">
+                <div class="text-muted mb-1">Ringkasan</div>
+                @if($notulensiSteps->count())
+                  @foreach($notulensiSteps as $st)
+                    <span class="{{ $stepClass($st->status) }}" title="{{ $st->name ?? 'Approver' }} • Step {{ $st->order_index }}">
+                      <b>{{ $stepIcon($st->status) }}</b> Step {{ $st->order_index }}
+                    </span>
+                  @endforeach
+                @else
+                  <div class="muted">Belum ada konfigurasi approval notulensi.</div>
+                @endif
+              </div>
+              <hr>
+
+              <h6 class="mb-2">Rincian</h6>
+              @if($notulensiSteps->count())
+                <div class="table-responsive">
+                  <table class="table table-sm mini">
+                    <thead>
+                      <tr>
+                        <th>Step</th>
+                        <th>Approver</th>
+                        <th>Status</th>
+                        <th>Waktu</th>
+                        <th>Catatan Penolakan</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @foreach($notulensiSteps as $st)
+                        <tr>
+                          <td>#{{ $st->order_index }}</td>
+                          <td>{{ $st->name ?? 'Approver' }}</td>
+                          <td>
+                            @if($st->status==='approved')
+                              <span class="badge badge-success">Approved</span>
+                            @elseif($st->status==='rejected')
+                              <span class="badge badge-danger">Rejected</span>
+                            @elseif($st->status==='blocked')
+                              <span class="badge badge-secondary">Blocked</span>
+                            @else
+                              <span class="badge badge-warning">Pending</span>
+                            @endif
+                          </td>
+                          <td>
+                            @if($st->status==='approved' && $st->signed_at)
+                              {{ \Carbon\Carbon::parse($st->signed_at)->translatedFormat('d M Y H:i') }}
+                            @elseif($st->status==='rejected' && $st->rejected_at)
+                              {{ \Carbon\Carbon::parse($st->rejected_at)->translatedFormat('d M Y H:i') }}
+                            @else
+                              —
+                            @endif
+                          </td>
+                          <td>
+                            @if($st->status==='rejected' && $st->rejection_note)
+                              {{ $st->rejection_note }}
+                            @else
+                              <span class="muted">—</span>
+                            @endif
+                          </td>
+                        </tr>
+                      @endforeach
+                    </tbody>
+                  </table>
+                </div>
+              @else
+                <div class="muted">Belum ada konfigurasi approval notulensi.</div>
+              @endif
+            </div>
+            @php $hasRejectNot = $notulensiSteps->contains(fn($s)=>$s->status==='rejected'); @endphp
+            <div class="modal-footer">
+              @if($hasRejectNot && !empty($r->id_notulensi))
+                <a href="{{ route('notulensi.edit', $r->id_notulensi) }}" class="btn btn-danger btn-sm">
+                  <i class="fas fa-tools mr-1"></i> Perbaiki
+                </a>
+              @endif
+              <button class="btn btn-outline-light btn-sm" data-dismiss="modal">Tutup</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    @empty
+      <div class="text-center text-muted p-3">Belum ada notulen yang dibuat.</div>
+    @endforelse
   </div>
 
   @if($isPaginator)

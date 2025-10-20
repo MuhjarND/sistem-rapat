@@ -22,6 +22,38 @@
   .chip.info{background:#0ea5e9;color:#fff}
 
   @media (min-width: 992px){ .gutter-tight>[class^="col-"]{padding-left:10px;padding-right:10px} }
+
+  /* ====== MOBILE TABLE → CARD ====== */
+  @media (max-width: 575.98px){
+    .table-mini thead{ display:none; }
+    .table-mini tbody tr{
+      display:block;
+      border:1px solid var(--border);
+      border-radius:12px;
+      background:rgba(255,255,255,.02);
+      margin:10px 12px;
+      overflow:hidden;
+    }
+    .table-mini tbody td{
+      display:block;
+      width:100%;
+      border:0!important;
+      border-bottom:1px solid var(--border)!important;
+      padding:.7rem .9rem !important;
+      text-align:left !important;
+    }
+    .table-mini tbody td:last-child{ border-bottom:0!important; }
+    .table-mini tbody td[data-label]::before{
+      content: attr(data-label);
+      display:block;
+      font-size:.72rem;
+      font-weight:800;
+      letter-spacing:.2px;
+      color:#9fb0cd;
+      text-transform:uppercase;
+      margin-bottom:6px;
+    }
+  }
 </style>
 @endpush
 
@@ -104,11 +136,11 @@
             <tbody>
               @forelse($pending as $r)
                 <tr>
-                  <td>{{ $r->judul }}</td>
-                  <td class="text-center">{{ \Carbon\Carbon::parse($r->tanggal)->isoFormat('D MMM Y') }}</td>
-                  <td class="text-center">{{ $r->waktu_mulai }}</td>
-                  <td>{{ $r->tempat }}</td>
-                  <td class="text-center"><span class="chip warn"><i class="fas fa-exclamation-circle"></i> Belum</span></td>
+                  <td data-label="Judul">{{ $r->judul }}</td>
+                  <td class="text-center" data-label="Tanggal">{{ \Carbon\Carbon::parse($r->tanggal)->isoFormat('D MMM Y') }}</td>
+                  <td class="text-center" data-label="Waktu">{{ $r->waktu_mulai }}</td>
+                  <td data-label="Tempat">{{ $r->tempat }}</td>
+                  <td class="text-center" data-label="Status"><span class="chip warn"><i class="fas fa-exclamation-circle"></i> Belum</span></td>
                 </tr>
               @empty
                 <tr><td colspan="5" class="text-center text-muted p-3">Semua rapat sudah memiliki notulensi. 🎉</td></tr>
@@ -139,11 +171,11 @@
             <tbody>
               @forelse($selesai as $r)
                 <tr>
-                  <td>{{ $r->judul }}</td>
-                  <td class="text-center">{{ \Carbon\Carbon::parse($r->tanggal)->isoFormat('D MMM Y') }}</td>
-                  <td class="text-center">{{ $r->waktu_mulai }}</td>
-                  <td>{{ $r->tempat }}</td>
-                  <td class="text-center"><span class="chip good"><i class="fas fa-check"></i> Ada</span></td>
+                  <td data-label="Judul">{{ $r->judul }}</td>
+                  <td class="text-center" data-label="Tanggal">{{ \Carbon\Carbon::parse($r->tanggal)->isoFormat('D MMM Y') }}</td>
+                  <td class="text-center" data-label="Waktu">{{ $r->waktu_mulai }}</td>
+                  <td data-label="Tempat">{{ $r->tempat }}</td>
+                  <td class="text-center" data-label="Status"><span class="chip good"><i class="fas fa-check"></i> Ada</span></td>
                 </tr>
               @empty
                 <tr><td colspan="5" class="text-center text-muted p-3">Belum ada notulensi tercatat.</td></tr>

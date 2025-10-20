@@ -35,6 +35,37 @@
   .dot-absensi{background:rgba(245,158,11,.9)}
 
   .card h6{margin:0}
+
+  /* ===== Mobile cards (sm-) ===== */
+  .ap-card{
+    background:linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.02));
+    border:1px solid rgba(226,232,240,.15);
+    border-radius:12px;
+    padding:12px 12px;
+    margin-bottom:10px;
+    color:var(--text);
+  }
+  .ap-title{font-weight:800; line-height:1.25; font-size:1.02rem; color:#fff}
+  .ap-sub{font-size:.82rem; color:#9fb0cd}
+  .ap-meta{display:flex; flex-wrap:wrap; gap:8px; font-size:.8rem; color:#c7d2fe}
+  .mchip{
+    display:inline-flex; align-items:center; gap:.35rem;
+    padding:.18rem .5rem; border-radius:999px; font-size:.72rem; font-weight:800;
+    background:rgba(79,70,229,.25); border:1px solid rgba(79,70,229,.35); color:#fff;
+  }
+  .mchip.warn{ background:rgba(245,158,11,.2); border-color:rgba(245,158,11,.35) }
+  .mchip.info{ background:rgba(14,165,233,.25); border-color:rgba(14,165,233,.35) }
+  .mchip.success{ background:rgba(34,197,94,.22); border-color:rgba(34,197,94,.35) }
+  .btn-pill{
+    display:inline-flex; align-items:center; gap:6px;
+    border:1px solid rgba(255,255,255,.18);
+    padding:.38rem .65rem; border-radius:10px; font-size:.86rem; color:#fff; text-decoration:none;
+    background:rgba(255,255,255,.06);
+  }
+  .btn-pill.approve{
+    background:linear-gradient(180deg,#22c55e,#16a34a);
+    border-color:rgba(34,197,94,.35);
+  }
 </style>
 @endsection
 
@@ -80,7 +111,7 @@
       <div class="kpi-card">
         <div class="label">Total Dokumen Disetujui</div>
         <div class="value">{{ $metrics['docs_approved_total'] }}</div>
-        <div class="kpi-foot">
+        <div class="kpi-foot" style="gap:.35rem .5rem;flex-wrap:wrap">
           <span class="doc-badge doc-undangan">U: {{ $metrics['by_type']['undangan'] }}</span>
           <span class="doc-badge doc-notulensi">N: {{ $metrics['by_type']['notulensi'] }}</span>
           <span class="doc-badge doc-absensi">A: {{ $metrics['by_type']['absensi'] }}</span>
@@ -89,7 +120,7 @@
     </div>
   </div>
 
-  {{-- ===== Pending per Jenis (modern) ===== --}}
+  {{-- ===== Pending per Jenis ===== --}}
   <div class="card mb-3">
     <div class="card-header d-flex align-items-center justify-content-between">
       <h6>Pending per Jenis Dokumen</h6>
@@ -126,8 +157,9 @@
     </div>
   </div>
 
-  {{-- ===== BUTUH TINDAKAN ANDA (tanggal+tempat disatukan) ===== --}}
-  <div class="card mb-3">
+  {{-- ===== Butuh Tindakan Anda (OPEN) ===== --}}
+  {{-- Desktop table --}}
+  <div class="card mb-3 d-none d-md-block">
     <div class="card-header"><b>Butuh Tindakan Anda (Siap Ditandatangani)</b></div>
     <div class="card-body p-0">
       <div class="table-responsive">
@@ -169,9 +201,34 @@
       </div>
     </div>
   </div>
+  {{-- Mobile cards --}}
+  <div class="d-block d-md-none mb-3">
+    <div class="mb-2 font-weight-bold">Butuh Tindakan Anda (Siap Ditandatangani)</div>
+    @forelse($pendingOpen as $r)
+      <div class="ap-card">
+        <div class="d-flex justify-content-between align-items-start mb-1">
+          <div class="ap-title">{{ $r->judul }}</div>
+          <span class="doc-badge {{ $r->doc_type==='undangan'?'doc-undangan':($r->doc_type==='notulensi'?'doc-notulensi':'doc-absensi') }}">{{ ucfirst($r->doc_type) }}</span>
+        </div>
+        <div class="ap-sub">No: {{ $r->nomor_undangan ?? '-' }}</div>
+        <div class="ap-meta mt-1">
+          <span class="mchip info">{{ \Carbon\Carbon::parse($r->tanggal)->translatedFormat('d M Y') }} • {{ $r->waktu_mulai }}</span>
+          <span class="mchip">{{ $r->tempat }}</span>
+        </div>
+        <div class="mt-2">
+          <a href="{{ route('approval.sign', $r->sign_token) }}" class="btn-pill approve">
+            <i class="fas fa-pen-nib"></i> Tanda Tangani
+          </a>
+        </div>
+      </div>
+    @empty
+      <div class="text-muted text-center">Tidak ada yang perlu ditandatangani saat ini.</div>
+    @endforelse
+  </div>
 
-  {{-- ===== MENUNGGU TAHAP SEBELUMNYA (tanggal+tempat disatukan) ===== --}}
-  <div class="card mb-3">
+  {{-- ===== Menunggu Tahap Sebelumnya (BLOCKED) ===== --}}
+  {{-- Desktop table --}}
+  <div class="card mb-3 d-none d-md-block">
     <div class="card-header"><b>Menunggu Tahap Sebelumnya</b></div>
     <div class="card-body p-0">
       <div class="table-responsive">
@@ -207,9 +264,30 @@
       </div>
     </div>
   </div>
+  {{-- Mobile cards --}}
+  <div class="d-block d-md-none mb-3">
+    <div class="mb-2 font-weight-bold">Menunggu Tahap Sebelumnya</div>
+    @forelse($pendingBlocked as $r)
+      <div class="ap-card">
+        <div class="d-flex justify-content-between align-items-start mb-1">
+          <div class="ap-title">{{ $r->judul }}</div>
+          <span class="doc-badge {{ $r->doc_type==='undangan'?'doc-undangan':($r->doc_type==='notulensi'?'doc-notulensi':'doc-absensi') }}">{{ ucfirst($r->doc_type) }}</span>
+        </div>
+        <div class="ap-sub">No: {{ $r->nomor_undangan ?? '-' }}</div>
+        <div class="ap-meta mt-1">
+          <span class="mchip info">{{ \Carbon\Carbon::parse($r->tanggal)->translatedFormat('d M Y') }} • {{ $r->waktu_mulai }}</span>
+          <span class="mchip">{{ $r->tempat }}</span>
+          <span class="mchip warn">Menunggu approver sebelumnya</span>
+        </div>
+      </div>
+    @empty
+      <div class="text-muted text-center">Tidak ada yang tertahan.</div>
+    @endforelse
+  </div>
 
-  {{-- ===== RIWAYAT APPROVED (tanggal+tempat disatukan, tanpa kolom step) ===== --}}
-  <div class="card">
+  {{-- ===== Riwayat Approved (30 hari) ===== --}}
+  {{-- Desktop table --}}
+  <div class="card d-none d-md-block">
     <div class="card-header"><b>Riwayat Persetujuan (30 Hari Terakhir)</b></div>
     <div class="card-body p-0">
       <div class="table-responsive">
@@ -243,6 +321,25 @@
         </table>
       </div>
     </div>
+  </div>
+  {{-- Mobile cards --}}
+  <div class="d-block d-md-none">
+    <div class="mb-2 font-weight-bold">Riwayat Persetujuan (30 Hari Terakhir)</div>
+    @forelse($recentApproved as $r)
+      <div class="ap-card">
+        <div class="d-flex justify-content-between align-items-start mb-1">
+          <div class="ap-title">{{ $r->judul }}</div>
+          <span class="doc-badge {{ $r->doc_type==='undangan'?'doc-undangan':($r->doc_type==='notulensi'?'doc-notulensi':'doc-absensi') }}">{{ ucfirst($r->doc_type) }}</span>
+        </div>
+        <div class="ap-sub">No: {{ $r->nomor_undangan ?? '-' }}</div>
+        <div class="ap-meta mt-1">
+          <span class="mchip">{{ \Carbon\Carbon::parse($r->tanggal)->translatedFormat('d M Y') }} — {{ $r->tempat }}</span>
+          <span class="mchip success">Approved: {{ \Carbon\Carbon::parse($r->signed_at)->translatedFormat('d M Y H:i') }}</span>
+        </div>
+      </div>
+    @empty
+      <div class="text-muted text-center">Belum ada riwayat.</div>
+    @endforelse
   </div>
 </div>
 @endsection

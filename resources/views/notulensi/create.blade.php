@@ -77,12 +77,28 @@
   }
   .select2-dropdown{background:#0f1533;color:#fff;border:1px solid var(--border)}
   .select2-results__option--highlighted{background:rgba(79,70,229,.45)!important}
+
+  /* ====== MOBILE TABLE TO CARD ====== */
+  @media (max-width: 575.98px){
+    #tabel-detail thead{ display:none; }
+    #tabel-detail tr{ display:block; border-bottom:1px solid var(--border); margin-bottom:10px; }
+    #tabel-detail td{ display:block; width:100%; border:none; padding:.5rem .75rem; }
+    #tabel-detail td[data-label]::before{
+      content: attr(data-label);
+      display:block; font-size:.72rem; font-weight:800; letter-spacing:.2px;
+      color:#9fb0cd; text-transform:uppercase; margin-bottom:6px;
+    }
+    #tabel-detail .no{
+      text-align:left !important; font-weight:800 !important; font-size:1rem;
+      padding-top:.75rem; padding-bottom:.25rem;
+    }
+    #tabel-detail .btn{ width:100%; }
+  }
 </style>
 @endsection
 
 @section('content')
 @php
-  // Ambil Approval 1 (opsional jika controller belum mengirim)
   $approval1 = \DB::table('users')
       ->where('id', $rapat->approval1_user_id ?? 0)
       ->select('name','jabatan','unit')
@@ -185,20 +201,29 @@
             </thead>
             <tbody>
               <tr>
-                <td class="no">1</td>
-                <td><textarea name="baris[0][hasil_pembahasan]" class="form-control rich required-rich"></textarea></td>
-                <td><textarea name="baris[0][rekomendasi]" class="form-control rich"></textarea></td>
+                <td class="no" data-label="No">1</td>
+
+                <td data-label="Hasil / Rangkaian">
+                  <textarea name="baris[0][hasil_pembahasan]" class="form-control rich required-rich"></textarea>
+                </td>
+
+                <td data-label="Rekomendasi">
+                  <textarea name="baris[0][rekomendasi]" class="form-control rich"></textarea>
+                </td>
 
                 {{-- TAG USER (Select2 multiple AJAX) + catatan opsional --}}
-                <td>
+                <td data-label="Penanggung Jawab">
                   <select name="baris[0][pj_ids][]" class="form-control js-user-tags" multiple
                           data-placeholder="Pilih penanggung jawab"></select>
                   <input type="text" name="baris[0][penanggung_jawab]" class="form-control mt-1"
                          placeholder="Catatan PJ (opsional)">
                 </td>
 
-                <td><input type="date" name="baris[0][tgl_penyelesaian]" class="form-control"></td>
-                <td class="text-center">
+                <td data-label="Tgl. Penyelesaian">
+                  <input type="date" name="baris[0][tgl_penyelesaian]" class="form-control">
+                </td>
+
+                <td class="text-center" data-label="Aksi">
                   <button type="button" class="btn btn-danger btn-sm" onclick="hapusBaris(this)">Hapus</button>
                 </td>
               </tr>
@@ -216,7 +241,7 @@
     <div class="card mt-3">
       <div class="card-header"><b>Dokumentasi Kegiatan <span class="text-danger">(minimal 3 foto)</span></b></div>
       <div class="card-body">
-        <input type="file" name="dokumentasi[]" class="form-control mb-2" accept="image/*" multiple required>
+        <input id="dokFiles" type="file" name="dokumentasi[]" class="form-control mb-2" accept="image/*" multiple required>
         <small class="text-muted">Upload minimal 3 foto, maksimal 10MB per file.</small>
         @error('dokumentasi') <div class="text-danger mt-1">{{ $message }}</div> @enderror
       </div>
@@ -346,29 +371,29 @@
     (data.rows||[]).forEach((r,i)=>{
       const tr=document.createElement('tr');
       tr.innerHTML=`
-        <td class="no"></td>
-        <td><textarea name="baris[${i}][hasil_pembahasan]" class="form-control rich required-rich"></textarea></td>
-        <td><textarea name="baris[${i}][rekomendasi]" class="form-control rich"></textarea></td>
-        <td>
+        <td class="no" data-label="No"></td>
+        <td data-label="Hasil / Rangkaian"><textarea name="baris[${i}][hasil_pembahasan]" class="form-control rich required-rich"></textarea></td>
+        <td data-label="Rekomendasi"><textarea name="baris[${i}][rekomendasi]" class="form-control rich"></textarea></td>
+        <td data-label="Penanggung Jawab">
           <select name="baris[${i}][pj_ids][]" class="form-control js-user-tags" multiple data-placeholder="Pilih penanggung jawab"></select>
           <input type="text" name="baris[${i}][penanggung_jawab]" class="form-control mt-1" value="${escapeHtml(r.pjTxt||'')}" placeholder="Catatan PJ (opsional)">
         </td>
-        <td><input type="date" name="baris[${i}][tgl_penyelesaian]" class="form-control" value="${escapeHtml(r.tgl||'')}"></td>
-        <td class="text-center"><button type="button" class="btn btn-danger btn-sm" onclick="hapusBaris(this)">Hapus</button></td>`;
+        <td data-label="Tgl. Penyelesaian"><input type="date" name="baris[${i}][tgl_penyelesaian]" class="form-control" value="${escapeHtml(r.tgl||'')}"></td>
+        <td class="text-center" data-label="Aksi"><button type="button" class="btn btn-danger btn-sm" onclick="hapusBaris(this)">Hapus</button></td>`;
       tbody.appendChild(tr);
     });
     if(!(data.rows&&data.rows.length)){
       const tr=document.createElement('tr');
       tr.innerHTML=`
-        <td class="no">1</td>
-        <td><textarea name="baris[0][hasil_pembahasan]" class="form-control rich required-rich"></textarea></td>
-        <td><textarea name="baris[0][rekomendasi]" class="form-control rich"></textarea></td>
-        <td>
+        <td class="no" data-label="No">1</td>
+        <td data-label="Hasil / Rangkaian"><textarea name="baris[0][hasil_pembahasan]" class="form-control rich required-rich"></textarea></td>
+        <td data-label="Rekomendasi"><textarea name="baris[0][rekomendasi]" class="form-control rich"></textarea></td>
+        <td data-label="Penanggung Jawab">
           <select name="baris[0][pj_ids][]" class="form-control js-user-tags" multiple data-placeholder="Pilih penanggung jawab"></select>
           <input type="text" name="baris[0][penanggung_jawab]" class="form-control mt-1" placeholder="Catatan PJ (opsional)">
         </td>
-        <td><input type="date" name="baris[0][tgl_penyelesaian]" class="form-control"></td>
-        <td class="text-center"><button type="button" class="btn btn-danger btn-sm" onclick="hapusBaris(this)">Hapus</button></td>`;
+        <td data-label="Tgl. Penyelesaian"><input type="date" name="baris[0][tgl_penyelesaian]" class="form-control"></td>
+        <td class="text-center" data-label="Aksi"><button type="button" class="btn btn-danger btn-sm" onclick="hapusBaris(this)">Hapus</button></td>`;
       tbody.appendChild(tr);
     }
 
@@ -399,7 +424,8 @@
   function renumber(){
     const rows=document.querySelectorAll('#tabel-detail tbody tr');
     rows.forEach((tr,i)=>{
-      tr.querySelector('.no').textContent = i+1;
+      const noCell = tr.querySelector('.no');
+      if(noCell) noCell.textContent = i+1;
       tr.querySelectorAll('textarea,input,select').forEach(inp=>{
         if(!inp.name) return;
         inp.name = inp.name.replace(/baris\[\d+\]/, 'baris['+i+']');
@@ -412,15 +438,15 @@
     const tbody=document.querySelector('#tabel-detail tbody');
     const tr=document.createElement('tr');
     tr.innerHTML=`
-      <td class="no"></td>
-      <td><textarea name="baris[${idxBaris}][hasil_pembahasan]" class="form-control rich required-rich"></textarea></td>
-      <td><textarea name="baris[${idxBaris}][rekomendasi]" class="form-control rich"></textarea></td>
-      <td>
+      <td class="no" data-label="No"></td>
+      <td data-label="Hasil / Rangkaian"><textarea name="baris[${idxBaris}][hasil_pembahasan]" class="form-control rich required-rich"></textarea></td>
+      <td data-label="Rekomendasi"><textarea name="baris[${idxBaris}][rekomendasi]" class="form-control rich"></textarea></td>
+      <td data-label="Penanggung Jawab">
         <select name="baris[${idxBaris}][pj_ids][]" class="form-control js-user-tags" multiple data-placeholder="Pilih penanggung jawab"></select>
         <input type="text" name="baris[${idxBaris}][penanggung_jawab]" class="form-control mt-1" placeholder="Catatan PJ (opsional)">
       </td>
-      <td><input type="date" name="baris[${idxBaris}][tgl_penyelesaian]" class="form-control"></td>
-      <td class="text-center"><button type="button" class="btn btn-danger btn-sm" onclick="hapusBaris(this)">Hapus</button></td>`;
+      <td data-label="Tgl. Penyelesaian"><input type="date" name="baris[${idxBaris}][tgl_penyelesaian]" class="form-control"></td>
+      <td class="text-center" data-label="Aksi"><button type="button" class="btn btn-danger btn-sm" onclick="hapusBaris(this)">Hapus</button></td>`;
     tbody.appendChild(tr);
     Promise.all([initEditors(tr)]).then(()=>{ initUserTags(tr); });
     // autosave input biasa
@@ -440,7 +466,25 @@
     scheduleSave();
   }
 
-  // Submit: commit CK data & clear draft
+  // Validasi minimal 3 foto sebelum submit
+  function validatePhotos(){
+    const input = document.getElementById('dokFiles');
+    const files = input?.files || [];
+    if (files.length < 3){
+      alert('Mohon upload minimal 3 foto dokumentasi.');
+      return false;
+    }
+    // Opsional: validasi per file <= 10MB
+    for (let f of files){
+      if (f.size > 10 * 1024 * 1024){
+        alert('Ukuran tiap file maksimal 10MB.');
+        return false;
+      }
+    }
+    return true;
+  }
+
+  // Submit: commit CK data, validasi foto & clear draft
   document.getElementById('form-notulensi').addEventListener('submit',function(e){
     editors.forEach((ed,el)=>{ el.value=ed.getData(); });
     let invalid=false;
@@ -453,6 +497,7 @@
       alert('Mohon isi kolom "Hasil Monitoring & Evaluasi / Rangkaian Acara".');
       return false;
     }
+    if(!validatePhotos()){ e.preventDefault(); return false; }
     localStorage.removeItem(DRAFT_KEY);
   });
 

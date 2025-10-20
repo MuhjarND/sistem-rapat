@@ -27,6 +27,35 @@
   /* penanda item tugas */
   .tg-item{border-left:4px solid transparent;border-radius:10px}
   .tg-pending{border-left-color:#9ca3af}
+
+  /* ===== Mobile cards ===== */
+  .m-list{padding:10px}
+  .m-card{
+    background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.02));
+    border:1px solid rgba(226,232,240,.15);
+    border-radius:12px;
+    padding:12px 12px;
+    margin-bottom:10px;
+    color:var(--text);
+  }
+  .m-title{font-weight:800; line-height:1.25; font-size:1.02rem; color:#fff}
+  .m-sub{font-size:.82rem; color:#9fb0cd}
+  .m-meta{display:flex; flex-wrap:wrap; gap:8px; font-size:.8rem; color:#c7d2fe}
+  .mchip{
+    display:inline-flex; align-items:center; gap:.35rem;
+    padding:.18rem .5rem; border-radius:999px; font-size:.72rem; font-weight:800;
+    background:rgba(79,70,229,.25); border:1px solid rgba(79,70,229,.35); color:#fff;
+  }
+  .mchip.info{ background:rgba(14,165,233,.25); border-color:rgba(14,165,233,.35) }
+  .mchip.warn{ background:rgba(245,158,11,.2); border-color:rgba(245,158,11,.35) }
+  .mchip.ok{ background:rgba(34,197,94,.22); border-color:rgba(34,197,94,.35) }
+  .btn-pill{
+    display:inline-flex; align-items:center; gap:6px;
+    border:1px solid rgba(255,255,255,.18);
+    padding:.38rem .65rem; border-radius:10px; font-size:.86rem; color:#fff; text-decoration:none;
+    background:rgba(255,255,255,.06);
+  }
+  .btn-pill.primary{ background:linear-gradient(180deg,var(--primary),var(--primary-700)); border-color:transparent; }
 </style>
 @endpush
 
@@ -93,7 +122,7 @@
     </div>
   </div>
 
-    {{-- ====== (BARU) Daftar Tugas yang Harus Diselesaikan ====== --}}
+  {{-- ====== (BARU) Daftar Tugas yang Harus Diselesaikan ====== --}}
   @php
     $tugasPending = ($tugas_saya ?? collect())->filter(fn($t)=> ($t->status ?? 'pending') === 'pending');
     $pendingCount = $tugasPending->count();
@@ -204,7 +233,9 @@
     <div class="col-lg-6 mb-3">
       <div class="card dash-card h-100">
         <div class="card-header"><i class="far fa-calendar-alt mr-2"></i> Rapat Akan Datang (7 hari)</div>
-        <div class="card-body p-0">
+
+        {{-- Desktop table --}}
+        <div class="card-body p-0 d-none d-md-block">
           <table class="table table-mini table-hover mb-0">
             <thead>
               <tr>
@@ -230,13 +261,36 @@
             </tbody>
           </table>
         </div>
+
+        {{-- Mobile cards --}}
+        <div class="d-block d-md-none m-list">
+          @forelse($rapat_akan_datang as $r)
+            <div class="m-card">
+              <div class="m-title">{{ $r->judul }}</div>
+              <div class="m-meta mt-1">
+                <span class="mchip info">{{ \Carbon\Carbon::parse($r->tanggal)->format('d/m/Y') }} • {{ $r->waktu_mulai }}</span>
+                <span class="mchip">{{ $r->tempat }}</span>
+              </div>
+              <div class="mt-2">
+                <a href="{{ route('peserta.rapat.show', $r->id) }}" class="btn-pill primary">
+                  <i class="fas fa-eye"></i> Detail
+                </a>
+              </div>
+            </div>
+          @empty
+            <div class="text-muted text-center">Tidak ada jadwal dalam 7 hari.</div>
+          @endforelse
+        </div>
+
       </div>
     </div>
 
     <div class="col-lg-6 mb-3" id="notulensi">
       <div class="card dash-card h-100">
         <div class="card-header"><i class="fas fa-history mr-2"></i> Riwayat Rapat Terbaru</div>
-        <div class="card-body p-0">
+
+        {{-- Desktop table --}}
+        <div class="card-body p-0 d-none d-md-block">
           <table class="table table-mini table-hover mb-0">
             <thead>
               <tr>
@@ -271,6 +325,35 @@
             </tbody>
           </table>
         </div>
+
+        {{-- Mobile cards --}}
+        <div class="d-block d-md-none m-list">
+          @forelse($riwayat_rapat as $r)
+            <div class="m-card">
+              <div class="m-title">{{ $r->judul }}</div>
+              <div class="m-sub">{{ \Carbon\Carbon::parse($r->tanggal)->format('d/m/Y') }}</div>
+              <div class="m-meta mt-1">
+                @if($r->absensi_status)
+                  <span class="mchip ok">Absensi: {{ strtoupper($r->absensi_status) }}</span>
+                @else
+                  <a href="{{ $r->token_qr ? route('absensi.scan', $r->token_qr) : route('peserta.absensi', $r->id) }}"
+                     class="btn-pill">Konfirmasi Absensi</a>
+                @endif
+
+                @if((int)$r->ada_notulensi === 1)
+                  <a href="{{ route('peserta.notulensi.show', $r->id) }}" class="btn-pill">
+                    <i class="fas fa-file-alt"></i> Lihat Notulensi
+                  </a>
+                @else
+                  <span class="mchip warn">Notulensi: Belum ada</span>
+                @endif
+              </div>
+            </div>
+          @empty
+            <div class="text-muted text-center">Belum ada riwayat.</div>
+          @endforelse
+        </div>
+
       </div>
     </div>
   </div>

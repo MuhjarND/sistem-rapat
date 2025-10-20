@@ -16,33 +16,27 @@
     box-shadow: 0 0 0 .15rem rgba(79,70,229,.25);
     color: var(--text);
   }
-  .form-control[readonly]{
-    background: rgba(255,255,255,.08) !important;
-    color: var(--text) !important;
-    border-color: var(--border);
-  }
-  ::placeholder{ color: #9fb0cd !important; opacity:.75; }
+  .form-control[readonly]{ background: rgba(255,255,255,.08)!important; color:var(--text)!important; border-color:var(--border); }
+  ::placeholder{ color:#9fb0cd!important; opacity:.75; }
 
   /* ====== TABLE ====== */
   #tabel-detail thead th{
     background: linear-gradient(180deg, rgba(79,70,229,.22), rgba(14,165,233,.18));
     border-bottom: 1px solid var(--border);
-    font-weight: 700;
-    color: var(--text);
-    vertical-align: middle;
+    font-weight: 700; color: var(--text); vertical-align: middle;
   }
   #tabel-detail td, #tabel-detail th{ border-color: var(--border); }
   #tabel-detail .no{ text-align:center; font-weight:700; }
 
   /* ====== CKEditor DARK ====== */
-  .ck.ck-editor{ border-radius: 12px; border: 1px solid var(--border); background: #0f1533; box-shadow: var(--shadow); }
-  .ck.ck-editor .ck.ck-toolbar{ background: linear-gradient(180deg, rgba(17,24,39,.85), rgba(17,24,39,.65)); border-bottom: 1px solid var(--border); }
-  .ck.ck-editor .ck.ck-toolbar .ck-button{ color: var(--text); }
-  .ck.ck-editor .ck.ck-toolbar .ck-button:hover{ background: rgba(79,70,229,.18); color:#fff; border-radius: 8px; }
-  .ck.ck-editor__editable_inline{ background: #0d1330; color: var(--text); min-height: 160px; }
+  .ck.ck-editor{ border-radius:12px; border:1px solid var(--border); background:#0f1533; box-shadow:var(--shadow); }
+  .ck.ck-editor .ck.ck-toolbar{ background:linear-gradient(180deg, rgba(17,24,39,.85), rgba(17,24,39,.65)); border-bottom:1px solid var(--border); }
+  .ck.ck-editor .ck.ck-toolbar .ck-button{ color:var(--text); }
+  .ck.ck-editor .ck.ck-toolbar .ck-button:hover{ background:rgba(79,70,229,.18); color:#fff; border-radius:8px; }
+  .ck.ck-editor__editable_inline{ background:#0d1330; color:var(--text); min-height:160px; }
   .ck-content a{ color:#93c5fd; }
 
-  .btn-sm{ border-radius: 8px; padding:.25rem .55rem; font-weight:600; }
+  .btn-sm{ border-radius:8px; padding:.25rem .55rem; font-weight:600; }
 
   .panel-soft{
     background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
@@ -56,16 +50,43 @@
   .select2-container--default .select2-selection--multiple{
     background:rgba(255,255,255,.06);
     border:1px solid var(--border);
-    min-height:38px;
-    border-radius:10px
+    min-height:38px; border-radius:10px
   }
   .select2-container--default .select2-selection--multiple .select2-selection__choice{
-    background:rgba(79,70,229,.25);
-    border:1px solid rgba(79,70,229,.4);
-    color:#fff;border-radius:999px
+    background:rgba(79,70,229,.25); border:1px solid rgba(79,70,229,.4);
+    color:#fff; border-radius:999px
   }
-  .select2-dropdown{background:#0f1533;color:#fff;border:1px solid var(--border)}
-  .select2-results__option--highlighted{background:rgba(79,70,229,.45)!important}
+  .select2-dropdown{ background:#0f1533; color:#fff; border:1px solid var(--border) }
+  .select2-results__option--highlighted{ background:rgba(79,70,229,.45)!important }
+
+  /* ====== Mobile cards for detail table ====== */
+  @media (max-width: 575.98px){
+    #tabel-detail thead{ display:none; }
+    #tabel-detail tbody tr{
+      display:block; border:1px solid var(--border); border-radius:12px;
+      margin:10px 12px; overflow:hidden; background:rgba(255,255,255,.02);
+    }
+    #tabel-detail tbody td{
+      display:block; width:100%; border:0!important; border-bottom:1px solid var(--border)!important;
+      padding:.7rem .85rem;
+    }
+    #tabel-detail tbody td:last-child{ border-bottom:0!important; }
+    #tabel-detail tbody td[data-label]::before{
+      content: attr(data-label);
+      display:block; font-size:.72rem; font-weight:800; letter-spacing:.2px;
+      color:#9fb0cd; text-transform:uppercase; margin-bottom:6px;
+    }
+    /* angka "NO" tampil sebagai badge kecil */
+    #tabel-detail tbody td.no-badge{
+      text-align:left!important;
+    }
+    #tabel-detail tbody td.no-badge::before{ content:'No'; }
+    #tabel-detail tbody td.no-badge > span{
+      display:inline-block; min-width:28px; height:22px; padding:0 8px;
+      border-radius:999px; background:rgba(99,102,241,.3); font-weight:800; font-size:12px;
+      text-align:center; line-height:22px;
+    }
+  }
 </style>
 @endsection
 
@@ -118,19 +139,14 @@
           <label>Tempat</label>
           <input type="text" class="form-control" value="{{ $rapat->tempat }}" readonly>
         </div>
-
-        {{-- === Tambahan: Approval 1 === --}}
         <div class="form-group col-md-6">
           <label>Pemimpin Rapat</label>
           <input type="text" class="form-control" value="{{ $approval1_text }}" readonly>
         </div>
-
-        {{-- === Tambahan: Jumlah Peserta === --}}
         <div class="form-group col-md-6">
           <label>Jumlah Peserta</label>
           <input type="text" class="form-control" value="{{ $jumlah_peserta }} Orang" readonly>
         </div>
-
         <div class="form-group col-md-6">
           <label>Agenda Rapat</label>
           <input type="text" class="form-control" value="{{ $rapat->deskripsi ?: $rapat->judul }}" readonly>
@@ -170,54 +186,60 @@
               </tr>
             </thead>
             <tbody>
-            @php
-              $countDetail = count($detail);
-            @endphp
+            @php $countDetail = count($detail); @endphp
 
             @forelse($detail as $i => $row)
-              @php
-                // preload assignees untuk Select2
-                $initAssignees = $assigneesMap[$row->id] ?? []; // array of {id,text}
-              @endphp
+              @php $initAssignees = $assigneesMap[$row->id] ?? []; @endphp
               <tr>
-                <td class="no">{{ $loop->iteration }}</td>
-                <td>
+                {{-- NO --}}
+                <td class="no d-none d-sm-table-cell">{{ $loop->iteration }}</td>
+                <td class="no-badge d-sm-none"><span>{{ $loop->iteration }}</span></td>
+
+                {{-- HASIL --}}
+                <td data-label="Hasil / Rangkaian">
                   <textarea name="baris[{{ $i }}][hasil_pembahasan]" class="form-control rich required-rich">{!! $row->hasil_pembahasan !!}</textarea>
                 </td>
-                <td>
+
+                {{-- REKOMENDASI --}}
+                <td data-label="Rekomendasi">
                   <textarea name="baris[{{ $i }}][rekomendasi]" class="form-control rich">{!! $row->rekomendasi !!}</textarea>
                 </td>
-                <td>
-                  {{-- Select2 multiple + preload --}}
+
+                {{-- PJ --}}
+                <td data-label="Penanggung Jawab">
                   <select name="baris[{{ $i }}][pj_ids][]" class="form-control js-user-tags"
                           multiple data-placeholder="Pilih penanggung jawab"
                           data-initial='@json($initAssignees)'></select>
-
-                  {{-- Catatan/teks PJ opsional (tetap dipertahankan) --}}
                   <input type="text" name="baris[{{ $i }}][penanggung_jawab]"
                          class="form-control mt-1"
                          value="{{ $row->penanggung_jawab }}"
                          placeholder="Catatan PJ (opsional)">
                 </td>
-                <td>
+
+                {{-- TGL --}}
+                <td data-label="Tgl. Penyelesaian">
                   <input type="date" name="baris[{{ $i }}][tgl_penyelesaian]" class="form-control" value="{{ $row->tgl_penyelesaian }}">
                 </td>
-                <td class="text-center">
+
+                {{-- AKSI --}}
+                <td class="text-center" data-label="Aksi">
                   <button type="button" class="btn btn-danger btn-sm" onclick="hapusBaris(this)">Hapus</button>
                 </td>
               </tr>
             @empty
               @php $countDetail = 1; @endphp
               <tr>
-                <td class="no">1</td>
-                <td><textarea name="baris[0][hasil_pembahasan]" class="form-control rich required-rich"></textarea></td>
-                <td><textarea name="baris[0][rekomendasi]" class="form-control rich"></textarea></td>
-                <td>
+                <td class="no d-none d-sm-table-cell">1</td>
+                <td class="no-badge d-sm-none"><span>1</span></td>
+
+                <td data-label="Hasil / Rangkaian"><textarea name="baris[0][hasil_pembahasan]" class="form-control rich required-rich"></textarea></td>
+                <td data-label="Rekomendasi"><textarea name="baris[0][rekomendasi]" class="form-control rich"></textarea></td>
+                <td data-label="Penanggung Jawab">
                   <select name="baris[0][pj_ids][]" class="form-control js-user-tags" multiple data-placeholder="Pilih penanggung jawab"></select>
                   <input type="text" name="baris[0][penanggung_jawab]" class="form-control mt-1" placeholder="Catatan PJ (opsional)">
                 </td>
-                <td><input type="date" name="baris[0][tgl_penyelesaian]" class="form-control"></td>
-                <td class="text-center"><button type="button" class="btn btn-danger btn-sm" onclick="hapusBaris(this)">Hapus</button></td>
+                <td data-label="Tgl. Penyelesaian"><input type="date" name="baris[0][tgl_penyelesaian]" class="form-control"></td>
+                <td class="text-center" data-label="Aksi"><button type="button" class="btn btn-danger btn-sm" onclick="hapusBaris(this)">Hapus</button></td>
               </tr>
             @endforelse
             </tbody>
@@ -320,7 +342,7 @@
         }
       });
 
-      // Preload nilai awal dari data-initial (array of {id,text})
+      // preload dari data-initial
       const init = $el.data('initial') || [];
       if (Array.isArray(init) && init.length){
         init.forEach(function(opt){
@@ -337,11 +359,14 @@
   function renumber(){
     const rows = document.querySelectorAll('#tabel-detail tbody tr');
     rows.forEach((tr,i)=>{
-      tr.querySelector('.no').textContent = i+1;
+      const noCell = tr.querySelector('.no');
+      if(noCell) noCell.textContent = i+1;
       tr.querySelectorAll('textarea,input,select').forEach(inp=>{
         if(!inp.name) return;
         inp.name = inp.name.replace(/baris\[\d+\]/, 'baris['+i+']');
       });
+      const badge = tr.querySelector('.no-badge span');
+      if(badge) badge.textContent = i+1;
     });
     idxBaris = rows.length;
   }
@@ -350,15 +375,16 @@
     const tbody=document.querySelector('#tabel-detail tbody');
     const tr=document.createElement('tr');
     tr.innerHTML=`
-      <td class="no"></td>
-      <td><textarea name="baris[${idxBaris}][hasil_pembahasan]" class="form-control rich required-rich"></textarea></td>
-      <td><textarea name="baris[${idxBaris}][rekomendasi]" class="form-control rich"></textarea></td>
-      <td>
+      <td class="no d-none d-sm-table-cell"></td>
+      <td class="no-badge d-sm-none"><span></span></td>
+      <td data-label="Hasil / Rangkaian"><textarea name="baris[${idxBaris}][hasil_pembahasan]" class="form-control rich required-rich"></textarea></td>
+      <td data-label="Rekomendasi"><textarea name="baris[${idxBaris}][rekomendasi]" class="form-control rich"></textarea></td>
+      <td data-label="Penanggung Jawab">
         <select name="baris[${idxBaris}][pj_ids][]" class="form-control js-user-tags" multiple data-placeholder="Pilih penanggung jawab"></select>
         <input type="text" name="baris[${idxBaris}][penanggung_jawab]" class="form-control mt-1" placeholder="Catatan PJ (opsional)">
       </td>
-      <td><input type="date" name="baris[${idxBaris}][tgl_penyelesaian]" class="form-control"></td>
-      <td class="text-center"><button type="button" class="btn btn-danger btn-sm" onclick="hapusBaris(this)">Hapus</button></td>`;
+      <td data-label="Tgl. Penyelesaian"><input type="date" name="baris[${idxBaris}][tgl_penyelesaian]" class="form-control"></td>
+      <td class="text-center" data-label="Aksi"><button type="button" class="btn btn-danger btn-sm" onclick="hapusBaris(this)">Hapus</button></td>`;
     tbody.appendChild(tr);
     initEditors(tr);
     initUserTags(tr);
@@ -375,7 +401,6 @@
   // Submit: commit CKEditor data + validasi basic
   document.getElementById('form-notulensi').addEventListener('submit',function(e){
     editors.forEach((ed,el)=>{ el.value = ed.getData(); });
-
     let invalid=false;
     this.querySelectorAll('textarea.required-rich').forEach(el=>{
       const plain=(editors.get(el)?.getData()||'').replace(/<[^>]*>/g,'').trim();
