@@ -66,7 +66,7 @@
         td.td-aksi{white-space:nowrap;}
         .badge{font-weight:700}
 
-        .step-badge{display:inline-flex;align-items:center;gap:.35rem;border-radius:999px;padding:.2rem .55rem;font-size:.78rem;border:1px solid rgba(255,255,255,.15);margin-right:.35rem;margin-bottom:.35rem;}
+        .step-badge{display:inline-flex;align-items:center;gap:.35rem;border-radius:999px;padding:.25rem .7rem;font-size:.78rem;border:1px solid rgba(255,255,255,.15);margin-right:.35rem;margin-bottom:.35rem;}
         .step-ok{background:rgba(34,197,94,.18)}
         .step-reject{background:rgba(239,68,68,.18)}
         .step-pending{background:rgba(250,204,21,.18)}
@@ -149,7 +149,7 @@
             if ($hasAny && $allApproved) return 'approved';
             return 'pending';
         };
-        // Label status utama untuk ditampilkan
+        // Label status utama untuk ditampilkan di cell
         $overallLabel = function (string $overall) {
             return $overall === 'approved' ? 'Semua Disetujui'
                  : ($overall === 'rejected' ? 'Ada Penolakan'
@@ -264,15 +264,132 @@
                             </div>
 
                             {{-- Modal detail (dipakai juga oleh mobile) --}}
-                            @include('rapat.partials._approval_modal', [
-                                'modalId' => $modalId,
-                                'overall' => $overall,
-                                'approvalMap' => $approvalMap,
-                                'stepIcon' => $stepIcon,
-                                'stepClass' => $stepClass,
-                                'popBadgeClass' => $popBadgeClass,
-                                'rapat' => $rapat
-                            ])
+                            <div class="modal fade" id="{{ $modalId }}" tabindex="-1" role="dialog" aria-hidden="true">
+                              <div class="modal-dialog modal-lg" role="document">
+                                <div class="modal-content modal-solid">
+                                  <div class="modal-header">
+                                    <h5 class="modal-title">Status Approval</h5>
+                                    <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+                                  </div>
+
+                                  {{-- RATA TENGAH untuk badge & ringkas --}}
+                                  <div class="modal-body text-center">
+                                    <div class="mb-3">
+                                      <span class="badge {{ $popBadgeClass($overall) }}">
+                                        {{ $overall === 'approved' ? 'Semua Disetujui' : ($overall === 'rejected' ? 'Ada Penolakan' : 'Menunggu/Pending') }}
+                                      </span>
+                                    </div>
+
+                                    <div class="mb-2">
+                                      <div class="text-muted mb-1">Ringkas</div>
+
+                                      @foreach (['undangan','absensi'] as $tp)
+                                        @php
+                                          $rowsRaw = $approvalMap[$tp] ?? [];
+                                          $rows = $tp === 'absensi'
+                                            ? collect($rowsRaw)->unique(function($r){ return trim($r['name'] ?? ''); })->values()->all()
+                                            : $rowsRaw;
+                                        @endphp
+
+                                        <div class="mb-1"><b class="text-light text-uppercase" style="font-size:.8rem">{{ $tp }}</b></div>
+
+                                        @if(count($rows))
+                                          @foreach($rows as $st)
+                                            <span class="{{ $stepClass($st['status']) }}"
+                                                  title="{{ $st['name'] }} • {{ ucfirst($st['status']) }}">
+                                              <b>{{ $stepIcon($st['status']) }}</b> {{ $st['name'] ?? 'Approver' }}
+                                            </span>
+                                          @endforeach
+                                        @else
+                                          <div class="muted">Belum ada konfigurasi approval.</div>
+                                        @endif
+                                      @endforeach
+                                    </div>
+
+                                    {{-- ===== Rincian per dokumen ===== --}}
+                                    @foreach (['undangan'=>'Undangan','absensi'=>'Absensi'] as $tpKey => $tpTitle)
+                                      @php
+                                        $rowsRaw = $approvalMap[$tpKey] ?? [];
+                                        $rows = $tpKey === 'absensi'
+                                          ? collect($rowsRaw)->unique(function($r){ return trim($r['name'] ?? ''); })->values()->all()
+                                          : $rowsRaw;
+                                      @endphp
+                                      <hr>
+                                      <h6 class="mb-2 text-left">{{ $tpTitle }}</h6>
+                                      @if(count($rows))
+                                        <div class="table-responsive">
+                                          <table class="table table-sm mini">
+                                            <thead>
+                                              <tr>
+                                                <th class="nowrap" style="width:8%">Step</th>
+                                                <th style="width:28%">Approver</th>
+                                                <th style="width:12%">Status</th>
+                                                <th style="width:20%">Waktu</th>
+                                                <th class="w-notes">Catatan Penolakan</th>
+                                              </tr>
+                                            </thead>
+                                            <tbody>
+                                              @foreach($rows as $st)
+                                                <tr>
+                                                  <td class="nowrap">#{{ $st['order'] }}</td>
+                                                  <td>{{ $st['name'] }}</td>
+                                                  <td class="nowrap">
+                                                    @if($st['status']==='approved')
+                                                      <span class="badge badge-success">Approved</span>
+                                                    @elseif($st['status']==='rejected')
+                                                      <span class="badge badge-danger">Rejected</span>
+                                                    @elseif($st['status']==='blocked')
+                                                      <span class="badge badge-secondary">Blocked</span>
+                                                    @else
+                                                      <span class="badge badge-warning">Pending</span>
+                                                    @endif
+                                                  </td>
+                                                  <td class="nowrap">
+                                                    @if($st['status']==='approved' && $st['signed_at'])
+                                                      {{ \Carbon\Carbon::parse($st['signed_at'])->translatedFormat('d M Y H:i') }}
+                                                    @elseif($st['status']==='rejected' && $st['rejected_at'])
+                                                      {{ \Carbon\Carbon::parse($st['rejected_at'])->translatedFormat('d M Y H:i') }}
+                                                    @else
+                                                      —
+                                                    @endif
+                                                  </td>
+                                                  <td>
+                                                    @if($st['status']==='rejected' && $st['rejection_note'])
+                                                      {{ $st['rejection_note'] }}
+                                                    @else
+                                                      <span class="muted">—</span>
+                                                    @endif
+                                                  </td>
+                                                </tr>
+                                              @endforeach
+                                            </tbody>
+                                          </table>
+                                        </div>
+                                      @else
+                                        <div class="muted text-left">Belum ada konfigurasi approval.</div>
+                                      @endif
+                                    @endforeach
+                                  </div>
+
+                                  @php
+                                    $hasReject =
+                                      collect($approvalMap['undangan'] ?? [])->contains(fn($s)=>$s['status']==='rejected') ||
+                                      collect($approvalMap['absensi']  ?? [])->contains(fn($s)=>$s['status']==='rejected');
+                                  @endphp
+
+                                  <div class="modal-footer">
+                                    @if($hasReject)
+                                      <button type="button"
+                                              class="btn btn-danger btn-sm"
+                                              onclick="openEditFromApproval('{{ $modalId }}','modalEditRapat-{{ $rapat->id }}')">
+                                        <i class="fas fa-tools mr-1"></i> Perbaiki
+                                      </button>
+                                    @endif
+                                    <button class="btn btn-outline-light btn-sm" data-dismiss="modal">Tutup</button>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
                         </td>
 
                         <td class="text-center td-aksi">
@@ -348,8 +465,7 @@
                 }
 
                 $overall = $overallStatus($approvalMap);
-                $modalId = 'apprModal-'.$rapat->id;
-
+                $modalId = 'apprModal-m-'.$rapat->id;
                 $overallChipClass = $overall==='approved' ? 'ok' : ($overall==='rejected' ? 'err' : 'warn');
             @endphp
 
@@ -357,12 +473,10 @@
                 <div class="m-title">{{ $rapat->judul }}</div>
                 @if(!empty($rapat->nama_kategori))
                     <div class="m-sub">{{ $rapat->nama_kategori }}</div>
-                @endif>
+                @endif
 
                 <div class="m-meta">
-                    <span class="mchip">
-                        No: {{ $rapat->nomor_undangan ?? '—' }}
-                    </span>
+                    <span class="mchip">No: {{ $rapat->nomor_undangan ?? '—' }}</span>
                     <span class="mchip">
                         {{ \Carbon\Carbon::parse($rapat->tanggal)->translatedFormat('d M Y') }} • {{ $rapat->waktu_mulai }}
                     </span>
@@ -411,16 +525,131 @@
                     @endif
                 </div>
 
-                {{-- Modal detail approval untuk mobile (reuse partial) --}}
-                @include('rapat.partials._approval_modal', [
-                    'modalId' => $modalId,
-                    'overall' => $overall,
-                    'approvalMap' => $approvalMap,
-                    'stepIcon' => $stepIcon,
-                    'stepClass' => $stepClass,
-                    'popBadgeClass' => $popBadgeClass,
-                    'rapat' => $rapat
-                ])
+                {{-- Modal detail approval khusus mobile (isi sama, id beda) --}}
+                <div class="modal fade" id="{{ $modalId }}" tabindex="-1" role="dialog" aria-hidden="true">
+                  <div class="modal-dialog modal-lg" role="document">
+                    <div class="modal-content modal-solid">
+                      <div class="modal-header">
+                        <h5 class="modal-title">Status Approval</h5>
+                        <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+                      </div>
+
+                      <div class="modal-body text-center">
+                        <div class="mb-3">
+                          <span class="badge {{ $popBadgeClass($overall) }}">
+                            {{ $overall === 'approved' ? 'Semua Disetujui' : ($overall === 'rejected' ? 'Ada Penolakan' : 'Menunggu/Pending') }}
+                          </span>
+                        </div>
+
+                        <div class="mb-2">
+                          <div class="text-muted mb-1">Ringkas</div>
+
+                          @foreach (['undangan','absensi'] as $tp)
+                            @php
+                              $rowsRaw = $approvalMap[$tp] ?? [];
+                              $rows = $tp === 'absensi'
+                                ? collect($rowsRaw)->unique(function($r){ return trim($r['name'] ?? ''); })->values()->all()
+                                : $rowsRaw;
+                            @endphp
+
+                            <div class="mb-1"><b class="text-light text-uppercase" style="font-size:.8rem">{{ $tp }}</b></div>
+
+                            @if(count($rows))
+                              @foreach($rows as $st)
+                                <span class="{{ $stepClass($st['status']) }}"
+                                      title="{{ $st['name'] }} • {{ ucfirst($st['status']) }}">
+                                  <b>{{ $stepIcon($st['status']) }}</b> {{ $st['name'] ?? 'Approver' }}
+                                </span>
+                              @endforeach
+                            @else
+                              <div class="muted">Belum ada konfigurasi approval.</div>
+                            @endif
+                          @endforeach
+                        </div>
+
+                        @foreach (['undangan'=>'Undangan','absensi'=>'Absensi'] as $tpKey => $tpTitle)
+                          @php
+                            $rowsRaw = $approvalMap[$tpKey] ?? [];
+                            $rows = $tpKey === 'absensi'
+                              ? collect($rowsRaw)->unique(function($r){ return trim($r['name'] ?? ''); })->values()->all()
+                              : $rowsRaw;
+                          @endphp
+                          <hr>
+                          <h6 class="mb-2 text-left">{{ $tpTitle }}</h6>
+                          @if(count($rows))
+                            <div class="table-responsive">
+                              <table class="table table-sm mini">
+                                <thead>
+                                  <tr>
+                                    <th class="nowrap" style="width:8%">Step</th>
+                                    <th style="width:28%">Approver</th>
+                                    <th style="width:12%">Status</th>
+                                    <th style="width:20%">Waktu</th>
+                                    <th class="w-notes">Catatan Penolakan</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  @foreach($rows as $st)
+                                    <tr>
+                                      <td class="nowrap">#{{ $st['order'] }}</td>
+                                      <td>{{ $st['name'] }}</td>
+                                      <td class="nowrap">
+                                        @if($st['status']==='approved')
+                                          <span class="badge badge-success">Approved</span>
+                                        @elseif($st['status']==='rejected')
+                                          <span class="badge badge-danger">Rejected</span>
+                                        @elseif($st['status']==='blocked')
+                                          <span class="badge badge-secondary">Blocked</span>
+                                        @else
+                                          <span class="badge badge-warning">Pending</span>
+                                        @endif
+                                      </td>
+                                      <td class="nowrap">
+                                        @if($st['status']==='approved' && $st['signed_at'])
+                                          {{ \Carbon\Carbon::parse($st['signed_at'])->translatedFormat('d M Y H:i') }}
+                                        @elseif($st['status']==='rejected' && $st['rejected_at'])
+                                          {{ \Carbon\Carbon::parse($st['rejected_at'])->translatedFormat('d M Y H:i') }}
+                                        @else
+                                          —
+                                        @endif
+                                      </td>
+                                      <td>
+                                        @if($st['status']==='rejected' && $st['rejection_note'])
+                                          {{ $st['rejection_note'] }}
+                                        @else
+                                          <span class="muted">—</span>
+                                        @endif
+                                      </td>
+                                    </tr>
+                                  @endforeach
+                                </tbody>
+                              </table>
+                            </div>
+                          @else
+                            <div class="muted text-left">Belum ada konfigurasi approval.</div>
+                          @endif
+                        @endforeach
+                      </div>
+
+                      @php
+                        $hasReject =
+                          collect($approvalMap['undangan'] ?? [])->contains(fn($s)=>$s['status']==='rejected') ||
+                          collect($approvalMap['absensi']  ?? [])->contains(fn($s)=>$s['status']==='rejected');
+                      @endphp
+
+                      <div class="modal-footer">
+                        @if($hasReject)
+                          <button type="button"
+                                  class="btn btn-danger btn-sm"
+                                  onclick="openEditFromApproval('{{ $modalId }}','modalEditRapat-{{ $rapat->id }}')">
+                            <i class="fas fa-tools mr-1"></i> Perbaiki
+                          </button>
+                        @endif
+                        <button class="btn btn-outline-light btn-sm" data-dismiss="modal">Tutup</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
             </div>
         @empty
             <div class="text-center text-muted">Belum ada data rapat.</div>
@@ -509,7 +738,7 @@
 
 @push('scripts')
 <script>
-  // Tutup modal approval, lalu buka modal edit yang sesuai
+  // Tutup modal approval lalu buka modal edit yang sesuai
   function openEditFromApproval(approvalModalId, editModalId){
     var $appr = $('#'+approvalModalId);
     $appr.on('hidden.bs.modal', function(){

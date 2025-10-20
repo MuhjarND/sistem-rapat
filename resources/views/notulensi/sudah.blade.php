@@ -68,6 +68,7 @@
   $popBadgeClass = fn($s) => $s==='approved'?'badge-success':($s==='rejected'?'badge-danger':'badge-warning');
   $stepIcon = fn($s)=>$s==='approved'?'✔':($s==='rejected'?'✖':($s==='blocked'?'🔒':'⏳'));
   $stepClass = fn($s)=>$s==='approved'?'step-badge step-ok':($s==='rejected'?'step-badge step-reject':($s==='blocked'?'step-badge step-blocked':'step-badge step-pending'));
+  $overallLabel = fn(string $s) => $s==='approved' ? 'Semua Disetujui' : ($s==='rejected' ? 'Ada Penolakan' : 'Menunggu / Proses');
 @endphp
 
 <div class="container">
@@ -148,6 +149,9 @@
               $allApproved=$hasSteps && $notulensiSteps->every(fn($s)=>$s->status==='approved');
               $overall=$hasReject?'rejected':($allApproved?'approved':'pending');
               $modalId='apprNotulensi-'.$r->id;
+
+              // Ringkasan: dedupe by nama approver
+              $stepsBrief = $notulensiSteps->unique(function($s){ return trim($s->name ?? ''); })->values();
             @endphp
 
             <tr>
@@ -174,6 +178,11 @@
                         data-toggle="modal" data-target="#{{ $modalId }}">
                   Cek Status
                 </button>
+                {{-- Keterangan status utama di bawah badge (seperti rapat.index) --}}
+                <div class="mt-1" style="font-size:.8rem;
+                     color: {{ $overall==='approved' ? '#22c55e' : ($overall==='rejected' ? '#ef4444' : '#f59e0b') }};">
+                  {{ $overallLabel($overall) }}
+                </div>
 
                 {{-- Modal --}}
                 <div class="modal fade" id="{{ $modalId }}" tabindex="-1" role="dialog" aria-hidden="true">
@@ -183,7 +192,8 @@
                         <h5 class="modal-title">Status Approval Notulensi</h5>
                         <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
                       </div>
-                      <div class="modal-body">
+                      {{-- RINGKAS RATA TENGAH + chip pakai NAMA approver --}}
+                      <div class="modal-body text-center">
                         <div class="mb-3">
                           <span class="badge {{ $popBadgeClass($overall) }}">
                             {{ $overall==='approved'?'Semua Disetujui':($overall==='rejected'?'Ada Penolakan':'Menunggu/Pending') }}
@@ -192,10 +202,10 @@
 
                         <div class="mb-2">
                           <div class="text-muted mb-1">Ringkasan</div>
-                          @if($notulensiSteps->count())
-                            @foreach($notulensiSteps as $st)
-                              <span class="{{ $stepClass($st->status) }}" title="{{ $st->name ?? 'Approver' }} • Step {{ $st->order_index }}">
-                                <b>{{ $stepIcon($st->status) }}</b> Step {{ $st->order_index }}
+                          @if($stepsBrief->count())
+                            @foreach($stepsBrief as $st)
+                              <span class="{{ $stepClass($st->status) }}" title="{{ $st->name ?? 'Approver' }} • {{ ucfirst($st->status) }}">
+                                <b>{{ $stepIcon($st->status) }}</b> {{ $st->name ?? 'Approver' }}
                               </span>
                             @endforeach
                           @else
@@ -204,7 +214,7 @@
                         </div>
                         <hr>
 
-                        <h6 class="mb-2">Rincian</h6>
+                        <h6 class="mb-2 text-left">Rincian</h6>
                         @if($notulensiSteps->count())
                           <div class="table-responsive">
                             <table class="table table-sm mini">
@@ -255,7 +265,7 @@
                             </table>
                           </div>
                         @else
-                          <div class="muted">Belum ada konfigurasi approval notulensi.</div>
+                          <div class="muted text-left">Belum ada konfigurasi approval notulensi.</div>
                         @endif
                       </div>
                       @php $hasRejectNot = $notulensiSteps->contains(fn($s)=>$s->status==='rejected'); @endphp
@@ -319,6 +329,8 @@
         $allApproved=$hasSteps && $notulensiSteps->every(fn($s)=>$s->status==='approved');
         $overall=$hasReject?'rejected':($allApproved?'approved':'pending');
         $modalId='apprNotulensi-mob-'.$r->id;
+
+        $stepsBrief = $notulensiSteps->unique(function($s){ return trim($s->name ?? ''); })->values();
       @endphp
 
       <div class="nl-card">
@@ -351,25 +363,18 @@
             {{-- Status modal --}}
             <button type="button" class="btn btn-sm badge {{ $popBadgeClass($overall) }}"
                     data-toggle="modal" data-target="#{{ $modalId }}">
-              Status
+              Cek Status
             </button>
-
-            <a href="{{ route('notulensi.show', $r->id_notulensi) }}" class="btn-icon btn-teal" title="Lihat Notulen">
-              <i class="fas fa-eye"></i>
-            </a>
-            <a href="{{ route('notulensi.edit', $r->id_notulensi) }}" class="btn-icon btn-indigo" title="Edit Notulen">
-              <i class="fas fa-edit"></i>
-            </a>
-            @if(Route::has('notulensi.cetak.gabung'))
-            <a href="{{ route('notulensi.cetak.gabung', $r->id_notulensi) }}" target="_blank" class="btn-icon btn-purple" title="Cetak Gabung (PDF)">
-              <i class="fas fa-file-pdf"></i>
-            </a>
-            @endif
+            {{-- Keterangan status utama di bawah tombol --}}
+          </div>
+          <div class="mt-1" style="font-size:.82rem;
+               color: {{ $overall==='approved' ? '#22c55e' : ($overall==='rejected' ? '#ef4444' : '#f59e0b') }};">
+            {{ $overallLabel($overall) }}
           </div>
         </div>
       </div>
 
-      {{-- Modal mobile (reuse konten yang sama) --}}
+      {{-- Modal mobile --}}
       <div class="modal fade" id="{{ $modalId }}" tabindex="-1" role="dialog" aria-hidden="true">
         <div class="modal-dialog modal-lg" role="document">
           <div class="modal-content modal-solid">
@@ -377,7 +382,7 @@
               <h5 class="modal-title">Status Approval Notulensi</h5>
               <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
             </div>
-            <div class="modal-body">
+            <div class="modal-body text-center">
               <div class="mb-3">
                 <span class="badge {{ $popBadgeClass($overall) }}">
                   {{ $overall==='approved'?'Semua Disetujui':($overall==='rejected'?'Ada Penolakan':'Menunggu/Pending') }}
@@ -386,10 +391,10 @@
 
               <div class="mb-2">
                 <div class="text-muted mb-1">Ringkasan</div>
-                @if($notulensiSteps->count())
-                  @foreach($notulensiSteps as $st)
-                    <span class="{{ $stepClass($st->status) }}" title="{{ $st->name ?? 'Approver' }} • Step {{ $st->order_index }}">
-                      <b>{{ $stepIcon($st->status) }}</b> Step {{ $st->order_index }}
+                @if($stepsBrief->count())
+                  @foreach($stepsBrief as $st)
+                    <span class="{{ $stepClass($st->status) }}" title="{{ $st->name ?? 'Approver' }} • {{ ucfirst($st->status) }}">
+                      <b>{{ $stepIcon($st->status) }}</b> {{ $st->name ?? 'Approver' }}
                     </span>
                   @endforeach
                 @else
@@ -398,7 +403,7 @@
               </div>
               <hr>
 
-              <h6 class="mb-2">Rincian</h6>
+              <h6 class="mb-2 text-left">Rincian</h6>
               @if($notulensiSteps->count())
                 <div class="table-responsive">
                   <table class="table table-sm mini">
@@ -449,7 +454,7 @@
                   </table>
                 </div>
               @else
-                <div class="muted">Belum ada konfigurasi approval notulensi.</div>
+                <div class="muted text-left">Belum ada konfigurasi approval notulensi.</div>
               @endif
             </div>
             @php $hasRejectNot = $notulensiSteps->contains(fn($s)=>$s->status==='rejected'); @endphp
