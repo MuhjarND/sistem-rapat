@@ -145,6 +145,25 @@
                                 </button>
                             </div>
                         </div>
+
+                        {{-- ===== ABSENSI PUBLIK (Tanpa Login) ===== --}}
+                        @if(!empty($qrPublikUrl))
+                        <div class="card mb-3">
+                            <div class="card-header"><b>Absensi Publik (Tanpa Login)</b></div>
+                            <div class="card-body d-flex align-items-center">
+                            <div class="mr-3">
+                                <img src="{{ $qrPublikImg }}" alt="QR Absensi Publik" style="width:140px;height:140px;border:1px solid var(--border);border-radius:10px;">
+                            </div>
+                            <div>
+                                <div class="mb-1">Scan QR atau buka tautan berikut:</div>
+                                <a href="{{ $qrPublikUrl }}" target="_blank">{{ $qrPublikUrl }}</a>
+                                <div class="text-muted" style="font-size:.85rem;margin-top:.35rem;">
+                                Peserta cukup pilih nama (dropdown + pencarian) lalu tanda tangan. Jabatan & unit akan terisi otomatis di laporan.
+                                </div>
+                            </div>
+                            </div>
+                        </div>
+                        @endif
                     @endif
                 @endif
                 @endauth

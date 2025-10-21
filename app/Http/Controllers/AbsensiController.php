@@ -578,7 +578,7 @@ public function exportPdf(Request $request, $id_rapat)
     // Pastikan QR absensi sudah ada & up-to-date
     $this->ensureAbsensiQrMirrorsUndangan((int) $id_rapat);
 
-    // Data rapat + kategori
+    // ====== Data rapat + kategori
     $rapat = DB::table('rapat')
         ->leftJoin('kategori_rapat', 'rapat.id_kategori', '=', 'kategori_rapat.id')
         ->select('rapat.*', 'kategori_rapat.nama as nama_kategori')
@@ -587,7 +587,7 @@ public function exportPdf(Request $request, $id_rapat)
 
     if (!$rapat) abort(404);
 
-    // ======= Peserta internal (user) =======
+    // ====== Peserta internal (user) + status/ttd di absensi
     $pesertaUser = DB::table('undangan')
         ->join('users','users.id','=','undangan.id_user')
         ->leftJoin('absensi', function ($q) use ($id_rapat) {
@@ -600,15 +600,17 @@ public function exportPdf(Request $request, $id_rapat)
             'users.id as user_id',
             'users.name as nama',
             'users.jabatan',
+            // pastikan ambil kolom unit (atau bagian yang sudah dipetakan sebelumnya)
             'users.unit',
             'absensi.status',
             'absensi.waktu_absen',
+            'absensi.created_at as abs_created_at',
             'absensi.ttd_path',
             'absensi.ttd_hash',
             DB::raw('COALESCE(users.hirarki, 9999) as hirarki')
         );
 
-    // ======= Peserta tamu (guest) =======
+    // ====== Peserta tamu (guest) dari absensi_guest
     $pesertaGuest = DB::table('absensi_guest')
         ->where('id_rapat',$id_rapat)
         ->select(
@@ -616,50 +618,87 @@ public function exportPdf(Request $request, $id_rapat)
             DB::raw('NULL as user_id'),
             'nama',
             'jabatan',
+            // peta instansi -> unit agar konsisten di laporan
             DB::raw('instansi as unit'),
             'status',
             'waktu_absen',
+            'created_at as abs_created_at',
             'ttd_path',
             'ttd_hash',
             DB::raw('99999 as hirarki')
         );
 
-    // UNION + sort (hasil masih collection of stdClass)
-$pesertaRaw = $pesertaUser->unionAll($pesertaGuest)->get();
+    // ====== UNION dan ambil semua baris
+    $pesertaRaw = $pesertaUser->unionAll($pesertaGuest)->get();
 
-/* Sort multi-kolom: hirarki ASC, lalu nama ASC (case-insensitive) */
-$pesertaRaw = $pesertaRaw->sort(function ($a, $b) {
-    $ha = (int) ($a->hirarki ?? 99999);
-    $hb = (int) ($b->hirarki ?? 99999);
-    if ($ha !== $hb) {
-        return $ha <=> $hb;
-    }
-    return strcasecmp((string)($a->nama ?? ''), (string)($b->nama ?? ''));
-})->values();
+    // ====== Sort multi-kolom: hirarki ASC, lalu nama ASC (case-insensitive)
+    $pesertaRaw = $pesertaRaw->sort(function ($a, $b) {
+        $ha = (int) ($a->hirarki ?? 99999);
+        $hb = (int) ($b->hirarki ?? 99999);
+        if ($ha !== $hb) return $ha <=> $hb;
+        return strcasecmp((string)($a->nama ?? ''), (string)($b->nama ?? ''));
+    })->values();
 
-/* lanjutkan normalisasi ke array skalar seperti sebelumnya */
-$peserta = [];
-foreach ($pesertaRaw as $row) {
-    $ttdData = null;
-    if (!empty($row->ttd_path)) {
-        $fs = public_path($row->ttd_path);
-        if (is_file($fs)) {
-            $bin = @file_get_contents($fs);
-            if ($bin !== false) {
-                $ttdData = 'data:image/png;base64,' . base64_encode($bin);
+    // ====== Normalisasi untuk Blade (array skalar) + embed TTD sebagai data:image
+    $peserta = [];
+    foreach ($pesertaRaw as $row) {
+        // Build TTD data-uri dari file di public (mis: public/ttd/...)
+        $ttdData = null;
+        if (!empty($row->ttd_path)) {
+            // dukung path absolut/relatif
+            $path = $row->ttd_path;
+            // jika url http, langsung pakai
+            if (preg_match('~^https?://~i', $path)) {
+                // DomPDF kadang membatasi remote URL; lebih aman tetap coba base64-kan
+                try {
+                    $bin = @file_get_contents($path);
+                    if ($bin !== false) {
+                        $ttdData = 'data:image/png;base64,' . base64_encode($bin);
+                    }
+                } catch (\Throwable $e) {
+                    // fallback—biarkan null
+                }
+            } else {
+                // relatif ke public_path
+                $fs = public_path($path);
+                if (!is_file($fs) && str_starts_with($path, '/')) {
+                    $fs = public_path(ltrim($path,'/'));
+                }
+                if (is_file($fs)) {
+                    $bin = @file_get_contents($fs);
+                    if ($bin !== false) {
+                        $ttdData = 'data:image/png;base64,' . base64_encode($bin);
+                    }
+                }
             }
         }
-    }
-    $peserta[] = [
-        'name'        => (string) ($row->nama ?? ''),
-        'jabatan'     => (string) ($row->jabatan ?? ''),
-        'status'      => (string) ($row->status ?? ''),
-        'waktu_absen' => $row->waktu_absen ? \Carbon\Carbon::parse($row->waktu_absen)->format('d/m/Y H:i') : null,
-        'ttd_data'    => $ttdData,
-    ];
-}
 
-    // ===== Rekap gabungan (skalar)
+        // Waktu absen diformat WIT (Asia/Jayapura) => "D MMM Y HH:mm"
+        $waktuAbs = $row->waktu_absen ?: $row->abs_created_at;
+        $waktuAbsStr = null;
+        if (!empty($waktuAbs)) {
+            try {
+                \Carbon\Carbon::setLocale('id');
+                $waktuAbsStr = \Carbon\Carbon::parse($waktuAbs, 'Asia/Jayapura')
+                                ->timezone('Asia/Jayapura')
+                                ->isoFormat('D MMM Y HH:mm');
+            } catch (\Throwable $e) {
+                $waktuAbsStr = $waktuAbs;
+            }
+        }
+
+        $peserta[] = [
+            'name'        => (string) ($row->nama ?? ''),
+            'jabatan'     => (string) ($row->jabatan ?? ''),
+            'unit'        => (string) ($row->unit ?? ''),    // <-- penting untuk kolom Unit/Instansi
+            'status'      => (string) ($row->status ?? ''),
+            'waktu_absen' => $waktuAbsStr,                  // dipakai Blade jadi "TTD: ... WIT"
+            'ttd_data'    => $ttdData,                      // aman untuk DomPDF
+            // 'ttd_path'  => $row->ttd_path,                // tidak perlu, kita sudah embed base64
+        ];
+    }
+
+    // ===== Rekap gabungan
     $rekap = [
         'diundang'    => (int) DB::table('undangan')->where('id_rapat',$id_rapat)->count()
                           + (int) DB::table('absensi_guest')->where('id_rapat',$id_rapat)->count(),
@@ -671,7 +710,7 @@ foreach ($pesertaRaw as $row) {
                           + (int) DB::table('absensi_guest')->where('id_rapat',$id_rapat)->where('status','izin')->count(),
     ];
 
-    // ===== Ambil QR ABSENSI (approved QR) -> pilih 1 sumber string untuk Blade
+    // ===== QR ABSENSI (final jika sudah approved)
     $absensiReq = DB::table('approval_requests')
         ->where('rapat_id', $id_rapat)
         ->where('doc_type', 'absensi')
@@ -680,39 +719,57 @@ foreach ($pesertaRaw as $row) {
 
     $qrSrc = null;
     if ($absensiReq && $absensiReq->signature_qr_path) {
-        $fs = public_path($absensiReq->signature_qr_path);
-        $qrSrc = is_file($fs) ? $fs : url($absensiReq->signature_qr_path);
+        $qrPath = $absensiReq->signature_qr_path;
+        $fs = public_path($qrPath);
+        if (is_file($fs)) {
+            // embed sebagai data:image untuk DomPDF
+            $bin = @file_get_contents($fs);
+            if ($bin !== false) {
+                $qrSrc = 'data:image/png;base64,' . base64_encode($bin);
+            }
+        } elseif (preg_match('~^https?://~i', $qrPath)) {
+            // remote url → coba embed
+            try {
+                $bin = @file_get_contents($qrPath);
+                if ($bin !== false) {
+                    $qrSrc = 'data:image/png;base64,' . base64_encode($bin);
+                }
+            } catch (\Throwable $e) { /* ignore */ }
+        }
     }
 
-    // ===== Approver final (skalar)
+    // ===== Approver final
     $approverFinal = DB::table('users')->where('id', $rapat->approval1_user_id)->first();
     $approver = [
         'nama'    => (string) ($approverFinal->name ?? ''),
         'jabatan' => (string) ($approverFinal->jabatan ?? 'Penanggung Jawab'),
     ];
 
-    // ===== Normalisasi meta rapat (skalar)
+    // ===== Meta rapat (skalar)
+    try { \Carbon\Carbon::setLocale('id'); } catch (\Throwable $e) {}
     $rap = [
         'nama_kategori' => (string) ($rapat->nama_kategori ?? '-'),
         'judul'         => (string) ($rapat->judul ?? '-'),
-        'tanggal_human' => $rapat->tanggal ? \Carbon\Carbon::parse($rapat->tanggal)->isoFormat('dddd, D MMMM Y') : '-',
+        'tanggal_human' => $rapat->tanggal
+            ? \Carbon\Carbon::parse($rapat->tanggal)->isoFormat('dddd, D MMMM Y')
+            : '-',
         'waktu_mulai'   => (string) ($rapat->waktu_mulai ?? ''),
         'tempat'        => (string) ($rapat->tempat ?? '-'),
     ];
 
-    // Render PDF (pass hanya skalar & array skalar)
+    // ===== Render PDF
     $pdf = Pdf::loadView('absensi.laporan_pdf', [
         'rap'       => $rap,
-        'peserta'   => $peserta,   // array of arrays
-        'rekap'     => $rekap,     // opsional (kalau dipakai di Blade)
-        'qrSrc'     => $qrSrc,     // string atau null
-        'approver'  => $approver,  // array skalar
+        'peserta'   => $peserta,
+        'rekap'     => $rekap,
+        'qrSrc'     => $qrSrc,
+        'approver'  => $approver,
         'kop'       => public_path('kop_absen.jpg'),
     ])->setPaper('A4', 'portrait');
 
     $filename = 'Laporan-Absensi-' . str_replace(' ', '-', $rap['judul']) . '.pdf';
 
-    // === MODE: preview vs download ===
+    // === MODE: preview vs download
     if ($request->boolean('preview')) {
         return $pdf->stream($filename); // inline
     }

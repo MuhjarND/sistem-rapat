@@ -251,7 +251,8 @@ class RapatController extends Controller
             'id_kategori'       => $request->id_kategori,
             'approval1_user_id' => $request->approval1_user_id,
             'approval2_user_id' => $request->approval2_user_id,
-            'token_qr'          => Str::random(32),
+            'token_qr'          => Str::random(32),     // QR internal peserta (login)
+            'public_code'       => Str::random(12),     // ✅ token publik (absensi publik, tanpa login)
             'created_at'        => now(),
             'updated_at'        => now(),
         ]);
@@ -310,6 +311,16 @@ class RapatController extends Controller
 
         if (!$rapat) abort(404);
 
+        // Pastikan public_code tersedia (untuk absensi publik/umum)
+        if (Schema::hasColumn('rapat','public_code') && empty($rapat->public_code)) {
+            $newPublic = Str::random(12);
+            DB::table('rapat')->where('id', $id)->update([
+                'public_code' => $newPublic,
+                'updated_at'  => now(),
+            ]);
+            $rapat->public_code = $newPublic;
+        }
+
         $daftar_peserta = DB::table('undangan')
             ->join('users', 'undangan.id_user', '=', 'users.id')
             ->where('undangan.id_rapat', $id)
@@ -318,33 +329,50 @@ class RapatController extends Controller
             ->orderBy('users.name','asc')
             ->get();
 
-        if (\Illuminate\Support\Facades\Schema::hasColumn('rapat', 'guest_token')) {
-            if (empty($rapat->guest_token)) {
-                $newToken = \Illuminate\Support\Str::random(32);
-                DB::table('rapat')->where('id', $id)->update([
-                    'guest_token' => $newToken,
-                    'updated_at'  => now(),
-                ]);
-                $rapat->guest_token = $newToken;
-            }
+        // Token tamu lama (tetap dipertahankan)
+        if (Schema::hasColumn('rapat', 'guest_token') && empty($rapat->guest_token)) {
+            $newToken = Str::random(32);
+            DB::table('rapat')->where('id', $id)->update([
+                'guest_token' => $newToken,
+                'updated_at'  => now(),
+            ]);
+            $rapat->guest_token = $newToken;
         }
 
+        // ===== URL QR =====
+        // QR Peserta (scan internal)
         $qrPesertaUrl = \Illuminate\Support\Facades\Route::has('absensi.scan')
             ? route('absensi.scan', $rapat->token_qr)
             : url('/absensi/scan/'.$rapat->token_qr);
 
+        // QR Tamu (jika fitur tamu aktif di sistemmu)
         $qrTamuUrl = null;
         if (!empty($rapat->guest_token)) {
             $qrTamuUrl = \Illuminate\Support\Facades\Route::has('absensi.guest.form')
                 ? route('absensi.guest.form', [$rapat->id, $rapat->guest_token])
-                : url('/absensi/guest/'.$rapat->id.'/'.$rapat->guest_token);
+                : url('/absensi/guest/'.$rapap->id.'/'.$rapat->guest_token); // fallback
         }
 
+        // ✅ QR Publik (absensi publik tanpa login; pakai public_code)
+        $qrPublikUrl = null;
+        if (!empty($rapat->public_code)) {
+            if (\Illuminate\Support\Facades\Route::has('absensi.publik.show')) {
+                $qrPublikUrl = route('absensi.publik.show', $rapat->public_code);
+            } else {
+                $qrPublikUrl = url('/absensi/publik/'.$rapat->public_code);
+            }
+        }
+
+        // ===== QR images (pakai layanan QR publik agar cepat) =====
         $qrPesertaImg = 'https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=' . urlencode($qrPesertaUrl);
         $qrTamuImg    = $qrTamuUrl
             ? 'https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=' . urlencode($qrTamuUrl)
             : null;
+        $qrPublikImg  = $qrPublikUrl
+            ? 'https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=' . urlencode($qrPublikUrl)
+            : null;
 
+        // Preview dokumen (tetap)
         $previewAbsensiUrl = \Illuminate\Support\Facades\Route::has('absensi.export.pdf')
             ? route('absensi.export.pdf', ['id_rapat' => $id, 'preview' => 1])
             : url("/absensi/laporan/{$id}?preview=1");
@@ -360,6 +388,8 @@ class RapatController extends Controller
             'qrPesertaImg',
             'qrTamuUrl',
             'qrTamuImg',
+            'qrPublikUrl',     // ✅ kirim ke view
+            'qrPublikImg',     // ✅ kirim ke view
             'previewUndanganUrl',
             'previewAbsensiUrl'
         ));

@@ -47,7 +47,13 @@ Route::middleware(['auth', 'cekrole:admin'])->group(function () {
     //INPUT DATA
     Route::resource('pimpinan', 'PimpinanRapatController');
     Route::resource('user', 'UserController');
+    Route::post('/users/assign-unit', 'UsersController@assignUnit')->name('users.assignUnit');
     Route::resource('kategori', 'KategoriRapatController');
+    Route::get('/units',            'UnitController@index')->name('units.index');
+    Route::post('/units',           'UnitController@store')->name('units.store');
+    Route::put('/units/{id}',       'UnitController@update')->name('units.update');
+    Route::delete('/units/{id}',    'UnitController@destroy')->name('units.destroy');
+    Route::post('/units/{id}/toggle','UnitController@toggle')->name('units.toggle');    
 });
 
 // ADMIN
@@ -148,3 +154,9 @@ Route::get ('/absensi/guest/{rapat}/{token}', 'AbsensiController@guestForm')->na
 Route::post('/absensi/guest/{rapat}/{token}', 'AbsensiController@guestSubmit')
     ->name('absensi.guest.submit')
     ->middleware('throttle:30,1'); // rate-limit 30 req/menit
+
+// ================= Absensi Publik (tanpa login) =================
+// routes/web.php
+Route::get('/absensi/publik/{token}',       'PublicAbsensiController@show')->name('absensi.publik.show');
+Route::get('/absensi/publik/{token}/cari',  'PublicAbsensiController@search')->name('absensi.publik.search');
+Route::post('/absensi/publik/{token}',      'PublicAbsensiController@store')->name('absensi.publik.store');

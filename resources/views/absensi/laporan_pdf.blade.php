@@ -9,19 +9,33 @@
         table { width: 100%; border-collapse: collapse; }
         .meta td { padding: 2px 0; vertical-align: top; }
 
+        /* ===== Tabel utama ===== */
         .tb { border:1px solid #000; }
-        .tb th, .tb td { border:1px solid #000; padding:6px; }
-        .center { text-align: center; }
+        .tb th, .tb td {
+            border:1px solid #000;
+            padding:4px 5px;        /* sebelumnya 6px → agar lebih rapat */
+            line-height:1.15;       /* sedikit rapat antar baris */
+        }
+        .center { text-align: center; vertical-align: middle; }
 
         .ttd { float:right; width:260px; text-align:left; }
         .qr-note { font-size: 10pt; color:#444; line-height:1.35; }
         .clearfix::after { content:""; display:table; clear:both; }
 
-        .ttd-col { text-align:center; }
-        .ttd-box { height: 56px; display:flex; align-items:center; justify-content:center; }
-        .ttd-img { display:block; margin:0 auto; max-height:56px; max-width:140px; height:auto; width:auto; }
-        .ttd-empty { width:120px; height:48px; border:1px dashed #777; margin:0 auto; }
-        .muted { color:#666; font-size: 10pt; }
+        /* ===== Kolom TTD diperbesar & rata tengah ===== */
+        .ttd-col { text-align:center; vertical-align:middle; }
+        .ttd-box {
+            height: 70px;              /* lebih kecil dari sebelumnya (86px → 70px) */
+            display:flex; align-items:center; justify-content:center;
+        }
+        .ttd-img {
+            display:block; margin:0 auto;
+            max-height:65px;           /* sedikit lebih kecil agar baris lebih rapat */
+            max-width:160px;
+            height:auto; width:auto;
+        }
+        .ttd-empty { width:120px; height:60px; border:1px dashed #777; margin:0 auto; }
+        .muted { color:#666; font-size: 9pt; margin-top:1px; }
     </style>
 </head>
 <body>
@@ -33,14 +47,12 @@
       return $default;
   };
 
-  // Sumber data rapat: variabelmu adalah $rap (array), fallback ke $rapat bila ada
   $R = isset($rap) ? $rap : (isset($rapat) ? $rapat : []);
 
-  // Ambil nilai meta
   $nama_kategori = $get($R, 'nama_kategori', '-');
   $judul         = $get($R, 'judul', '-');
-  $tanggalHuman  = $get($R, 'tanggal_human'); // kamu sudah siapkan di controller
-  $tanggal       = $get($R, 'tanggal');       // fallback jika tanggal_human kosong
+  $tanggalHuman  = $get($R, 'tanggal_human');
+  $tanggal       = $get($R, 'tanggal');
   $waktu_mulai   = $get($R, 'waktu_mulai');
   $tempat        = $get($R, 'tempat', '-');
 
@@ -54,15 +66,12 @@
   }
   if (!$tanggalHuman) $tanggalHuman = '-';
 
-  // Approver sebagai array/objek skalar
   $approver_nama    = isset($approver) ? $get($approver,'nama','-') : '-';
   $approver_jabatan = isset($approver) ? $get($approver,'jabatan','Penanggung Jawab') : 'Penanggung Jawab';
-
-  // Pastikan peserta iterable
   $peserta = is_iterable($peserta ?? null) ? $peserta : [];
 @endphp
 
-    {{-- KOP (opsional) --}}
+    {{-- KOP --}}
     @if(!empty($kop) && @is_file($kop))
         <div><img src="{{ $kop }}" style="width:100%; height:auto;"></div>
         <br>
@@ -93,15 +102,16 @@
     </table>
     <br>
 
-    {{-- Tabel peserta --}}
+    {{-- ===== Tabel peserta ===== --}}
     <table class="tb">
         <thead>
             <tr class="center">
-                <th width="6%">No</th>
-                <th>Nama</th>
-                <th width="28%">Jabatan</th>
-                <th width="26%">Tanda Tangan</th>
-                <th width="10%">Ket</th>
+                <th width="5%">No</th>
+                <th width="27%">Nama</th>          {{-- diperlebar --}}
+                <th width="21%">Jabatan</th>
+                <th width="18%">Instansi</th>
+                <th width="21%">Tanda Tangan</th>
+                <th width="8%">Ket</th>
             </tr>
         </thead>
         <tbody>
@@ -110,14 +120,16 @@
                 @php
                   $nm    = $get($p,'name', $get($p,'nama','-'));
                   $jab   = $get($p,'jabatan','-');
+                  $unit  = $get($p,'unit','-');
                   $stat  = strtoupper($get($p,'status','-'));
-                  $ttd   = $get($p,'ttd_data');      // data URI (lebih aman untuk DomPDF)
-                  $wabs  = $get($p,'waktu_absen');   // bisa sudah diformat dari controller
+                  $ttd   = $get($p,'ttd_data');
+                  $wabs  = $get($p,'waktu_absen');
                 @endphp
                 <tr>
                     <td class="center">{{ $no++ }}</td>
                     <td><b>{{ $nm }}</b></td>
                     <td>{{ $jab ?: '-' }}</td>
+                    <td>{{ $unit ?: '-' }}</td>
                     <td class="ttd-col">
                         <div class="ttd-box">
                             @if(!empty($ttd))
@@ -127,19 +139,19 @@
                             @endif
                         </div>
                         @if(!empty($wabs))
-                            <div class="muted">{{ $wabs }}</div>
+                            <div class="muted">TTD: {{ $wabs }} WIT</div>
                         @endif
                     </td>
                     <td class="center">{{ $stat ?: '-' }}</td>
                 </tr>
             @empty
-                <tr><td colspan="5" class="center">Tidak ada data peserta.</td></tr>
+                <tr><td colspan="6" class="center">Tidak ada data peserta.</td></tr>
             @endforelse
         </tbody>
     </table>
     <br><br>
 
-    {{-- Blok TTD/QR --}}
+    {{-- ===== Blok TTD / QR ===== --}}
     <div class="clearfix">
         <table class="ttd">
             <tr>
