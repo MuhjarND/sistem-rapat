@@ -37,7 +37,11 @@ class PublicAbsensiController extends Controller
     }
 
     /**
-     * Pencarian peserta untuk Select2 (kembalikan array datar [{id,text}, ...]).
+     * Pencarian peserta untuk Select2.
+     * - Urut berdasar hirarki (ASC), lalu nama (ASC)
+     * - Muat SEMUA peserta undangan (tanpa pagination/limit) + tamu rapat
+     * - Tetap bisa difilter dengan keyword `q`
+     * - Kembalikan array datar: [{id, text}, ...]
      */
     public function search($token, Request $req)
     {
@@ -47,27 +51,24 @@ class PublicAbsensiController extends Controller
                 return response()->json([], 404);
             }
 
-            $q       = trim($req->get('q', ''));
-            $page    = (int) ($req->get('page', 1) ?: 1);
-            $perPage = 20;
-            $offset  = ($page - 1) * $perPage;
+            $q = trim($req->get('q', ''));
 
-            $results = collect();
-
-            // ===== Peserta internal (undangan -> users)
-            $userQuery = DB::table('undangan as un')
-                ->join('users as u', 'u.id', '=', 'un.id_user')
-                ->where('un.id_rapat', $rapat->id);
-
-            $select = ['u.id', 'u.name'];
             $hasJabatan = Schema::hasColumn('users', 'jabatan');
             $hasUnit    = Schema::hasColumn('users', 'unit');
             $hasBagian  = Schema::hasColumn('users', 'bagian');
 
+            // ===== Peserta internal: SEMUA undangan untuk rapat ini =====
+            $userQuery = DB::table('undangan as un')
+                ->join('users as u', 'u.id', '=', 'un.id_user')
+                ->where('un.id_rapat', $rapat->id);
+
+            // Select dinamis
+            $select = ['u.id', 'u.name', DB::raw('COALESCE(u.hirarki, 99999) as hirarki')];
             if ($hasJabatan) $select[] = 'u.jabatan';
             if ($hasUnit)    $select[] = 'u.unit';
             elseif ($hasBagian) $select[] = DB::raw('u.bagian as unit');
 
+            // Filter q (opsional)
             if ($q !== '') {
                 $userQuery->where(function ($s) use ($q, $hasJabatan, $hasUnit, $hasBagian) {
                     $s->where('u.name', 'like', "%{$q}%");
@@ -77,22 +78,24 @@ class PublicAbsensiController extends Controller
                 });
             }
 
+            // Urut: hirarki ASC, lalu nama ASC — TANPA limit/pagination
             $users = $userQuery->select($select)
-                ->orderBy('u.name')
-                ->offset($offset)->limit($perPage)
+                ->orderByRaw('COALESCE(u.hirarki, 99999) ASC')
+                ->orderBy('u.name', 'asc')
                 ->get()
                 ->map(function ($r) {
-                    $jab = property_exists($r,'jabatan') ? ($r->jabatan ?? '-') : '-';
+                    $jab = property_exists($r, 'jabatan') ? ($r->jabatan ?? '-') : '-';
                     $sub = trim($jab . (($r->unit ?? '') ? ' · ' . $r->unit : ''));
                     return [
                         'id'   => 'user:' . $r->id,
                         'text' => trim(($r->name ?? '—') . ' — ' . $sub),
+                        '_sort_hirarki' => (int)($r->hirarki ?? 99999), // untuk jaga-jaga sorting di koleksi
+                        '_sort_nama'    => (string)($r->name ?? ''),
                     ];
                 });
 
-            $results = $results->merge($users);
-
-            // ===== Tamu rapat (opsional)
+            // ===== Tamu rapat (opsional) — taruh setelah internal (hirarki besar) =====
+            $tamu = collect();
             if (Schema::hasTable('tamu_rapat')) {
                 $tamuQuery = DB::table('tamu_rapat as t')->where('t.id_rapat', $rapat->id);
 
@@ -113,28 +116,37 @@ class PublicAbsensiController extends Controller
 
                 $tamu = $tamuQuery->select($tamuSelect)
                     ->orderBy('t.nama')
-                    ->offset($offset)->limit($perPage)
                     ->get()
                     ->map(function ($r) use ($hasJabTamu, $hasInstansi) {
-                        $jab   = $hasJabTamu  ? ($r->jabatan  ?? '-') : '-';
-                        $inst  = $hasInstansi ? ($r->instansi ?? null) : null;
-                        $sub   = trim($jab . ($inst ? ' · ' . $inst : ''));
+                        $jab  = $hasJabTamu  ? ($r->jabatan  ?? '-') : '-';
+                        $inst = $hasInstansi ? ($r->instansi ?? null) : null;
+                        $sub  = trim($jab . ($inst ? ' · ' . $inst : ''));
                         return [
                             'id'   => 'tamu:' . $r->id,
                             'text' => trim(($r->nama ?? '—') . ' — ' . $sub),
+                            // taruh tamu "di bawah" internal dgn hirarki besar
+                            '_sort_hirarki' => 999999,
+                            '_sort_nama'    => (string)($r->nama ?? ''),
                         ];
                     });
-
-                $results = $results->merge($tamu);
             }
 
-            // Gabungkan, unik, sort, dan batasi perPage (Select2 mumpuni menangani paginasi sisi klien)
-            $results = $results->unique('text')->sortBy('text', SORT_NATURAL | SORT_FLAG_CASE)->values();
-            if ($results->count() > $perPage) {
-                $results = $results->slice(0, $perPage)->values();
-            }
+            // ===== Gabungkan + unik + sort final =====
+            $results = $users->merge($tamu)
+                ->unique('text')
+                ->sort(function ($a, $b) {
+                    $ha = $a['_sort_hirarki'] ?? 999999;
+                    $hb = $b['_sort_hirarki'] ?? 999999;
+                    if ($ha !== $hb) return $ha <=> $hb;
+                    return strcasecmp($a['_sort_nama'] ?? '', $b['_sort_nama'] ?? '');
+                })
+                ->values()
+                ->map(function ($r) {
+                    // bersihkan kunci internal sort sebelum dikirim
+                    return ['id' => $r['id'], 'text' => $r['text']];
+                });
 
-            // Kembalikan ARRAY DATAR
+            // Kembalikan ARRAY DATAR (sesuai view absensi.publik)
             return response()->json($results);
 
         } catch (\Throwable $e) {
@@ -149,9 +161,9 @@ class PublicAbsensiController extends Controller
 
     /**
      * Simpan absensi (publik).
-     * - Simpan TTD ke public/ttd (bukan storage)
-     * - Catat waktu_absen
-     * - No. HP opsional: validasi + kirim notifikasi WA jika diisi
+     * - Simpan TTD ke public/ttd
+     * - Catat waktu_absen (jika kolom ada)
+     * - No. HP opsional: validasi + kirim WA konfirmasi bila diisi
      */
     public function store($token, Request $req)
     {
@@ -173,7 +185,7 @@ class PublicAbsensiController extends Controller
             return back()->with('error', 'Pilihan peserta tidak valid.')->withInput();
         }
 
-        // ===== Mapping kolom dinamis tabel absensi
+        // Mapping kolom dinamis di tabel absensi
         $colUser = Schema::hasColumn('absensi', 'user_id') ? 'user_id'
                   : (Schema::hasColumn('absensi', 'id_user') ? 'id_user' : null);
         $colTamu = Schema::hasColumn('absensi', 'tamu_id') ? 'tamu_id'
@@ -216,18 +228,17 @@ class PublicAbsensiController extends Controller
             $tamuId = $row->id;
         }
 
-        // ===== Cegah dobel absensi
+        // Cegah dobel absensi
         $exists = DB::table('absensi')
             ->where('id_rapat', $rapat->id)
             ->where('status', 'hadir');
         if ($userId && $colUser) $exists->where($colUser, $userId);
         if ($tamuId && $colTamu) $exists->where($colTamu, $tamuId);
-
         if ($exists->exists()) {
             return back()->with('error', 'Anda sudah tercatat hadir untuk rapat ini.');
         }
 
-        // ===== Simpan TTD ke PUBLIC/ttd
+        // Simpan TTD ke PUBLIC/ttd
         $dataUrl = $req->input('ttd');
         if (strpos($dataUrl, 'data:image/png;base64,') !== 0) {
             return back()->with('error', 'Format tanda tangan tidak valid.');
@@ -241,13 +252,13 @@ class PublicAbsensiController extends Controller
             @mkdir($publicDir, 0775, true);
         }
 
-        $fname       = 'rapat'.$rapat->id.'-'.$type.$pid.'-'.date('Ymd_His').'-'.Str::random(6).'.png';
-        $relPath     = 'ttd/'.$fname;                 // path relatif untuk disimpan di DB
-        $absolute    = $publicDir.DIRECTORY_SEPARATOR.$fname;
+        $fname    = 'rapat'.$rapat->id.'-'.$type.$pid.'-'.date('Ymd_His').'-'.Str::random(6).'.png';
+        $relPath  = 'ttd/'.$fname; // simpan relatif utk PDF
+        $absolute = $publicDir.DIRECTORY_SEPARATOR.$fname;
 
         file_put_contents($absolute, $bin);
 
-        // ===== Insert ke tabel absensi
+        // Insert absensi
         $now = now();
         $payload = [
             'id_rapat'   => $rapat->id,
@@ -266,20 +277,19 @@ class PublicAbsensiController extends Controller
 
         // No. HP opsional
         $no_hp = $req->filled('no_hp') ? preg_replace('/[^0-9]/', '', $req->no_hp) : null;
-        if ($no_hp && $colNoHp) {
-            $payload[$colNoHp] = $no_hp;
+        if ($no_hp && Schema::hasColumn('absensi', 'no_hp')) {
+            $payload['no_hp'] = $no_hp;
         }
 
         DB::table('absensi')->insert($payload);
 
-        // ===== Kirim notifikasi WA jika no_hp diisi (gunakan helper yang sama seperti RapatController)
-// ===== Kirim notifikasi WA jika no_hp diisi (gunakan helper yang sama seperti RapatController)
+        // Kirim WA konfirmasi (bila HP diisi)
         if ($no_hp) {
             try {
                 $wa = preg_replace('/^0/', '62', $no_hp);
-                $judul = $rapat->judul ?: 'Rapat';
-                $tgl   = $rapat->tanggal ? \Carbon\Carbon::parse($rapat->tanggal)->translatedFormat('l, d F Y') : '-';
-                $wkt   = $rapat->waktu_mulai ?: '-';
+                $judul  = $rapat->judul ?: 'Rapat';
+                $tgl    = $rapat->tanggal ? \Carbon\Carbon::parse($rapat->tanggal)->translatedFormat('l, d F Y') : '-';
+                $wkt    = $rapat->waktu_mulai ?: '-';
                 $tempat = $rapat->tempat ?: '-';
 
                 $msg =
