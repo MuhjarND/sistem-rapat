@@ -13,34 +13,43 @@
         .tb { border:1px solid #000; }
         .tb th, .tb td {
             border:1px solid #000;
-            padding:4px 5px;        /* sebelumnya 6px → agar lebih rapat */
-            line-height:1.15;       /* sedikit rapat antar baris */
+            padding:4px 5px;
+            line-height:1.15;
         }
         .center { text-align: center; vertical-align: middle; }
 
-        .ttd { float:right; width:260px; text-align:left; }
-        .qr-note { font-size: 10pt; color:#444; line-height:1.35; }
-        .clearfix::after { content:""; display:table; clear:both; }
+        /* Rata tengah untuk kolom jabatan dan instansi */
+        .jabatan-col, .instansi-col {
+            text-align:center;
+            vertical-align:middle;
+        }
 
-        /* ===== Kolom TTD diperbesar & rata tengah ===== */
+        /* ===== Kolom tanda tangan ===== */
         .ttd-col { text-align:center; vertical-align:middle; }
         .ttd-box {
-            height: 70px;              /* lebih kecil dari sebelumnya (86px → 70px) */
+            height: 70px;
             display:flex; align-items:center; justify-content:center;
         }
         .ttd-img {
             display:block; margin:0 auto;
-            max-height:65px;           /* sedikit lebih kecil agar baris lebih rapat */
+            max-height:65px;
             max-width:160px;
             height:auto; width:auto;
         }
-        .ttd-empty { width:120px; height:60px; border:1px dashed #777; margin:0 auto; }
-        .muted { color:#666; font-size: 9pt; margin-top:1px; }
+        .ttd-empty {
+            width:120px; height:60px;
+            border:1px dashed #777;
+            margin:0 auto;
+        }
+        .muted { color:#666; font-size: 9pt; margin-top:1px; text-align:center; }
+
+        .ttd { float:right; width:260px; text-align:left; }
+        .qr-note { font-size: 10pt; color:#444; line-height:1.35; }
+        .clearfix::after { content:""; display:table; clear:both; }
     </style>
 </head>
 <body>
 @php
-  // Helper aman: ambil nilai dari array/objek
   $get = function ($row, $key, $default = null) {
       if (is_array($row))  return array_key_exists($key, $row) ? $row[$key] : $default;
       if (is_object($row)) return isset($row->{$key}) ? $row->{$key} : $default;
@@ -48,7 +57,6 @@
   };
 
   $R = isset($rap) ? $rap : (isset($rapat) ? $rapat : []);
-
   $nama_kategori = $get($R, 'nama_kategori', '-');
   $judul         = $get($R, 'judul', '-');
   $tanggalHuman  = $get($R, 'tanggal_human');
@@ -79,26 +87,11 @@
 
     {{-- Meta rapat --}}
     <table class="meta" style="margin-bottom: 10px;">
-        <tr>
-            <td width="22%">Jenis Kegiatan</td><td width="2%">:</td>
-            <td>{{ $nama_kategori }}</td>
-        </tr>
-        <tr>
-            <td>Nama Kegiatan</td><td>:</td>
-            <td>{{ $judul }}</td>
-        </tr>
-        <tr>
-            <td>Hari/Tanggal</td><td>:</td>
-            <td>{{ $tanggalHuman }}</td>
-        </tr>
-        <tr>
-            <td>Waktu</td><td>:</td>
-            <td>{{ $waktu_mulai ? ($waktu_mulai.' WIT s/d selesai') : '-' }}</td>
-        </tr>
-        <tr>
-            <td>Tempat</td><td>:</td>
-            <td>{{ $tempat }}</td>
-        </tr>
+        <tr><td width="22%">Jenis Kegiatan</td><td width="2%">:</td><td>{{ $nama_kategori }}</td></tr>
+        <tr><td>Nama Kegiatan</td><td>:</td><td>{{ $judul }}</td></tr>
+        <tr><td>Hari/Tanggal</td><td>:</td><td>{{ $tanggalHuman }}</td></tr>
+        <tr><td>Waktu</td><td>:</td><td>{{ $waktu_mulai ? ($waktu_mulai.' WIT s/d selesai') : '-' }}</td></tr>
+        <tr><td>Tempat</td><td>:</td><td>{{ $tempat }}</td></tr>
     </table>
     <br>
 
@@ -107,7 +100,7 @@
         <thead>
             <tr class="center">
                 <th width="5%">No</th>
-                <th width="27%">Nama</th>          {{-- diperlebar --}}
+                <th width="27%">Nama</th>
                 <th width="21%">Jabatan</th>
                 <th width="18%">Instansi</th>
                 <th width="21%">Tanda Tangan</th>
@@ -128,8 +121,8 @@
                 <tr>
                     <td class="center">{{ $no++ }}</td>
                     <td><b>{{ $nm }}</b></td>
-                    <td>{{ $jab ?: '-' }}</td>
-                    <td>{{ $unit ?: '-' }}</td>
+                    <td class="jabatan-col">{{ $jab ?: '-' }}</td>
+                    <td class="instansi-col">{{ $unit ?: '-' }}</td>
                     <td class="ttd-col">
                         <div class="ttd-box">
                             @if(!empty($ttd))
@@ -139,7 +132,7 @@
                             @endif
                         </div>
                         @if(!empty($wabs))
-                            <div class="muted">TTD: {{ $wabs }} WIT</div>
+                            <div class="muted">{{ $wabs }} WIT</div>
                         @endif
                     </td>
                     <td class="center">{{ $stat ?: '-' }}</td>
@@ -156,9 +149,10 @@
         <table class="ttd">
             <tr>
                 <td>
-                    <div>{{ $approver_jabatan ?: 'Penanggung Jawab' }},</div>
+                    {{-- <div>{{ $approver_jabatan ?: 'Penanggung Jawab' }},</div> <br><br> --}}
+                    <div>Ketua Panitia</div> <br><br>
 
-                    @if(!empty($qrSrc))
+                    {{-- @if(!empty($qrSrc))
                         <img src="{{ $qrSrc }}" style="width:130px; height:auto; margin:8px 0;">
                         <div class="qr-note">Terverifikasi digital (Melalui Aplikasi Sistem Rapat)</div>
                     @else
@@ -166,8 +160,9 @@
                             <i>MENUNGGU APPROVAL ABSENSI</i><br>
                             QR absensi akan muncul otomatis setelah seluruh approval ABSENSI selesai.
                         </div>
-                    @endif
+                    @endif --}}
 
+                    <b>I M R A N</b>
                     <b>{{ $approver_nama ?: '-' }}</b>
                 </td>
             </tr>

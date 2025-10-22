@@ -69,7 +69,7 @@ class UnitController extends Controller
         // Kalau mau langsung arahkan ke Users untuk tetapkan:
         if ($request->boolean('go_assign')) {
             $idBaru = DB::getPdo()->lastInsertId();
-            return redirect()->route('users.index', ['pick_unit' => $idBaru])
+            return redirect()->route('user.index', ['pick_unit' => $idBaru])
                 ->with('success', 'Unit berhasil ditambahkan. Silakan tetapkan ke pengguna.');
         }
 
@@ -107,7 +107,7 @@ class UnitController extends Controller
 
         // Opsi: kalau klik "Simpan & Tetapkan"
         if ($request->boolean('go_assign')) {
-            return redirect()->route('users.index', ['pick_unit' => $id])
+            return redirect()->route('user.index', ['pick_unit' => $id])
                 ->with('success', 'Unit diperbarui. Silakan tetapkan ke pengguna.');
         }
 
