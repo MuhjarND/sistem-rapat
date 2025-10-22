@@ -66,7 +66,7 @@ class UnitController extends Controller
             'updated_at' => now(),
         ]);
 
-        // Kalau mau langsung arahkan ke Users untuk tetapkan:
+        // Kalau mau langsung arahkan ke Users untuk tetapkan:d
         if ($request->boolean('go_assign')) {
             $idBaru = DB::getPdo()->lastInsertId();
             return redirect()->route('user.index', ['pick_unit' => $idBaru])

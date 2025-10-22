@@ -114,7 +114,7 @@
               </td>
               <td class="text-center">
                 <div class="d-inline-flex">
-                  {{-- Tetapkan ke Pengguna --}}
+                  {{-- Tetapkan ke Penggunaa --}}
                   <a href="{{ route('user.index', ['pick_unit' => $u->id]) }}"
                      class="btn-icon btn-cyan mr-1" title="Tetapkan ke Pengguna">
                     <i class="fas fa-users-cog"></i>
