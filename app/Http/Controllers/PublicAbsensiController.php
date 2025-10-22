@@ -332,6 +332,6 @@ class PublicAbsensiController extends Controller
         }
 
         return redirect()->route('absensi.publik.show', $token)
-            ->with('success', 'Terima kasih! Absensi Anda sudah tercatat.');
+            ->with('success', 'Terima kasih! Kehadiran Anda sudah tercatat.');
     }
 }

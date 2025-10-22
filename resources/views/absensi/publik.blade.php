@@ -163,7 +163,7 @@
     {{-- ===== Form Absensi ===== --}}
     <div class="card">
       <div class="card-head">
-        <div class="title">Form Absensi</div>
+        <div class="title">Form Kehadiran</div>
         <div class="muted">Pilih nama & tanda tangani</div>
       </div>
       <div class="card-body">
