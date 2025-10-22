@@ -10,9 +10,6 @@ use Illuminate\Support\Facades\Schema;
 
 class PublicAbsensiController extends Controller
 {
-    /**
-     * Tampilkan halaman absensi publik.
-     */
     public function show($token, Request $req)
     {
         $rapat = DB::table('rapat')->where('public_code', $token)->first();
@@ -37,11 +34,11 @@ class PublicAbsensiController extends Controller
     }
 
     /**
-     * Pencarian peserta untuk Select2.
-     * - Urut berdasar hirarki (ASC), lalu nama (ASC)
-     * - Muat SEMUA peserta undangan (tanpa pagination/limit) + tamu rapat
-     * - Tetap bisa difilter dengan keyword `q`
-     * - Kembalikan array datar: [{id, text}, ...]
+     * Pencarian peserta (Select2):
+     * - Urut hirarki ASC lalu nama ASC
+     * - Gabung undangan (users) + tamu
+     * - KECUALIKAN yang sudah hadir
+     * - Kembalikan array datar: [{id,text}, ...]
      */
     public function search($token, Request $req)
     {
@@ -53,22 +50,50 @@ class PublicAbsensiController extends Controller
 
             $q = trim($req->get('q', ''));
 
+            // ==== Deteksi kolom dinamis absensi untuk ambil daftar yang SUDAH hadir ====
+            $colUserAbs = Schema::hasColumn('absensi', 'user_id') ? 'user_id'
+                        : (Schema::hasColumn('absensi', 'id_user') ? 'id_user' : null);
+            $colTamuAbs = Schema::hasColumn('absensi', 'tamu_id') ? 'tamu_id'
+                        : (Schema::hasColumn('absensi', 'id_tamu') ? 'id_tamu' : null);
+
+            $sudahUser = [];
+            $sudahTamu = [];
+
+            if ($colUserAbs) {
+                $sudahUser = DB::table('absensi')
+                    ->where('id_rapat', $rapat->id)
+                    ->where('status', 'hadir')
+                    ->whereNotNull($colUserAbs)
+                    ->pluck($colUserAbs)
+                    ->map(fn($v)=>(int)$v)
+                    ->all();
+            }
+            if ($colTamuAbs) {
+                $sudahTamu = DB::table('absensi')
+                    ->where('id_rapat', $rapat->id)
+                    ->where('status', 'hadir')
+                    ->whereNotNull($colTamuAbs)
+                    ->pluck($colTamuAbs)
+                    ->map(fn($v)=>(int)$v)
+                    ->all();
+            }
+
+            // ==== Flag kolom users ====
             $hasJabatan = Schema::hasColumn('users', 'jabatan');
             $hasUnit    = Schema::hasColumn('users', 'unit');
             $hasBagian  = Schema::hasColumn('users', 'bagian');
 
-            // ===== Peserta internal: SEMUA undangan untuk rapat ini =====
+            // ===== Peserta internal (SEMUA undangan yg belum hadir) =====
             $userQuery = DB::table('undangan as un')
                 ->join('users as u', 'u.id', '=', 'un.id_user')
-                ->where('un.id_rapat', $rapat->id);
+                ->where('un.id_rapat', $rapat->id)
+                ->when(!empty($sudahUser), fn($qq)=>$qq->whereNotIn('u.id', $sudahUser));
 
-            // Select dinamis
             $select = ['u.id', 'u.name', DB::raw('COALESCE(u.hirarki, 99999) as hirarki')];
             if ($hasJabatan) $select[] = 'u.jabatan';
             if ($hasUnit)    $select[] = 'u.unit';
             elseif ($hasBagian) $select[] = DB::raw('u.bagian as unit');
 
-            // Filter q (opsional)
             if ($q !== '') {
                 $userQuery->where(function ($s) use ($q, $hasJabatan, $hasUnit, $hasBagian) {
                     $s->where('u.name', 'like', "%{$q}%");
@@ -78,7 +103,6 @@ class PublicAbsensiController extends Controller
                 });
             }
 
-            // Urut: hirarki ASC, lalu nama ASC — TANPA limit/pagination
             $users = $userQuery->select($select)
                 ->orderByRaw('COALESCE(u.hirarki, 99999) ASC')
                 ->orderBy('u.name', 'asc')
@@ -89,18 +113,20 @@ class PublicAbsensiController extends Controller
                     return [
                         'id'   => 'user:' . $r->id,
                         'text' => trim(($r->name ?? '—') . ' — ' . $sub),
-                        '_sort_hirarki' => (int)($r->hirarki ?? 99999), // untuk jaga-jaga sorting di koleksi
+                        '_sort_hirarki' => (int)($r->hirarki ?? 99999),
                         '_sort_nama'    => (string)($r->name ?? ''),
                     ];
                 });
 
-            // ===== Tamu rapat (opsional) — taruh setelah internal (hirarki besar) =====
+            // ===== Tamu rapat (opsional) — KECUALIKAN yang sudah hadir =====
             $tamu = collect();
             if (Schema::hasTable('tamu_rapat')) {
-                $tamuQuery = DB::table('tamu_rapat as t')->where('t.id_rapat', $rapat->id);
-
                 $hasJabTamu  = Schema::hasColumn('tamu_rapat', 'jabatan');
                 $hasInstansi = Schema::hasColumn('tamu_rapat', 'instansi');
+
+                $tamuQuery = DB::table('tamu_rapat as t')
+                    ->where('t.id_rapat', $rapat->id)
+                    ->when(!empty($sudahTamu), fn($qq)=>$qq->whereNotIn('t.id', $sudahTamu));
 
                 if ($q !== '') {
                     $tamuQuery->where(function ($s) use ($q, $hasJabTamu, $hasInstansi) {
@@ -124,14 +150,13 @@ class PublicAbsensiController extends Controller
                         return [
                             'id'   => 'tamu:' . $r->id,
                             'text' => trim(($r->nama ?? '—') . ' — ' . $sub),
-                            // taruh tamu "di bawah" internal dgn hirarki besar
-                            '_sort_hirarki' => 999999,
+                            '_sort_hirarki' => 999999, // taruh setelah internal
                             '_sort_nama'    => (string)($r->nama ?? ''),
                         ];
                     });
             }
 
-            // ===== Gabungkan + unik + sort final =====
+            // Gabung + unik + sort final
             $results = $users->merge($tamu)
                 ->unique('text')
                 ->sort(function ($a, $b) {
@@ -141,12 +166,8 @@ class PublicAbsensiController extends Controller
                     return strcasecmp($a['_sort_nama'] ?? '', $b['_sort_nama'] ?? '');
                 })
                 ->values()
-                ->map(function ($r) {
-                    // bersihkan kunci internal sort sebelum dikirim
-                    return ['id' => $r['id'], 'text' => $r['text']];
-                });
+                ->map(fn($r) => ['id' => $r['id'], 'text' => $r['text']]);
 
-            // Kembalikan ARRAY DATAR (sesuai view absensi.publik)
             return response()->json($results);
 
         } catch (\Throwable $e) {
@@ -160,10 +181,7 @@ class PublicAbsensiController extends Controller
     }
 
     /**
-     * Simpan absensi (publik).
-     * - Simpan TTD ke public/ttd
-     * - Catat waktu_absen (jika kolom ada)
-     * - No. HP opsional: validasi + kirim WA konfirmasi bila diisi
+     * Simpan absensi (publik) — tetap sama spt sebelumnya (sudah OK).
      */
     public function store($token, Request $req)
     {
@@ -185,7 +203,7 @@ class PublicAbsensiController extends Controller
             return back()->with('error', 'Pilihan peserta tidak valid.')->withInput();
         }
 
-        // Mapping kolom dinamis di tabel absensi
+        // Mapping kolom dinamis absensi
         $colUser = Schema::hasColumn('absensi', 'user_id') ? 'user_id'
                   : (Schema::hasColumn('absensi', 'id_user') ? 'id_user' : null);
         $colTamu = Schema::hasColumn('absensi', 'tamu_id') ? 'tamu_id'
@@ -253,12 +271,11 @@ class PublicAbsensiController extends Controller
         }
 
         $fname    = 'rapat'.$rapat->id.'-'.$type.$pid.'-'.date('Ymd_His').'-'.Str::random(6).'.png';
-        $relPath  = 'ttd/'.$fname; // simpan relatif utk PDF
+        $relPath  = 'ttd/'.$fname;
         $absolute = $publicDir.DIRECTORY_SEPARATOR.$fname;
 
         file_put_contents($absolute, $bin);
 
-        // Insert absensi
         $now = now();
         $payload = [
             'id_rapat'   => $rapat->id,
@@ -275,15 +292,14 @@ class PublicAbsensiController extends Controller
         if ($userId && $colUser) $payload[$colUser] = $userId;
         if ($tamuId && $colTamu) $payload[$colTamu] = $tamuId;
 
-        // No. HP opsional
         $no_hp = $req->filled('no_hp') ? preg_replace('/[^0-9]/', '', $req->no_hp) : null;
-        if ($no_hp && Schema::hasColumn('absensi', 'no_hp')) {
-            $payload['no_hp'] = $no_hp;
+        if ($no_hp && $colNoHp) {
+            $payload[$colNoHp] = $no_hp;
         }
 
         DB::table('absensi')->insert($payload);
 
-        // Kirim WA konfirmasi (bila HP diisi)
+        // WA konfirmasi jika diisi
         if ($no_hp) {
             try {
                 $wa = preg_replace('/^0/', '62', $no_hp);
