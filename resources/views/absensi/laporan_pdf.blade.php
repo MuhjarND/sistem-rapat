@@ -150,7 +150,7 @@
             <tr>
                 <td>
                     {{-- <div>{{ $approver_jabatan ?: 'Penanggung Jawab' }},</div> <br><br> --}}
-                    <div>Ketua Panitia</div> <br><br>
+                    <div>Ketua Panitia,</div> <br><br><br><br><br>
 
                     {{-- @if(!empty($qrSrc))
                         <img src="{{ $qrSrc }}" style="width:130px; height:auto; margin:8px 0;">
@@ -163,7 +163,7 @@
                     @endif --}}
 
                     <b>I M R A N</b>
-                    <b>{{ $approver_nama ?: '-' }}</b>
+                    {{-- <b>{{ $approver_nama ?: '-' }}</b> --}}
                 </td>
             </tr>
         </table>
