@@ -116,7 +116,7 @@
                   $unit  = $get($p,'unit','-');
                   $stat  = strtoupper($get($p,'status','-'));
                   $ttd   = $get($p,'ttd_data');
-                  $wabs  = $get($p,'waktu_absen');
+                //   $wabs  = $get($p,'waktu_absen');
                 @endphp
                 <tr>
                     <td class="center">{{ $no++ }}</td>
@@ -131,9 +131,9 @@
                                 <div class="ttd-empty"></div>
                             @endif
                         </div>
-                        @if(!empty($wabs))
+                        {{-- @if(!empty($wabs))
                             <div class="muted">{{ $wabs }} WIT</div>
-                        @endif
+                        @endif --}}
                     </td>
                     <td class="center">{{ $stat ?: '-' }}</td>
                 </tr>
