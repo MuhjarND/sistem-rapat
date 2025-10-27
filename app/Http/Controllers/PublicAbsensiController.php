@@ -309,7 +309,7 @@ class PublicAbsensiController extends Controller
                 $tempat = $rapat->tempat ?: '-';
 
                 $msg =
-                    "*Assalamu’alaikum Warahmatullahi Wabarakatuh*\n\n" .
+                    "*Assalamu’alaikum Wr. Wb.*\n\n" .
                     "Dengan hormat, kami informasikan bahwa kehadiran Anda telah *berhasil tercatat* pada kegiatan berikut:\n\n" .
                     "📌 *{$judul}*\n" .
                     "📅 {$tgl}\n" .
@@ -317,7 +317,7 @@ class PublicAbsensiController extends Controller
                     "🏢 {$tempat}\n\n" .
                     "Terima kasih atas partisipasi dan kehadiran Bapak/Ibu.\n" .
                     "Semoga Allah SWT senantiasa memberikan keberkahan dan kelancaran dalam setiap aktivitas kita.\n\n" .
-                    "Wassalamu’alaikum Warahmatullahi Wabarakatuh.\n\n" .
+                    "Wassalamu’alaikum Wr. Wb.\n\n" .
                     "— *Sistem Absensi Online PTA Papua Barat*";
 
                 if (class_exists(\App\Helpers\FonnteWa::class)) {
