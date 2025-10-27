@@ -126,7 +126,7 @@
       <img src="{{ asset('logo_qr.png') }}" alt="Logo">
       <div>
         <h1>Sistem Absensi Online PTA Papua Barat</h1>
-        <div class="sub">Form Kehadiran BIMTEK PNBP</div>
+        <div class="sub">Form Kehadiran Upacara Sumpah Pemuda</div>
       </div>
     </div>
 
