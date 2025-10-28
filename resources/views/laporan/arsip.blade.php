@@ -5,8 +5,19 @@
 <style>
   .table thead th{ text-align:center; vertical-align:middle; }
   .table td{ vertical-align: middle; }
+  .table.no-hover tbody tr:hover { background: transparent !important; }
 
-  /* file pill lebih ramping */
+  /* badge kategori di bawah judul */
+  .badge-soft{
+    border-radius:999px; padding:.2rem .6rem; font-weight:700; letter-spacing:.2px;
+    background: rgba(255,255,255,.06); border:1px solid rgba(226,232,240,.15);
+    font-size: 11px;
+  }
+  .badge-slate { background: linear-gradient(180deg, rgba(148,163,184,.22), rgba(148,163,184,.12)); }
+
+  .subtitle{ font-size:12px; color:#9fb0cd; }
+
+  /* file pill */
   .pill-file{
     display:inline-block; padding:.35rem .6rem; border-radius:999px;
     background: rgba(255,255,255,.06); border:1px solid rgba(226,232,240,.15);
@@ -26,14 +37,11 @@
   .filter-tight .form-group{ margin-bottom:.5rem; }
   .filter-tight label{ margin-bottom:.25rem; font-weight:600; color:#dbe7ff; font-size:.85rem; }
 
-  .table.no-hover tbody tr:hover { background: transparent !important; }
-  .subtitle{ font-size:12px; color:#9fb0cd; }
-
   /* ===== Lebar kolom (desktop) */
-  th.col-judul{ width:34%; } th.col-kategori{ width:260px; } th.col-rapat{ width:260px; }
-  th.col-tanggal{ width:140px; } th.col-namafile{ width:240px; } th.col-aksi{ width:190px; }
-  td.col-judul{ width:34%; } td.col-kategori{ width:260px; } td.col-rapat{ width:260px; }
-  td.col-tanggal{ width:140px; } td.col-namafile{ width:240px; } td.col-aksi{ width:190px; }
+  th.col-judul{ width:40%; } td.col-judul{ width:40%; }
+  th.col-detail{ width:260px; } td.col-detail{ width:260px; text-align:center; }
+  th.col-namafile{ width:220px; } td.col-namafile{ width:220px; }
+  th.col-aksi{ width:190px; } td.col-aksi{ width:190px; }
 
   /* ===== Pagination (dark) */
   .pagination { margin-bottom: 0; }
@@ -60,7 +68,6 @@
 
   /* ====== Mobile cards ====== */
   @media (max-width: 575.98px){
-    /* Stack filter fields nicely */
     .filter-tight .form-row > .form-group{ width:100%; }
     .filter-tight .d-flex{ flex-direction:column; }
     .filter-tight .d-flex .btn{ width:100%; margin:0 0 .5rem 0; }
@@ -98,7 +105,6 @@
     .col-aksi .btn-icon{ width:100%; height:38px; border-radius:10px; }
     .col-aksi .d-inline-flex{ width:100%; gap:6px; }
     .col-aksi .d-inline-flex .btn-icon{ flex:1; }
-    /* file pill grows on mobile */
     .pill-file{ max-width: 100%; }
   }
 </style>
@@ -172,42 +178,51 @@
           <thead>
             <tr class="text-center">
               <th style="width:54px;">#</th>
-              <th class="col-judul">Judul</th>
-              <th class="col-kategori">Kategori</th>
-              <th class="col-rapat">Rapat</th>
-              <th class="col-tanggal">Tgl. Laporan</th>
+              <th class="col-judul">Judul Laporan</th>
+              <th class="col-detail">Detail</th>
               <th class="col-namafile">Nama File</th>
               <th class="col-aksi">Aksi</th>
             </tr>
           </thead>
           <tbody>
           @forelse ($uploads as $i => $u)
-            @php $rowNo = ($uploads->currentPage()-1) * $uploads->perPage() + $i + 1; @endphp
+            @php
+              $rowNo    = ($uploads->currentPage()-1) * $uploads->perPage() + $i + 1;
+              $tglRapat = $u->tanggal_rapat ?? null;
+              $tglTampil = $tglRapat ?: ($u->tanggal_laporan ?: $u->created_at);
+              $waktu    = $u->waktu_mulai ?? null;
+              $tempat   = $u->tempat ?? null;
+            @endphp
             <tr>
-              <td class="text-center" data-label="#"> {{ $rowNo }} </td>
+              <td class="text-center" data-label="#">{{ $rowNo }}</td>
 
+              {{-- Judul + kategori badge + keterangan --}}
               <td class="col-judul" data-label="Judul">
                 <strong>{{ $u->judul }}</strong>
+                @if(!empty($u->nama_kategori))
+                  <div class="mt-1">
+                    <span class="badge-soft badge-slate">{{ $u->nama_kategori }}</span>
+                  </div>
+                @endif
                 @if($u->keterangan)
                   <div class="subtitle">{{ $u->keterangan }}</div>
                 @endif
               </td>
 
-              <td class="col-kategori" data-label="Kategori">{{ $u->nama_kategori ?? '-' }}</td>
-
-              <td class="col-rapat" data-label="Rapat">
-                @if($u->judul_rapat)
-                  {{ \Illuminate\Support\Str::limit($u->judul_rapat,42) }}
-                @else
-                  -
+              {{-- Detail: tgl, waktu, tempat, rapat terkait --}}
+              <td class="col-detail text-center" data-label="Detail">
+                <div style="font-size:12px;">
+                  {{ \Carbon\Carbon::parse($tglTampil)->format('d/m/Y') }}
+                </div>
+                @if(!empty($waktu))
+                  <div class="text-muted" style="font-size:11px;"> {{ $waktu }} WIT</div>
+                @endif
+                @if(!empty($tempat))
+                  <div class="text-muted" style="font-size:11px;"> {{ $tempat }}</div>
                 @endif
               </td>
 
-              <td class="col-tanggal" data-label="Tgl. Laporan">
-                @php $tgl = $u->tanggal_laporan ?: $u->created_at; @endphp
-                {{ \Carbon\Carbon::parse($tgl)->format('d/m/Y') }}
-              </td>
-
+              {{-- Nama file + preview --}}
               <td class="col-namafile" data-label="Nama File">
                 <a href="#"
                    class="pill-file preview-link"
@@ -219,6 +234,7 @@
                 </a>
               </td>
 
+              {{-- Aksi --}}
               <td class="text-center col-aksi" data-label="Aksi">
                 <div class="d-inline-flex">
                   <form action="{{ route('laporan.file.unarchive',$u->id) }}" method="POST" class="d-inline"
@@ -258,7 +274,7 @@
               </td>
             </tr>
           @empty
-            <tr><td colspan="7" class="text-center text-muted p-4">Belum ada unggahan di arsip.</td></tr>
+            <tr><td colspan="5" class="text-center text-muted p-4">Belum ada unggahan di arsip.</td></tr>
           @endforelse
           </tbody>
         </table>
@@ -274,7 +290,7 @@
   @endif
 </div>
 
-{{-- MODAL: PREVIEW FILE --}}
+{{-- =================== MODAL PREVIEW =================== --}}
 <div class="modal fade modal-preview" id="modalPreview" tabindex="-1" aria-labelledby="modalPreviewLabel" aria-hidden="true">
   <div class="modal-dialog modal-xl modal-dialog-scrollable">
     <div class="modal-content modal-solid">
@@ -299,7 +315,7 @@
   </div>
 </div>
 
-{{-- MODAL: UPLOAD ke ARSIP --}}
+{{-- =================== MODAL UPLOAD ke ARSIP =================== --}}
 <div class="modal fade" id="modalUploadArsip" tabindex="-1" aria-labelledby="modalUploadArsipLabel" aria-hidden="true">
   <div class="modal-dialog modal-lg modal-dialog-scrollable">
     <form class="modal-content modal-solid" action="{{ route('laporan.upload') }}" method="POST" enctype="multipart/form-data">
@@ -360,7 +376,7 @@
   </div>
 </div>
 
-{{-- MODAL: EDIT --}}
+{{-- =================== MODAL EDIT =================== --}}
 <div class="modal fade" id="modalEdit" tabindex="-1" aria-labelledby="modalEditLabel" aria-hidden="true">
   <div class="modal-dialog modal-lg modal-dialog-scrollable">
     <form id="formEdit" class="modal-content modal-solid" method="POST" enctype="multipart/form-data">
@@ -423,10 +439,10 @@
 
 @push('scripts')
 <script>
-  // inject data ke modal edit
+  // ===== Inject data ke modal edit =====
   document.querySelectorAll('.btn-edit').forEach(btn => {
     btn.addEventListener('click', () => {
-      const id   = btn.dataset.id;
+      const id  = btn.dataset.id;
       document.getElementById('e_judul').value        = btn.dataset.judul || '';
       document.getElementById('e_id_kategori').value  = btn.dataset.id_kategori || '';
       document.getElementById('e_id_rapat').value     = btn.dataset.id_rapat || '';
@@ -438,7 +454,7 @@
     });
   });
 
-  // ===== PREVIEW: buka modal saat klik nama file
+  // ===== PREVIEW: buka modal saat klik nama file =====
   (function(){
     const $modal = $('#modalPreview');
     const $title = $('#modalPreviewLabel');

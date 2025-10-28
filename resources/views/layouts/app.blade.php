@@ -179,11 +179,14 @@
             </button>
 
             <a class="navbar-brand d-flex align-items-center mb-0" href="{{ url('/') }}">
+                {{-- Logo --}}
                 <span class="mr-2 d-inline-flex align-items-center justify-content-center"
-                      style="width:34px;height:34px;border-radius:8px;background:linear-gradient(180deg, rgba(79,70,229,.9), rgba(14,165,233,.9));box-shadow:var(--shadow);">
-                    <i class="fas fa-cogs"></i>
+                    style="width:38px;height:38px;border-radius:8px;overflow:hidden;box-shadow:var(--shadow)">
+                    <img src="{{ asset('logo_qr.png') }}" alt="Logo PTA Papua Barat" style="width:100%;height:100%;object-fit:contain;">
                 </span>
-                Manajemen Rapat
+
+                {{-- Nama aplikasi --}}
+                <span style="font-weight:700; letter-spacing:.3px;">SISTEM RAPAT</span>
             </a>
         </div>
 
@@ -519,8 +522,8 @@
                                 <a class="nav-link {{ request()->is('user*') ? 'active' : '' }}" href="{{ route('user.index') }}">
                                     <i class="fas fa-users"></i> User
                                 </a>
-                                <a class="nav-link {{ request()->is('pimpinan*') ? 'active' : '' }}" href="{{ route('pimpinan.index') }}">
-                                    <i class="fas fa-user-tie"></i> Pimpinan
+                                <a class="nav-link {{ request()->is('units*') ? 'active' : '' }}" href="{{ route('units.index') }}">
+                                    <i class="fas fa-layer-group"></i> Unit
                                 </a>
                                 <a class="nav-link {{ request()->is('kategori*') ? 'active' : '' }}" href="{{ route('kategori.index') }}">
                                     <i class="fas fa-layer-group"></i> Kategori Rapat

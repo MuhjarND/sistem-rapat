@@ -7,11 +7,25 @@
 </div>
 
 <div style="margin-bottom: 5px;">DAFTAR PEJABAT/PEGAWAI YANG DIUNDANG</div>
-<ol>
-    @foreach($daftar_peserta as $peserta)
-        <li>{{ $peserta->jabatan }}</li>
-    @endforeach
-</ol>
+
+@php
+    // Ambil daftar jabatan unik (case-insensitive), hilangkan kosong/“-”
+    $jabatanUnik = collect($daftar_peserta ?? [])
+        ->map(function($p){ return trim((string)($p->jabatan ?? '')); })
+        ->filter(function($v){ return $v !== '' && $v !== '-'; })
+        ->unique(function($v){ return mb_strtolower($v); })
+        ->values();
+@endphp
+
+@if($jabatanUnik->isNotEmpty())
+    <ol>
+        @foreach($jabatanUnik as $jab)
+            <li>{{ $jab }}</li>
+        @endforeach
+    </ol>
+@else
+    <div style="color:#666;">(Tidak ada jabatan yang dapat ditampilkan)</div>
+@endif
 
 <br>
 

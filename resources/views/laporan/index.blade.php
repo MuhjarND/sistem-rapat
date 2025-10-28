@@ -138,91 +138,94 @@
   </form>
 
   {{-- =================== REKAP RAPAT =================== --}}
-  <div class="card mb-3">
-    <div class="card-header d-flex justify-content-between align-items-center">
-      <b>Rekap Rapat</b>
-      <a href="{{ route('laporan.cetak', request()->query()) }}" class="btn btn-outline-light btn-sm" target="_blank">
-        <i class="fas fa-print mr-1"></i> Cetak Rekap
-      </a>
-    </div>
+<div class="card mb-3">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <b>Rekap Rapat</b>
+    <a href="{{ route('laporan.cetak', request()->query()) }}" class="btn btn-outline-light btn-sm" target="_blank">
+      <i class="fas fa-print mr-1"></i> Cetak Rekap
+    </a>
+  </div>
 
-    <div class="card-body p-0">
-      <div class="table-responsive">
-        <table class="table table-sm mb-0 no-hover">
-          <thead>
-            <tr class="text-center">
-              <th style="width:54px;">#</th>
-              <th>Judul</th>
-              <th style="width:180px;">Kategori</th>
-              <th style="width:190px;">Tanggal & Waktu</th>
-              <th style="width:180px;">Tempat</th>
-              <th style="width:110px;">Hadir</th>
-              <th style="width:120px;">Notulensi</th>
-              <th style="width:120px;">Aksi</th>
-            </tr>
-          </thead>
-          <tbody>
-            @forelse($rekap as $i => $r)
-              @php $rowNo = ($rekap->currentPage()-1) * $rekap->perPage() + $i + 1; @endphp
-              <tr>
-                <td class="text-center" data-label="#">{{ $rowNo }}</td>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-sm mb-0 no-hover">
+        <thead>
+          <tr class="text-center">
+            <th style="width:50px;">#</th>
+            <th>Judul</th>
+            <th style="width:260px;">Detail Rapat</th>
+            <th style="width:90px;">Hadir</th>
+            <th style="width:110px;">Notulensi</th>
+            <th style="width:110px;">Aksi</th>
+          </tr>
+        </thead>
+        <tbody>
+          @forelse($rekap as $i => $r)
+            @php $rowNo = ($rekap->currentPage()-1) * $rekap->perPage() + $i + 1; @endphp
+            <tr>
+              <td class="text-center">{{ $rowNo }}</td>
 
-                <td data-label="Judul">
-                  <strong>{{ $r->judul }}</strong>
-                  @if(($r->jml_files_aktif ?? 0) > 0)
-                    <div class="hint">Lampiran aktif: {{ $r->jml_files_aktif }}</div>
-                  @else
-                    <div class="hint">Belum ada lampiran aktif</div>
-                  @endif
-                </td>
+              <td class="align-middle">
+                <strong>{{ $r->judul }}</strong>
+              </td>
 
-                <td data-label="Kategori">{{ $r->nama_kategori ?? '-' }}</td>
-
-                <td data-label="Tanggal & Waktu">
+              {{-- ===== Kolom Gabungan: Kategori + Tanggal + Waktu + Tempat ===== --}}
+              <td class="text-center align-middle">
+                <div class="mb-1">
+                  <span class="badge-soft badge-slate px-2 py-1">
+                    {{ $r->nama_kategori ?? '-' }}
+                  </span>
+                </div>
+                <div style="font-size:12px;">
                   {{ \Carbon\Carbon::parse($r->tanggal)->translatedFormat('d M Y') }}
-                  <div class="text-muted" style="font-size:12px">{{ $r->waktu_mulai }}</div>
-                </td>
+                </div>
+                <div style="font-size:12px;">
+                  {{ $r->waktu_mulai }} WIT
+                </div>
+                <div class="text-muted" style="font-size:11px;">
+                  <i class="fas fa-map-marker-alt mr-1"></i>{{ $r->tempat }}
+                </div>
+              </td>
 
-                <td data-label="Tempat">{{ $r->tempat }}</td>
+              <td class="text-center align-middle">
+                <span class="badge-soft badge-green">{{ $r->jml_hadir ?? 0 }}</span>
+              </td>
 
-                <td class="text-center" data-label="Hadir">
-                  <span class="badge-soft badge-green">{{ $r->jml_hadir ?? 0 }}</span>
-                </td>
+              <td class="text-center align-middle">
+                @if(($r->ada_notulensi ?? 0)==1)
+                  <span class="badge badge-success">Sudah</span>
+                @else
+                  <span class="badge badge-secondary">Belum</span>
+                @endif
+              </td>
 
-                <td class="text-center" data-label="Notulensi">
-                  @if(($r->ada_notulensi ?? 0)==1)
-                    <span class="badge badge-success">Sudah</span>
-                  @else
-                    <span class="badge badge-secondary">Belum</span>
-                  @endif
-                </td>
-
-                <td class="text-center" data-label="Aksi">
-                  <div class="d-inline-flex">
-                    <a href="{{ route('laporan.gabungan', $r->id) }}"
-                       class="btn-icon btn-cyan mr-1"
-                       target="_blank" title="Download Gabungan PDF">
-                      <i class="fas fa-download"></i>
-                    </a>
-                    <form action="{{ route('laporan.rapat.archive', $r->id) }}"
-                          method="POST" class="d-inline"
-                          onsubmit="return confirm('Arsipkan rapat ini? Jika belum ada lampiran aktif, sistem akan membuat file gabungan PDF dan memindahkannya ke Arsip.')">
-                      @csrf
-                      <button class="btn-icon btn-lime" title="Arsipkan Rapat">
-                        <i class="fas fa-archive"></i>
-                      </button>
-                    </form>
-                  </div>
-                </td>
-              </tr>
-            @empty
-              <tr><td colspan="8" class="text-center text-muted p-4">Tidak ada data.</td></tr>
-            @endforelse
-          </tbody>
-        </table>
-      </div>
+              <td class="text-center align-middle">
+                <div class="d-inline-flex justify-content-center">
+                  <a href="{{ route('laporan.gabungan', $r->id) }}"
+                     class="btn-icon btn-cyan mr-1"
+                     target="_blank" title="Download Gabungan PDF">
+                    <i class="fas fa-download"></i>
+                  </a>
+                  <form action="{{ route('laporan.rapat.archive', $r->id) }}"
+                        method="POST" class="d-inline"
+                        onsubmit="return confirm('Arsipkan rapat ini? Sistem akan membuat file gabungan PDF dan memindahkannya ke Arsip.')">
+                    @csrf
+                    <button class="btn-icon btn-lime" title="Arsipkan Rapat">
+                      <i class="fas fa-archive"></i>
+                    </button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+          @empty
+            <tr><td colspan="6" class="text-center text-muted p-4">Tidak ada data.</td></tr>
+          @endforelse
+        </tbody>
+      </table>
     </div>
   </div>
+</div>
+
 
   <div class="mt-2">
     {{ $rekap->appends(request()->query())->links() }}
