@@ -6,7 +6,6 @@
     <h3>Tambah User</h3>
 
     @php
-      // pertahankan pick_unit agar "kembali" tetap bawa filter kalau datang dari Units
       $backUrl = request()->filled('pick_unit')
         ? route('user.index', ['unit' => request('pick_unit'), 'pick_unit' => request('pick_unit')])
         : route('user.index');
@@ -60,11 +59,10 @@
           <small class="form-text text-muted">Format: mulai dari 0, 10–14 digit. Contoh: 081234567890</small>
         </div>
 
-        {{-- Unit (dinamis + prefill dari pick_unit bila ada) --}}
+        {{-- Unit --}}
         <div class="form-group mb-3">
           <label for="unit">Unit <span class="text-danger">*</span></label>
           @php
-            // prefill default: request('pick_unit') kalau ada, else old(), else (opsional) item pertama daftar
             $defaultUnit = request('pick_unit') ?: old('unit');
             if (!$defaultUnit && !empty($daftar_unit) && is_array($daftar_unit)) {
               $defaultUnit = $daftar_unit[0] ?? null;
@@ -78,15 +76,21 @@
             @endforeach
           </select>
           @error('unit') <div class="invalid-feedback">{{ $message }}</div> @enderror
-
-          @if(Route::has('units.index'))
-            <small class="form-text text-muted">
-              Tidak menemukan unit? <a href="{{ route('units.index') }}" target="_blank">Kelola daftar unit</a>.
-            </small>
-          @endif
         </div>
 
-        {{-- Tingkatan (opsional) --}}
+        {{-- Bidang (dropdown dari master bidang) --}}
+        <div class="form-group mb-3">
+          <label for="bidang">Bidang</label>
+          <select name="bidang" id="bidang" class="form-control @error('bidang') is-invalid @enderror">
+            <option value="">— Pilih Bidang (opsional) —</option>
+            @foreach($daftar_bidang as $b)
+              <option value="{{ $b }}" {{ old('bidang')===$b ? 'selected' : '' }}>{{ $b }}</option>
+            @endforeach
+          </select>
+          @error('bidang') <div class="invalid-feedback">{{ $message }}</div> @enderror
+        </div>
+
+        {{-- Tingkatan --}}
         <div class="form-group mb-3">
           <label for="tingkatan">Tingkatan (opsional)</label>
           <select name="tingkatan" id="tingkatan" class="form-control @error('tingkatan') is-invalid @enderror">
@@ -96,17 +100,14 @@
             @endforeach
           </select>
           @error('tingkatan') <div class="invalid-feedback">{{ $message }}</div> @enderror
-          <small class="form-text text-muted">
-            Jika diisi, user otomatis menjadi role <b>approval</b> (logika akan diproses di backend).
-          </small>
+          <small class="form-text text-muted">Jika diisi, role otomatis jadi <b>approval</b>.</small>
         </div>
 
         {{-- Hirarki --}}
         <div class="form-group mb-3">
           <label for="hirarki">Hirarki <small class="text-muted">(kecil = di atas)</small></label>
           <input type="number" name="hirarki" id="hirarki" class="form-control @error('hirarki') is-invalid @enderror"
-                 value="{{ old('hirarki') }}" min="0" max="65535" step="1"
-                 placeholder="mis. 0 untuk Pimpinan">
+                 value="{{ old('hirarki') }}" min="0" max="65535" step="1" placeholder="mis. 0 untuk Pimpinan">
           @error('hirarki') <div class="invalid-feedback">{{ $message }}</div> @enderror
         </div>
 
@@ -121,16 +122,12 @@
             @endforeach
           </select>
           @error('role') <div class="invalid-feedback">{{ $message }}</div> @enderror
-          <small class="form-text text-muted">
-            Catatan: jika kamu memilih tingkatan di atas, role akan diset menjadi <b>approval</b> secara otomatis.
-          </small>
         </div>
 
         {{-- Password --}}
         <div class="form-group mb-3">
           <label for="password">Password <span class="text-danger">*</span></label>
-          <input type="password" name="password" id="password"
-                 class="form-control @error('password') is-invalid @enderror" required>
+          <input type="password" name="password" id="password" class="form-control @error('password') is-invalid @enderror" required>
           @error('password') <div class="invalid-feedback">{{ $message }}</div> @enderror
           <small class="form-text text-muted">Minimal 6 karakter.</small>
         </div>
@@ -141,7 +138,6 @@
           <input type="password" name="password_confirmation" id="password_confirmation" class="form-control" required>
         </div>
 
-        {{-- Pertahankan pick_unit saat submit agar redirect index bisa tetap tahu konteks --}}
         @if(request()->filled('pick_unit'))
           <input type="hidden" name="pick_unit" value="{{ request('pick_unit') }}">
         @endif

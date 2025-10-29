@@ -22,6 +22,19 @@
             --danger:#ef4444;--warning:#f59e0b;--info:#0ea5e9;--border:#1f2a4d;
             --shadow:0 10px 30px rgba(2,6,23,.35);--radius:14px;
             --nav-h: 56px; --sidebar-w: 260px;
+
+            /* ==== VARIABEL KHUSUS DROPDOWN (KONTRAS TINGGI) ==== */
+            --dd-bg:#11183a;              /* bg dropdown */
+            --dd-bg-hover:#1a2250;        /* hover item */
+            --dd-bg-active:#243075;       /* active/selected item */
+            --dd-border:#2a3569;          /* border dropdown */
+            --dd-text:#eaf1ff;            /* teks item */
+            --dd-muted:#9fb0cd;           /* teks hint */
+            --dd-accent:#7aa2ff;          /* highlight/caret */
+            --dd-shadow:0 10px 30px rgba(23,35,96,.45);
+            --dd-focus-ring:0 0 0 .18rem rgba(122,162,255,.35);
+            --dd-tag-bg:rgba(122,162,255,.22);  /* tag/choice bg */
+            --dd-tag-bd:rgba(122,162,255,.55);  /* tag/choice border */
         }
 
         html,body{height:100%}
@@ -130,17 +143,76 @@
         .btn-icon{width:34px;height:34px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;padding:0;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.06)}
         .btn-icon:hover{background:rgba(255,255,255,.14)}
 
+        /* ======= FORM & SELECT: KONTRAS ======= */
         .form-control,.custom-select{background:rgba(255,255,255,.06);border:1px solid rgba(226,232,240,.15);color:var(--text)}
         .form-control:focus,.custom-select:focus{background:rgba(255,255,255,.08);border-color:rgba(79,70,229,.55);box-shadow:0 0 0 .2rem rgba(79,70,229,.25);color:var(--text)}
         label{font-weight:600;color:#dbe7ff;font-size:.85rem}
 
-        .select2-container{width:100%!important}
-        .select2-container--default .select2-selection--multiple{background:rgba(255,255,255,.06);border:1px solid rgba(226,232,240,.15);min-height:38px}
-        .select2-container--default .select2-selection--multiple .select2-selection__choice{background:rgba(79,70,229,.25);border:1px solid rgba(79,70,229,.35);color:#fff;border-radius:999px;padding:2px 8px}
-        .select2-dropdown{background:#0f1533;color:#fff;border:1px solid var(--border)}
-        .select2-results__option--highlighted{background:rgba(79,70,229,.45)!important}
-        .select2-container .select2-dropdown{z-index:2000!important}
+        /* ======= BOOTSTRAP DROPDOWN (kontras tinggi) ======= */
+        .dropdown-menu{
+            background:var(--dd-bg);
+            border:1px solid var(--dd-border);
+            color:var(--dd-text);
+            border-radius:12px;
+            box-shadow:var(--dd-shadow);
+        }
+        .dropdown-item{
+            color:var(--dd-text);
+            font-weight:600;
+        }
+        .dropdown-item:hover, .dropdown-item:focus{
+            background:var(--dd-bg-hover);
+            color:#fff;
+        }
+        .dropdown-item.active, .dropdown-item:active{
+            background:var(--dd-bg-active);
+            color:#fff;
+        }
+        .dropdown-divider{ border-top-color: rgba(255,255,255,.12); }
+        .show > .btn.dropdown-toggle:focus{ box-shadow:var(--dd-focus-ring); }
+        .show .dropdown-menu{ z-index: 2000; }
 
+        /* ======= SELECT2: kontras tinggi (halaman & modal) ======= */
+        .select2-container{width:100%!important}
+        /* multiple */
+        .select2-container--default .select2-selection--multiple{
+            background:rgba(255,255,255,.06);
+            border:1px solid var(--dd-border);
+            min-height:38px; color:var(--text);
+            border-radius:10px;
+        }
+        .select2-container--default .select2-selection--multiple .select2-selection__choice{
+            background:var(--dd-tag-bg);
+            border:1px solid var(--dd-tag-bd);
+            color:#fff; border-radius:999px; padding:2px 8px; font-weight:700;
+        }
+        .select2-container--default .select2-selection--multiple .select2-selection__choice__remove{
+            color:#fff; margin-right:6px;
+        }
+        /* single */
+        .select2-container--default .select2-selection--single{
+            background:rgba(255,255,255,.06);
+            border:1px solid var(--dd-border); height:38px; color:var(--text);
+            border-radius:10px;
+        }
+        .select2-container--default .select2-selection--single .select2-selection__rendered{ color:var(--text); line-height:36px; }
+        .select2-container--default .select2-selection--single .select2-selection__arrow b{
+            border-color: var(--dd-accent) transparent transparent transparent !important;
+        }
+
+        .select2-dropdown{
+            background:var(--dd-bg)!important; color:var(--dd-text)!important; border:1px solid var(--dd-border)!important;
+            box-shadow:var(--dd-shadow)!important;
+        }
+        .select2-results__option{ color:var(--dd-text)!important; font-weight:600; }
+        .select2-results__option--highlighted{ background:var(--dd-bg-hover)!important; color:#fff!important }
+        .select2-results__option[aria-selected=true]{ background:var(--dd-bg-active)!important; }
+        .select2-search--dropdown .select2-search__field{
+            background:#0c1333; border:1px solid var(--dd-border); color:#fff;
+        }
+        .select2-container .select2-dropdown{ z-index:2000!important }
+
+        /* ======= MODAL ======= */
         .modal-content{background:linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));border:1px solid var(--border);border-radius:calc(var(--radius) - 6px);color:var(--text)}
         .modal-header{border-bottom:1px solid var(--border)}
         .modal-footer{border-top:1px solid var(--border)}
@@ -152,7 +224,7 @@
         .modal-solid .select2-dropdown{background:#0d1330!important;color:#fff;border:1px solid var(--border)}
         .modal-backdrop.show{opacity:.6}
 
-        .text-muted{color:var(--muted)!important}
+        .text-muted{color:var(--dd-muted)!important}
         .data-card{display:flex;flex-direction:column;height:calc(100vh - 240px)}
         .data-card .data-scroll{overflow:auto;flex:1 1 auto}
         .data-card .data-scroll thead th{position:sticky;top:0;z-index:2;background:rgba(79,70,229,.12)}
@@ -179,13 +251,10 @@
             </button>
 
             <a class="navbar-brand d-flex align-items-center mb-0" href="{{ url('/') }}">
-                {{-- Logo --}}
                 <span class="mr-2 d-inline-flex align-items-center justify-content-center"
-                    style="width:38px;height:38px;border-radius:8px;overflow:hidden;box-shadow:var(--shadow)">
+                      style="width:38px;height:38px;border-radius:8px;overflow:hidden;box-shadow:var(--shadow)">
                     <img src="{{ asset('logo_qr.png') }}" alt="Logo PTA Papua Barat" style="width:100%;height:100%;object-fit:contain;">
                 </span>
-
-                {{-- Nama aplikasi --}}
                 <span style="font-weight:700; letter-spacing:.3px;">SISTEM RAPAT</span>
             </a>
         </div>
@@ -365,7 +434,6 @@
                 @elseif($isOperator)
                     {{-- =================== SIDEBAR KHUSUS OPERATOR =================== --}}
                     @php
-                        // Notulensi counter (sama seperti admin)
                         $countBelum = \DB::table('rapat')
                                         ->leftJoin('notulensi','notulensi.id_rapat','=','rapat.id')
                                         ->whereNull('notulensi.id')->count();
@@ -373,7 +441,6 @@
                                         ->join('notulensi','notulensi.id_rapat','=','rapat.id')
                                         ->count();
 
-                        // Laporan badge (sama seperti admin)
                         $countRapatAktif = \DB::table('rapat')
                             ->leftJoin('laporan_archived_meetings as lam','lam.rapat_id','=','rapat.id')
                             ->whereNull('lam.id')->count();
@@ -381,7 +448,6 @@
                         $badgeLaporan = $countRapatAktif + $countUploadsAktif;
                         $badgeArsip   = \DB::table('laporan_files')->where('is_archived',1)->count();
 
-                        // Tugas saya (reuse halaman peserta)
                         $myId = Auth::id();
                         $tugasPendingCount = \DB::table('notulensi_tugas')
                             ->where('user_id', $myId)
@@ -402,7 +468,6 @@
                             <i class="fas fa-clipboard-list"></i> Absensi
                         </a>
 
-                        {{-- Laporan --}}
                         <a class="nav-link d-flex align-items-center" data-toggle="collapse" href="#menuLaporanOp" role="button" aria-expanded="true" aria-controls="menuLaporanOp">
                             <i class="fas fa-folder-open"></i> Laporan
                             <i class="ml-auto fas fa-angle-down"></i>
@@ -426,7 +491,6 @@
                             </div>
                         </div>
 
-                        {{-- Tugas Saya (reuse route peserta.tugas.index) --}}
                         <a class="nav-link d-flex align-items-center {{ request()->routeIs('peserta.tugas.*') ? 'active' : '' }}"
                            href="{{ route('peserta.tugas.index') }}">
                             <i class="fas fa-tasks"></i> Tugas Saya
@@ -513,7 +577,7 @@
                             </div>
                         </div>
 
-                        <a class="nav-link d-flex align-items-center" data-toggle="collapse" href="#menuKelolaData" role="button" aria-expanded="true" aria-controls="menuKelolaData">
+                       <a class="nav-link d-flex align-items-center" data-toggle="collapse" href="#menuKelolaData" role="button" aria-expanded="true" aria-controls="menuKelolaData">
                             <i class="fas fa-database"></i> Kelola Data
                             <i class="ml-auto fas fa-angle-down"></i>
                         </a>
@@ -524,6 +588,9 @@
                                 </a>
                                 <a class="nav-link {{ request()->is('units*') ? 'active' : '' }}" href="{{ route('units.index') }}">
                                     <i class="fas fa-layer-group"></i> Unit
+                                </a>
+                                <a class="nav-link" href="{{ route('bidang.index') }}">
+                                    <i class="fas fa-layer-group mr-1"></i>Bidang
                                 </a>
                                 <a class="nav-link {{ request()->is('kategori*') ? 'active' : '' }}" href="{{ route('kategori.index') }}">
                                     <i class="fas fa-layer-group"></i> Kategori Rapat
@@ -566,7 +633,7 @@
 
     <script>
     $(function(){
-      // Paksa semua collapse terbuka
+      // buka semua collapse
       $('.collapse').each(function(){
         var $col = $(this);
         $col.addClass('show');
@@ -576,7 +643,6 @@
           $toggle.removeClass('collapsed').attr('aria-expanded','true');
         }
       });
-      // Tooltip + Select2
       $('[data-toggle="tooltip"]').tooltip();
     });
     </script>
@@ -585,23 +651,28 @@
       // Select2 init helper (modal)
       $(function() {
         function initSelect2In($container){
-            var $selects = $container.find('.js-example-basic-multiple');
+            var $selects = $container.find('.js-example-basic-multiple, .js-select2');
             $selects.each(function(){
                 var $sel = $(this);
                 if ($sel.data('select2')) $sel.select2('destroy');
                 var parentSelector = $sel.attr('data-dropdown-parent');
                 var $parent = parentSelector ? $(parentSelector) : $container;
                 if (!$parent.length) $parent = $('body');
-                $sel.select2({ width:'100%', dropdownParent:$parent, placeholder:'Pilih peserta rapat', allowClear:true });
+                $sel.select2({
+                  width:'100%',
+                  dropdownParent:$parent,
+                  placeholder:$sel.attr('data-placeholder')||'Pilih opsi',
+                  allowClear:true
+                });
             });
         }
         $('#modalTambahRapat')
           .on('shown.bs.modal', function(){ initSelect2In($(this)); })
-          .on('hidden.bs.modal', function(){ var $sel=$(this).find('.js-example-basic-multiple'); if ($sel.data('select2')) $sel.select2('destroy'); });
+          .on('hidden.bs.modal', function(){ var $sel=$(this).find('.js-example-basic-multiple, .js-select2'); if ($sel.data('select2')) $sel.select2('destroy'); });
 
         $('[id^="modalEditRapat-"]')
           .on('shown.bs.modal', function(){ initSelect2In($(this)); })
-          .on('hidden.bs.modal', function(){ var $sel=$(this).find('.js-example-basic-multiple'); if ($sel.data('select2')) $sel.select2('destroy'); });
+          .on('hidden.bs.modal', function(){ var $sel=$(this).find('.js-example-basic-multiple, .js-select2'); if ($sel.data('select2')) $sel.select2('destroy'); });
       });
     </script>
 
@@ -610,7 +681,6 @@
       .select2-container { width: 100% !important; }
     </style>
 
-    @yield('script')
     @stack('scripts')
 </body>
 </html>

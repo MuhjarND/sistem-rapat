@@ -54,6 +54,10 @@ Route::middleware(['auth', 'cekrole:admin'])->group(function () {
     Route::put('/units/{id}',       'UnitController@update')->name('units.update');
     Route::delete('/units/{id}',    'UnitController@destroy')->name('units.destroy');
     Route::post('/units/{id}/toggle','UnitController@toggle')->name('units.toggle');    
+    Route::get('/bidang', 'BidangController@index')->name('bidang.index');
+    Route::post('/bidang', 'BidangController@store')->name('bidang.store');
+    Route::put('/bidang/{id}', 'BidangController@update')->name('bidang.update');
+    Route::delete('/bidang/{id}', 'BidangController@destroy')->name('bidang.destroy');
 });
 
 // ADMIN

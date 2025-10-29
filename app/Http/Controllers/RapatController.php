@@ -15,10 +15,10 @@ use Illuminate\Validation\Rule;
 class RapatController extends Controller
 {
     /**
-     * Ambil daftar user yang bisa dipilih sebagai peserta:
+     * Ambil daftar user yang bisa dipilih sebagai peserta (untuk create/edit):
      * - Sertakan semua user NON-admin/superadmin
      * - (opsional) filter aktif jika kolomnya ada
-     * Return kolom: id, name, hirarki, (jabatan), (unit|bagian as unit)
+     * Return kolom: id, name, hirarki, (jabatan), (unit|bagian as unit), (bidang)
      */
     private function getSelectableParticipants()
     {
@@ -34,6 +34,10 @@ class RapatController extends Controller
             $select[] = 'unit';
         } elseif (Schema::hasColumn('users', 'bagian')) {
             $select[] = DB::raw('bagian as unit');
+        }
+        // Bidang (opsional)
+        if (Schema::hasColumn('users', 'bidang')) {
+            $select[] = 'bidang';
         }
 
         $q->select($select);
@@ -53,6 +57,43 @@ class RapatController extends Controller
             ->orderByRaw('COALESCE(hirarki, 9999) ASC')
             ->orderBy('name', 'asc')
             ->get();
+    }
+
+    /** Helper: daftar Unit unik (untuk quick-pick) */
+    private function getDistinctUnits(): array
+    {
+        if (Schema::hasColumn('users', 'unit')) {
+            return DB::table('users')
+                ->whereNotNull('unit')
+                ->where('unit', '!=', '')
+                ->distinct()
+                ->orderBy('unit')
+                ->pluck('unit')
+                ->toArray();
+        }
+        if (Schema::hasColumn('users', 'bagian')) {
+            return DB::table('users')
+                ->whereNotNull('bagian')
+                ->where('bagian', '!=', '')
+                ->distinct()
+                ->orderBy('bagian')
+                ->pluck('bagian')
+                ->toArray();
+        }
+        return [];
+    }
+
+    /** Helper: daftar Bidang unik (untuk quick-pick) */
+    private function getDistinctBidang(): array
+    {
+        if (!Schema::hasColumn('users', 'bidang')) return [];
+        return DB::table('users')
+            ->whereNotNull('bidang')
+            ->where('bidang', '!=', '')
+            ->distinct()
+            ->orderBy('bidang')
+            ->pluck('bidang')
+            ->toArray();
     }
 
     // Tampilkan daftar rapat
@@ -163,7 +204,7 @@ class RapatController extends Controller
             }
         }
 
-        // === Master daftar peserta (non-admin; sudah urut) + kolom unit & jabatan
+        // === Master daftar peserta (non-admin; sudah urut) + kolom unit & jabatan & bidang
         $daftar_peserta = $this->getSelectableParticipants();
 
         // === Daftar Approver ===
@@ -180,19 +221,25 @@ class RapatController extends Controller
             ->orderBy('name')
             ->get();
 
+        // === Quick-pick sources ===
+        $daftar_unit   = $this->getDistinctUnits();
+        $daftar_bidang = $this->getDistinctBidang();
+
         return view('rapat.index', compact(
             'daftar_rapat',
             'daftar_kategori',
             'daftar_peserta',
             'approval1_list',
-            'approval2_list'
+            'approval2_list',
+            'daftar_unit',
+            'daftar_bidang'
         ));
     }
 
     // Form tambah rapat
     public function create()
     {
-        $daftar_peserta  = $this->getSelectableParticipants();  // berisi unit & jabatan juga
+        $daftar_peserta  = $this->getSelectableParticipants();  // berisi unit & jabatan & bidang
         $daftar_kategori = DB::table('kategori_rapat')->orderBy('nama')->get();
 
         $approval1_list = DB::table('users')
@@ -208,7 +255,17 @@ class RapatController extends Controller
             ->orderBy('name')
             ->get();
 
-        return view('rapat.create', compact('daftar_peserta', 'daftar_kategori', 'approval1_list', 'approval2_list'));
+        $daftar_unit   = $this->getDistinctUnits();
+        $daftar_bidang = $this->getDistinctBidang();
+
+        return view('rapat.create', compact(
+            'daftar_peserta',
+            'daftar_kategori',
+            'approval1_list',
+            'approval2_list',
+            'daftar_unit',
+            'daftar_bidang'
+        ));
     }
 
     // Proses simpan rapat & undangan
@@ -252,7 +309,7 @@ class RapatController extends Controller
             'approval1_user_id' => $request->approval1_user_id,
             'approval2_user_id' => $request->approval2_user_id,
             'token_qr'          => Str::random(32),     // QR internal peserta (login)
-            'public_code'       => Str::random(12),     // ✅ token publik (absensi publik, tanpa login)
+            'public_code'       => Str::random(12),     // token publik (absensi publik, tanpa login)
             'created_at'        => now(),
             'updated_at'        => now(),
         ]);
@@ -350,7 +407,7 @@ class RapatController extends Controller
         if (!empty($rapat->guest_token)) {
             $qrTamuUrl = \Illuminate\Support\Facades\Route::has('absensi.guest.form')
                 ? route('absensi.guest.form', [$rapat->id, $rapat->guest_token])
-                : url('/absensi/guest/'.$rapap->id.'/'.$rapat->guest_token); // fallback
+                : url('/absensi/guest/'.$rapat->id.'/'.$rapat->guest_token); // ✅ perbaiki typo
         }
 
         // ✅ QR Publik (absensi publik tanpa login; pakai public_code)
@@ -363,7 +420,7 @@ class RapatController extends Controller
             }
         }
 
-        // ===== QR images (pakai layanan QR publik agar cepat) =====
+        // ===== QR images =====
         $qrPesertaImg = 'https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=' . urlencode($qrPesertaUrl);
         $qrTamuImg    = $qrTamuUrl
             ? 'https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=' . urlencode($qrTamuUrl)
@@ -388,8 +445,8 @@ class RapatController extends Controller
             'qrPesertaImg',
             'qrTamuUrl',
             'qrTamuImg',
-            'qrPublikUrl',     // ✅ kirim ke view
-            'qrPublikImg',     // ✅ kirim ke view
+            'qrPublikUrl',
+            'qrPublikImg',
             'previewUndanganUrl',
             'previewAbsensiUrl'
         ));
@@ -401,8 +458,11 @@ class RapatController extends Controller
         $rapat = DB::table('rapat')->where('id', $id)->first();
         if (!$rapat) abort(404);
 
-        // === Semua user non-admin untuk daftar peserta — termasuk jabatan & unit
-        $q = DB::table('users')->whereNotIn('role', ['admin']);
+        // === Semua user non-admin untuk daftar peserta — termasuk jabatan, unit, dan bidang
+        $q = DB::table('users');
+        if (Schema::hasColumn('users','role')) {
+            $q->whereNotIn('role', ['admin','superadmin']);
+        }
         $select = ['id','name','hirarki'];
         if (Schema::hasColumn('users','jabatan')) $select[] = 'jabatan';
         if (Schema::hasColumn('users','unit')) {
@@ -410,6 +470,10 @@ class RapatController extends Controller
         } elseif (Schema::hasColumn('users','bagian')) {
             $select[] = DB::raw('bagian as unit');
         }
+        if (Schema::hasColumn('users','bidang')) {
+            $select[] = 'bidang';
+        }
+
         $daftar_peserta = $q->select($select)
             ->orderByRaw('COALESCE(hirarki, 9999) ASC')
             ->orderBy('name','asc')
@@ -442,6 +506,10 @@ class RapatController extends Controller
             ->orderBy('name')
             ->get();
 
+        // Quick-pick sources untuk checklist
+        $daftar_unit   = $this->getDistinctUnits();
+        $daftar_bidang = $this->getDistinctBidang();
+
         $dropdownParentId = null;
         $pesertaWrapperId = 'peserta-wrapper-edit';
 
@@ -453,7 +521,9 @@ class RapatController extends Controller
             'approval1_list',
             'approval2_list',
             'dropdownParentId',
-            'pesertaWrapperId'
+            'pesertaWrapperId',
+            'daftar_unit',
+            'daftar_bidang'
         ));
     }
 
@@ -796,5 +866,4 @@ class RapatController extends Controller
             }
         }
     }
-
 }

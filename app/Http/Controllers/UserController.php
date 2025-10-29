@@ -15,11 +15,12 @@ class UserController extends Controller
      */
     public function index(Request $request)
     {
-        $q         = trim($request->get('q', ''));
-        $role      = $request->get('role', '');         // '', admin, operator, notulis, peserta, approval
-        $unitName  = $request->get('unit', '');         // filter by unit name
-        $pickUnit  = $request->get('pick_unit');        // id unit dari halaman Units
-        $perPage   = (int) ($request->get('per_page', 12) ?: 12);
+        $q          = trim($request->get('q', ''));
+        $role       = $request->get('role', '');           // '', admin, operator, notulis, peserta, approval
+        $unitName   = $request->get('unit', '');           // filter by unit name
+        $bidangName = $request->get('bidang', '');         // filter by bidang (nama pada tabel bidang)
+        $pickUnit   = $request->get('pick_unit');          // id unit dari halaman Units
+        $perPage    = (int) ($request->get('per_page', 12) ?: 12);
 
         // Jika datang dari Units (pick_unit=id), ambil nama unit-nya lalu pakai sebagai filter default
         if ($pickUnit && $unitName === '') {
@@ -29,15 +30,22 @@ class UserController extends Controller
             }
         }
 
-        // Master daftar unit aktif untuk filter/dropdown di view
+        // Master dropdown UNIT (aktif)
         $daftar_unit = DB::table('units')
             ->where('is_active', 1)
             ->orderBy('nama', 'asc')
             ->pluck('nama')
             ->toArray();
 
+        // Master dropdown BIDANG (aktif)
+        $daftar_bidang = DB::table('bidang')
+            ->where('is_active', 1)
+            ->orderBy('nama', 'asc')
+            ->pluck('nama')
+            ->toArray();
+
         $qry = DB::table('users')
-            ->select('id','name','jabatan','email','no_hp','unit','tingkatan','role','hirarki','created_at');
+            ->select('id','name','jabatan','email','no_hp','unit','bidang','tingkatan','role','hirarki','created_at');
 
         if ($q !== '') {
             $qry->where(function ($w) use ($q) {
@@ -45,6 +53,7 @@ class UserController extends Controller
                   ->orWhere('email', 'like', "%{$q}%")
                   ->orWhere('jabatan', 'like', "%{$q}%")
                   ->orWhere('unit', 'like', "%{$q}%")
+                  ->orWhere('bidang', 'like', "%{$q}%")
                   ->orWhere('no_hp', 'like', "%{$q}%");
             });
         }
@@ -57,20 +66,34 @@ class UserController extends Controller
             $qry->where('unit', $unitName);
         }
 
+        if ($bidangName !== '') {
+            $qry->where('bidang', $bidangName);
+        }
+
         // Urutkan berdasarkan hirarki (kecil di atas), baru nama
         $qry->orderByRaw('COALESCE(hirarki, 9999) ASC')
             ->orderBy('name', 'asc');
 
         $daftar_user = $qry->paginate($perPage)->appends($request->all());
 
-        return view('user.index', compact('daftar_user', 'q', 'role', 'unitName', 'daftar_unit', 'perPage', 'pickUnit'));
+        return view('user.index', [
+            'daftar_user'  => $daftar_user,
+            'q'            => $q,
+            'role'         => $role,
+            'unitName'     => $unitName,
+            'bidangName'   => $bidangName,
+            'daftar_unit'  => $daftar_unit,
+            'daftar_bidang'=> $daftar_bidang,
+            'perPage'      => $perPage,
+            'pickUnit'     => $pickUnit,
+        ]);
     }
 
     /**
      * Form create user.
      * - role dipilih dari: admin, operator, notulis, peserta
      * - jika tingkatan diisi (1/2) maka role akan di-set otomatis menjadi approval saat simpan
-     * - unit diambil dari tabel units (aktif saja)
+     * - unit & bidang diambil dari master (aktif saja)
      */
     public function create(Request $request)
     {
@@ -83,6 +106,12 @@ class UserController extends Controller
             ->pluck('nama')
             ->toArray();
 
+        $daftar_bidang = DB::table('bidang')
+            ->where('is_active', 1)
+            ->orderBy('nama', 'asc')
+            ->pluck('nama')
+            ->toArray();
+
         // Preselect unit jika datang dari Units (pick_unit=id)
         $pickUnit   = $request->get('pick_unit');
         $pickedName = null;
@@ -90,7 +119,9 @@ class UserController extends Controller
             $pickedName = DB::table('units')->where('id', $pickUnit)->value('nama');
         }
 
-        return view('user.create', compact('daftar_role', 'daftar_unit', 'daftar_tingkatan', 'pickedName', 'pickUnit'));
+        return view('user.create', compact(
+            'daftar_role', 'daftar_unit', 'daftar_tingkatan', 'daftar_bidang', 'pickedName', 'pickUnit'
+        ));
     }
 
     /**
@@ -110,17 +141,23 @@ class UserController extends Controller
                     $q->where('is_active', 1);
                 }),
             ],
+            // bidang opsional, tapi jika diisi harus ada di master bidang (aktif)
+            'bidang'    => [
+                'nullable',
+                Rule::exists('bidang','nama')->where(function ($q) {
+                    $q->where('is_active', 1);
+                }),
+            ],
             'tingkatan' => ['nullable', Rule::in([1,2])],
             'role'      => ['required', Rule::in(['admin','operator','notulis','peserta'])],
             'password'  => 'required|min:6|confirmed',
             'hirarki'   => 'nullable|integer|min:0|max:65535',
         ],[
-            'unit.exists' => 'Unit tidak valid atau non-aktif.',
+            'unit.exists'   => 'Unit tidak valid atau non-aktif.',
+            'bidang.exists' => 'Bidang tidak valid atau non-aktif.',
         ]);
 
-        // Normalisasi role & tingkatan:
-        // - role=operator => tingkatan=null (bukan approver)
-        // - selain operator, jika tingkatan diisi => role dipaksa 'approval'
+        // Normalisasi role & tingkatan
         $roleInput = $request->role;
         $tingkatan = $request->tingkatan;
 
@@ -137,6 +174,7 @@ class UserController extends Controller
             'email'      => $request->email,
             'no_hp'      => $request->no_hp,
             'unit'       => $request->unit,
+            'bidang'     => $request->bidang ?: null,
             'tingkatan'  => $tingkatan, // 1/2/null
             'role'       => $role,
             'hirarki'    => $request->filled('hirarki') ? (int)$request->hirarki : null,
@@ -165,7 +203,13 @@ class UserController extends Controller
             ->pluck('nama')
             ->toArray();
 
-        return view('user.edit', compact('user','daftar_role','daftar_unit','daftar_tingkatan'));
+        $daftar_bidang = DB::table('bidang')
+            ->where('is_active', 1)
+            ->orderBy('nama', 'asc')
+            ->pluck('nama')
+            ->toArray();
+
+        return view('user.edit', compact('user','daftar_role','daftar_unit','daftar_tingkatan','daftar_bidang'));
     }
 
     /**
@@ -187,12 +231,19 @@ class UserController extends Controller
                     $q->where('is_active', 1);
                 }),
             ],
+            'bidang'    => [
+                'nullable',
+                Rule::exists('bidang','nama')->where(function ($q) {
+                    $q->where('is_active', 1);
+                }),
+            ],
             'tingkatan' => ['nullable', Rule::in([1,2])],
             'role'      => ['required', Rule::in(['admin','operator','notulis','peserta'])],
             'password'  => 'nullable|min:6|confirmed',
             'hirarki'   => 'nullable|integer|min:0|max:65535',
         ],[
-            'unit.exists' => 'Unit tidak valid atau non-aktif.',
+            'unit.exists'   => 'Unit tidak valid atau non-aktif.',
+            'bidang.exists' => 'Bidang tidak valid atau non-aktif.',
         ]);
 
         $roleInput = $request->role;
@@ -211,6 +262,7 @@ class UserController extends Controller
             'email'      => $request->email,
             'no_hp'      => $request->no_hp,
             'unit'       => $request->unit,
+            'bidang'     => $request->bidang ?: null,
             'tingkatan'  => $tingkatan,
             'role'       => $role,
             'hirarki'    => $request->filled('hirarki') ? (int)$request->hirarki : null,
