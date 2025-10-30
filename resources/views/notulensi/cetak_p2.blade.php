@@ -132,7 +132,7 @@
             <div class="muted">(Menunggu approval 1)</div>
         @endif
         <div class="name">{{ $pimpinan_nama ?? '-' }}</div>
-        <div class="role">Approval 1</div>
+        <div class="role">Pemimpin Rapat</div>
     </div>
 </div>
 

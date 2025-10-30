@@ -121,6 +121,10 @@
   $pesertaHadirCount = \DB::table('absensi')
       ->where('id_rapat', $rapat->id)
       ->count();
+
+  // Agenda yang ditampilkan: notulensi.agenda -> rapat.deskripsi -> judul
+  $agendaText = $notulensi->agenda
+      ?? ($rapat->deskripsi ?: $rapat->judul);
 @endphp
 
 <div class="container">
@@ -182,7 +186,7 @@
           </tr>
           <tr>
             <td class="info-key">Agenda</td>
-            <td>{{ $rapat->deskripsi ?: $rapat->judul }}</td>
+            <td>{!! nl2br(e($agendaText)) !!}</td>
           </tr>
         </tbody>
       </table>

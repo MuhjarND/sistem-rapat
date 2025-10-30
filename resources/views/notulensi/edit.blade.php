@@ -33,7 +33,7 @@
   .ck.ck-editor .ck.ck-toolbar{ background:linear-gradient(180deg, rgba(17,24,39,.85), rgba(17,24,39,.65)); border-bottom:1px solid var(--border); }
   .ck.ck-editor .ck.ck-toolbar .ck-button{ color:var(--text); }
   .ck.ck-editor .ck.ck-toolbar .ck-button:hover{ background:rgba(79,70,229,.18); color:#fff; border-radius:8px; }
-  .ck.ck-editor__editable_inline{ background:#0d1330; color:var(--text); min-height:160px; }
+  .ck.ck-editor__editable_inline{ background:#0d1330; color: var(--text); min-height:160px; }
   .ck-content a{ color:#93c5fd; }
 
   .btn-sm{ border-radius:8px; padding:.25rem .55rem; font-weight:600; }
@@ -106,6 +106,9 @@
 
   // Pastikan assigneesMap ada (controller sudah kirim)
   $assigneesMap = $assigneesMap ?? []; // [detail_id => [ {id,text}, ... ]]
+
+  // Prefill agenda: notulensi.agenda -> rapat.deskripsi -> rapat.judul
+  $prefillAgenda = ($notulensi->agenda ?? null) ?: ($rapat->deskripsi ?: $rapat->judul);
 @endphp
 
 <div class="container">
@@ -147,10 +150,6 @@
           <label>Jumlah Peserta</label>
           <input type="text" class="form-control" value="{{ $jumlah_peserta }} Orang" readonly>
         </div>
-        <div class="form-group col-md-6">
-          <label>Agenda Rapat</label>
-          <input type="text" class="form-control" value="{{ $rapat->deskripsi ?: $rapat->judul }}" readonly>
-        </div>
       </div>
     </div>
   </div>
@@ -159,6 +158,23 @@
   <form id="form-notulensi" action="{{ route('notulensi.update', $notulensi->id) }}" method="POST" enctype="multipart/form-data">
     @csrf
     @method('PUT')
+
+    {{-- ===== AGENDA EDITABLE (multi-baris) — DIPINDAH KE DALAM FORM ===== --}}
+    <div class="card mb-3">
+      <div class="card-header">
+        <b>Agenda Rapat</b> <small class="text-muted">(satu poin per baris)</small>
+      </div>
+      <div class="card-body">
+        <textarea name="agenda" class="form-control" rows="3"
+          placeholder="Contoh:
+- Evaluasi kinerja triwulan
+- Rencana pelatihan internal
+- Penetapan PIC dan tenggat">{{ old('agenda', $prefillAgenda) }}</textarea>
+        <small class="text-muted d-block mt-1">
+          Jika diisi multi-baris, saat ditampilkan & dicetak akan otomatis menjadi daftar.
+        </small>
+      </div>
+    </div>
 
     @if ($errors->any())
       <div class="alert alert-danger">

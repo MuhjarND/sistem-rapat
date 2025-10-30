@@ -123,57 +123,66 @@
     </button>
   </div>
 
-  {{-- HEADER INSTANSI --}}
-  <div class="panel-soft p-3 mb-3">
-    <strong>
-      MAHKAMAH AGUNG REPUBLIK INDONESIA<br>
-      PENGADILAN TINGGI AGAMA PAPUA BARAT
-    </strong><br>
-    Kode Dokumen: <strong>FM/AM/04/01</strong>
-  </div>
-
-  {{-- INFO RAPAT --}}
-  <div class="card mb-3">
-    <div class="card-header"><b>Informasi Rapat</b></div>
-    <div class="card-body">
-      <div class="form-row">
-        <div class="form-group col-md-6">
-          <label>Judul Rapat</label>
-          <input type="text" class="form-control" value="{{ $rapat->judul }}" readonly>
-        </div>
-        <div class="form-group col-md-6">
-          <label>Hari/Tanggal/Jam</label>
-          <input type="text" class="form-control"
-                 value="{{ \Carbon\Carbon::parse($rapat->tanggal)->translatedFormat('l, d F Y') }} {{ $rapat->waktu_mulai }}"
-                 readonly>
-        </div>
-        <div class="form-group col-md-6">
-          <label>Tempat</label>
-          <input type="text" class="form-control" value="{{ $rapat->tempat }}" readonly>
-        </div>
-
-        <div class="form-group col-md-6">
-          <label>Pemimpin Rapat</label>
-          <input type="text" class="form-control" value="{{ $approval1_text }}" readonly>
-        </div>
-
-        <div class="form-group col-md-6">
-          <label>Jumlah Peserta</label>
-          <input type="text" class="form-control" value="{{ $jumlah_peserta }} Orang" readonly>
-        </div>
-        <div class="form-group col-md-6">
-          <label>Agenda Rapat</label>
-          <input type="text" class="form-control" value="{{ $rapat->deskripsi ?: $rapat->judul }}" readonly>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  {{-- FORM --}}
+  {{-- ====== FORM MULAI DI SINI agar Agenda ikut terkirim ====== --}}
   <form id="form-notulensi" action="{{ route('notulensi.store') }}" method="POST" enctype="multipart/form-data">
     @csrf
     <input type="hidden" name="id_rapat" value="{{ $rapat->id }}">
 
+    {{-- HEADER INSTANSI --}}
+    <div class="panel-soft p-3 mb-3">
+      <strong>
+        MAHKAMAH AGUNG REPUBLIK INDONESIA<br>
+        PENGADILAN TINGGI AGAMA PAPUA BARAT
+      </strong><br>
+      Kode Dokumen: <strong>FM/AM/04/01</strong>
+    </div>
+
+    {{-- INFO RAPAT --}}
+    <div class="card mb-3">
+      <div class="card-header"><b>Informasi Rapat</b></div>
+      <div class="card-body">
+        <div class="form-row">
+          <div class="form-group col-md-6">
+            <label>Judul Rapat</label>
+            <input type="text" class="form-control" value="{{ $rapat->judul }}" readonly>
+          </div>
+          <div class="form-group col-md-6">
+            <label>Hari/Tanggal/Jam</label>
+            <input type="text" class="form-control"
+                   value="{{ \Carbon\Carbon::parse($rapat->tanggal)->translatedFormat('l, d F Y') }} {{ $rapat->waktu_mulai }}"
+                   readonly>
+          </div>
+          <div class="form-group col-md-6">
+            <label>Tempat</label>
+            <input type="text" class="form-control" value="{{ $rapat->tempat }}" readonly>
+          </div>
+
+          <div class="form-group col-md-6">
+            <label>Pemimpin Rapat</label>
+            <input type="text" class="form-control" value="{{ $approval1_text }}" readonly>
+          </div>
+
+          <div class="form-group col-md-6">
+            <label>Jumlah Peserta</label>
+            <input type="text" class="form-control" value="{{ $jumlah_peserta }} Orang" readonly>
+          </div>
+
+          {{-- ====== AGENDA: SEKARANG INPUT BEBAS ====== --}}
+        <div class="form-group col-md-12">
+          <label>Agenda Rapat <small class="text-muted">(satu poin per baris)</small></label>
+          <textarea name="agenda" class="form-control" rows="3"
+            placeholder="Contoh:
+        - Evaluasi kinerja triwulan
+        - Rencana pelatihan internal
+        - Penetapan PIC dan tenggat">{{ old('agenda', $rapat->deskripsi ?: $rapat->judul) }}</textarea>
+          <small class="text-muted">Jika diisi multi-baris, saat ditampilkan & dicetak akan otomatis menjadi daftar.</small>
+          @error('agenda') <small class="text-danger d-block mt-1">{{ $message }}</small> @enderror
+        </div>
+        </div>
+      </div>
+    </div>
+
+    {{-- FORM DETAIL --}}
     <div class="card">
       <div class="card-header"><b>Pembahasan & Rangkaian Acara</b></div>
       @if ($errors->any())
@@ -343,7 +352,9 @@
 
       rows.push({ hasil, rekom, pjTxt, pjIds, tgl });
     });
-    return { rows };
+    // simpan agenda juga
+    const agenda = document.querySelector('textarea[name="agenda"]')?.value || '';
+    return { agenda, rows };
   }
   function saveDraft(){
     const payload={ ts: Date.now(), data: collectDraft() };
@@ -363,11 +374,15 @@
   }
 
   function applyDraft(data){
+    // agenda
+    if (typeof data.agenda !== 'undefined') {
+      const ag = document.querySelector('textarea[name="agenda"]');
+      if (ag) ag.value = data.agenda;
+    }
+
     const tbody=document.querySelector('#tabel-detail tbody');
-    // kosongkan
     [...tbody.querySelectorAll('tr')].forEach(tr=>{ destroyEditorsInside(tr); tr.remove(); });
 
-    // render ulang
     (data.rows||[]).forEach((r,i)=>{
       const tr=document.createElement('tr');
       tr.innerHTML=`
@@ -397,10 +412,8 @@
       tbody.appendChild(tr);
     }
 
-    // init CK + Select2 lalu set data
     Promise.all([initEditors(tbody)]).then(()=>{
       initUserTags(tbody);
-      // preload pilihan select2 berdasarkan pjIds
       (data.rows||[]).forEach((r,i)=>{
         const $sel = $(`select[name="baris[${i}][pj_ids][]"]`);
         if($sel.length && r.pjIds && r.pjIds.length){
@@ -449,7 +462,6 @@
       <td class="text-center" data-label="Aksi"><button type="button" class="btn btn-danger btn-sm" onclick="hapusBaris(this)">Hapus</button></td>`;
     tbody.appendChild(tr);
     Promise.all([initEditors(tr)]).then(()=>{ initUserTags(tr); });
-    // autosave input biasa
     tr.querySelectorAll('input, textarea:not(.rich), select').forEach(el=>{
       el.addEventListener('input', scheduleSave);
       el.addEventListener('change', scheduleSave);
@@ -474,7 +486,6 @@
       alert('Mohon upload minimal 3 foto dokumentasi.');
       return false;
     }
-    // Opsional: validasi per file <= 10MB
     for (let f of files){
       if (f.size > 10 * 1024 * 1024){
         alert('Ukuran tiap file maksimal 10MB.');
@@ -505,8 +516,9 @@
   document.addEventListener('DOMContentLoaded',()=>{
     Promise.all([initEditors()]).then(()=>{
       initUserTags(document);
-      // autosave input biasa
-      document.querySelectorAll('#tabel-detail input, #tabel-detail textarea:not(.rich), #tabel-detail select').forEach(el=>{
+
+      // autosave input biasa + agenda
+      document.querySelectorAll('#tabel-detail input, #tabel-detail textarea:not(.rich), #tabel-detail select, textarea[name="agenda"]').forEach(el=>{
         el.addEventListener('input', scheduleSave);
         el.addEventListener('change', scheduleSave);
       });

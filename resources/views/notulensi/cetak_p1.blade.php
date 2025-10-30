@@ -20,6 +20,13 @@
             (($approval1->unit ?? '') ? ' · '.$approval1->unit : '')
           )
         : '-';
+
+    // === Agenda: notulensi.agenda -> rapat.deskripsi -> judul ===
+    // Catatan: $notulensi disediakan dari controller cetakGabung()
+    $agendaRaw = ($notulensi->agenda ?? null) ?: ($rapat->deskripsi ?: $rapat->judul);
+
+    // Pecah per-baris utk ditampilkan sebagai list bila lebih dari 1 baris
+    $agendaLines = array_values(array_filter(array_map('trim', preg_split("/\r\n|\n|\r/", (string) $agendaRaw))));
 @endphp
 <!DOCTYPE html>
 <html>
@@ -39,9 +46,13 @@
     .tbl-header td { font-weight:normal; }
 
     .tbl-info td { border:1px solid #000; }
-    .hd { background:#28a745; color:#fff; font-weight:bold; width:28%; }
-    .agenda { background:#28a745; color:#000; font-weight:bold; text-align:center; }
+    .hd { background:#e6e6e6; color:#000; font-weight:bold; width:28%; }  
+    .agenda { background:#d1d5db; color:#000; font-weight:bold; text-align:center; }
     .agenda-content { padding-left:15px; }
+
+    /* list agenda */
+    .agenda-list { margin: 4px 0 0 18px; padding:0; }
+    .agenda-list li { margin: 2px 0; }
 </style>
 </head>
 <body>
@@ -82,7 +93,18 @@
         <td class="agenda" colspan="2">Agenda Rapat</td>
     </tr>
     <tr>
-        <td colspan="2" class="agenda-content">- {{ $rapat->deskripsi ?: $rapat->judul }}</td>
+        <td colspan="2" class="agenda-content">
+            @if(count($agendaLines) > 1)
+                <ol class="agenda-list">
+                    @foreach($agendaLines as $line)
+                        <li>{{ $line }}</li>
+                    @endforeach
+                </ol>
+            @else
+                {{-- Satu baris saja --}}
+                {{ $agendaLines[0] ?? '-' }}
+            @endif
+        </td>
     </tr>
 </table>
 
