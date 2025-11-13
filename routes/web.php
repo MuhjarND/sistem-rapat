@@ -127,7 +127,7 @@ Route::middleware(['auth', 'cekrole:admin,peserta,approval,operator,notulis'])->
     //tag tugas peserta
     Route::put('/peserta/tugas/{id}', 'PesertaController@tugasUpdateStatus')->name('peserta.tugas.update');
     Route::get('/peserta/tugas', 'PesertaController@tugasIndex')->name('peserta.tugas.index');
-    Route::put('/peserta/tugas/{id}', 'PesertaController@tugasUpdateStatus')->name('peserta.tugas.update');
+    Route::post('/peserta/tugas/{id}/eviden', 'PesertaController@uploadEviden')->name('peserta.tugas.eviden');
 });
 
 Route::middleware(['auth', 'cekrole:approval,admin'])->group(function () {

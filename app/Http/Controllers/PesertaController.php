@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Str;
 use Carbon\Carbon;
 
 class PesertaController extends Controller
@@ -310,7 +311,7 @@ class PesertaController extends Controller
     public function tugasUpdateStatus(Request $request, $id)
 {
     $request->validate([
-        'status' => 'required|in:pending,in_progress,done',
+        'status' => 'required|in:pending,proses,in_progress,done',
     ]);
 
     $userId = Auth::id();
@@ -328,17 +329,19 @@ class PesertaController extends Controller
         abort(404);
     }
 
+    $statusToStore = $this->normalizeStatusForStorage($request->status);
+
     DB::table('notulensi_tugas')
         ->where('id', $id)
         ->update([
-            'status'     => $request->status,
+            'status'     => $statusToStore,
             'updated_at' => now(),
         ]);
 
     if ($request->expectsJson()) {
         return response()->json([
             'message' => 'Status tugas diperbarui.',
-            'status'  => $request->status,
+            'status'  => $this->formatStatusForDisplay($statusToStore),
         ]);
     }
 
@@ -350,7 +353,7 @@ public function tugasIndex(Request $request)
     $userId = Auth::id();
 
     // filters
-    $status = $request->get('status');                   // pending|in_progress|done
+    $status = $request->get('status');                   // pending|proses|done
     $q      = trim((string) $request->get('q', ''));     // keyword di uraian/rekomendasi/judul rapat
     $from   = $request->get('from');                     // yyyy-mm-dd
     $to     = $request->get('to');                       // yyyy-mm-dd
@@ -366,10 +369,10 @@ public function tugasIndex(Request $request)
     $summary = [
         'total'       => (clone $base)->count(),
         'pending'     => (clone $base)->where('t.status', 'pending')->count(),
-        'in_progress' => (clone $base)->where('t.status', 'in_progress')->count(),
+        'proses'      => (clone $base)->whereIn('t.status', ['proses','in_progress'])->count(),
         'done'        => (clone $base)->where('t.status', 'done')->count(),
         'overdue'     => (clone $base)
-                            ->whereIn('t.status', ['pending','in_progress'])
+                            ->whereIn('t.status', ['pending','proses','in_progress'])
                             ->whereNotNull('d.tgl_penyelesaian')
                             ->whereDate('d.tgl_penyelesaian','<', now()->toDateString())
                             ->count(),
@@ -384,6 +387,8 @@ public function tugasIndex(Request $request)
         ->select(
             't.id',
             't.status',
+            't.eviden_path',
+            't.eviden_link',
             'd.hasil_pembahasan',
             'd.rekomendasi',
             'd.tgl_penyelesaian',
@@ -394,7 +399,9 @@ public function tugasIndex(Request $request)
             'r.tempat as rapat_tempat'
         );
 
-    if ($status) {
+    if ($status === 'proses') {
+        $qList->whereIn('t.status', ['proses','in_progress']);
+    } elseif ($status) {
         $qList->where('t.status', $status);
     }
     if ($q !== '') {
@@ -424,5 +431,92 @@ public function tugasIndex(Request $request)
     ]);
 }
 
+    public function uploadEviden(Request $request, $id)
+    {
+        $request->validate([
+            'eviden_file' => 'nullable|image|max:2048',
+            'eviden_link' => 'nullable|url',
+        ],[
+            'eviden_file.image' => 'File eviden harus berupa gambar.',
+            'eviden_file.max'   => 'Ukuran file maksimal 2MB.',
+            'eviden_link.url'   => 'Link eviden harus berupa URL yang valid.',
+        ]);
 
+        if (!$request->hasFile('eviden_file') && !$request->filled('eviden_link')) {
+            return back()->withErrors('Harap unggah gambar atau isi link eviden.')->withInput();
+        }
+
+        $userId = Auth::id();
+
+        $tugas = DB::table('notulensi_tugas')
+            ->where('id', $id)
+            ->where('user_id', $userId)
+            ->first();
+
+        if (!$tugas) abort(404);
+
+        $update = [];
+
+        if ($request->hasFile('eviden_file')) {
+            $dir = public_path('uploads/eviden');
+            if (!is_dir($dir)) {
+                @mkdir($dir, 0775, true);
+            }
+
+            $file = $request->file('eviden_file');
+            $name = 'eviden-'.$id.'-'.date('Ymd_His').'-'.Str::random(6).'.'.$file->getClientOriginalExtension();
+            $file->move($dir, $name);
+            $relPath = 'uploads/eviden/'.$name;
+
+            if (!empty($tugas->eviden_path)) {
+                $old = public_path($tugas->eviden_path);
+                if (is_file($old)) @unlink($old);
+            }
+
+            $update['eviden_path'] = $relPath;
+        }
+
+        if ($request->filled('eviden_link')) {
+            $update['eviden_link'] = $request->eviden_link;
+        }
+
+        $update['updated_at'] = now();
+
+        DB::table('notulensi_tugas')->where('id', $id)->update($update);
+
+        return back()->with('success', 'Eviden berhasil diperbarui.');
+    }
+
+    private function normalizeStatusForStorage(string $status): string
+    {
+        if ($status !== 'proses') {
+            return $status;
+        }
+
+        return $this->supportsStatusValue('proses') ? 'proses' : 'in_progress';
+    }
+
+    private function supportsStatusValue(string $value): bool
+    {
+        static $cache = [];
+        if (array_key_exists($value, $cache)) {
+            return $cache[$value];
+        }
+
+        try {
+            $column = DB::select("SHOW COLUMNS FROM notulensi_tugas LIKE 'status'");
+            if (!$column) {
+                return $cache[$value] = false;
+            }
+            $type = $column[0]->Type ?? '';
+            return $cache[$value] = stripos($type, "'{$value}'") !== false;
+        } catch (\Throwable $e) {
+            return $cache[$value] = false;
+        }
+    }
+
+    private function formatStatusForDisplay(string $status): string
+    {
+        return $status === 'in_progress' ? 'proses' : $status;
+    }
 }
