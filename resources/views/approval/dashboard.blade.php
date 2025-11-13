@@ -71,11 +71,16 @@
 
 @section('content')
 <div class="container">
-  <div class="d-flex justify-content-between align-items-center mb-3">
-    <h3 class="mb-0">Approval Dashboard</h3>
-    <a href="{{ route('approval.pending') }}" class="btn btn-outline-light btn-sm">
-      <i class="fas fa-list mr-1"></i> Lihat Semua Pending
-    </a>
+  <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap">
+    <h3 class="mb-2 mb-md-0">Approval Dashboard</h3>
+    <div class="btn-group">
+      <a href="{{ route('approval.tugas') }}" class="btn btn-primary btn-sm mr-2">
+        <i class="fas fa-tasks mr-1"></i> Monitoring Tugas Peserta
+      </a>
+      <a href="{{ route('approval.pending') }}" class="btn btn-outline-light btn-sm">
+        <i class="fas fa-list mr-1"></i> Lihat Semua Pending
+      </a>
+    </div>
   </div>
 
   {{-- ===== KPI ROW ===== --}}

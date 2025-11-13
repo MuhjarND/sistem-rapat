@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Route as RouteFacade;
+use App\Helpers\FonnteWa;
 
 class ApprovalController extends Controller
 {
@@ -514,6 +515,160 @@ public function signSubmit(Request $request, $token)
 
         $rapat = DB::table('rapat')->where('id', $req->rapat_id)->first();
         return view('approval.done', compact('req', 'rapat'));
+    }
+
+    public function tasks(Request $request)
+    {
+        $status   = $request->get('status');
+        $q        = trim($request->get('q', ''));
+        $rapatId  = $request->get('rapat');
+        $userId   = $request->get('user');
+        $eviden   = $request->get('eviden');
+        $perPage  = max(5, (int) ($request->get('per_page', 15)));
+
+        $base = DB::table('notulensi_tugas as t')
+            ->join('notulensi_detail as d', 'd.id', '=', 't.id_notulensi_detail')
+            ->join('notulensi as n', 'n.id', '=', 'd.id_notulensi')
+            ->join('rapat as r', 'r.id', '=', 'n.id_rapat')
+            ->leftJoin('users as u', 'u.id', '=', 't.user_id');
+
+        $summaryQuery = clone $base;
+        $summary = [
+            'total'   => (clone $summaryQuery)->count(),
+            'pending' => (clone $summaryQuery)->where('t.status', 'pending')->count(),
+            'proses'  => (clone $summaryQuery)->whereIn('t.status', ['proses','in_progress'])->count(),
+            'done'    => (clone $summaryQuery)->where('t.status', 'done')->count(),
+            'overdue' => (clone $summaryQuery)
+                ->whereIn('t.status', ['pending','proses','in_progress'])
+                ->whereNotNull('d.tgl_penyelesaian')
+                ->whereDate('d.tgl_penyelesaian', '<', now()->toDateString())
+                ->count(),
+        ];
+
+        $list = (clone $base)
+            ->select(
+                't.id',
+                't.status',
+                't.eviden_path',
+                't.eviden_link',
+                't.updated_at',
+                'd.hasil_pembahasan',
+                'd.rekomendasi',
+                'd.tgl_penyelesaian',
+                'r.id as rapat_id',
+                'r.judul as rapat_judul',
+                'r.tanggal as rapat_tanggal',
+                'r.waktu_mulai',
+                'r.tempat',
+                'u.name as peserta_nama',
+                'u.unit as peserta_unit'
+            );
+
+        if ($status === 'proses') {
+            $list->whereIn('t.status', ['proses','in_progress']);
+        } elseif (!empty($status)) {
+            $list->where('t.status', $status);
+        }
+
+        if ($q !== '') {
+            $list->where(function($w) use ($q) {
+                $w->where('d.hasil_pembahasan','like',"%{$q}%")
+                  ->orWhere('d.rekomendasi','like',"%{$q}%")
+                  ->orWhere('r.judul','like',"%{$q}%")
+                  ->orWhere('u.name','like',"%{$q}%");
+            });
+        }
+
+        if ($rapatId) {
+            $list->where('r.id', $rapatId);
+        }
+
+        if ($userId) {
+            $list->where('u.id', $userId);
+        }
+
+        if ($eviden === 'ada') {
+            $list->where(function($w){
+                $w->whereNotNull('t.eviden_path')
+                  ->orWhereNotNull('t.eviden_link');
+            });
+        } elseif ($eviden === 'belum') {
+            $list->whereNull('t.eviden_path')
+                 ->whereNull('t.eviden_link');
+        }
+
+        $tasks = $list
+            ->orderByRaw("CASE WHEN t.status!='done' THEN 0 ELSE 1 END ASC")
+            ->orderByRaw('COALESCE(d.tgl_penyelesaian, r.tanggal) ASC')
+            ->paginate($perPage)
+            ->appends($request->query());
+
+        return view('approval.tugas', [
+            'tasks'   => $tasks,
+            'summary' => $summary,
+            'filter'  => [
+                'status' => $status,
+                'q'      => $q,
+                'rapat'  => $rapatId,
+                'user'   => $userId,
+                'eviden' => $eviden,
+                'per_page' => $perPage,
+            ],
+        ]);
+    }
+
+    public function remindTask(Request $request, $id)
+    {
+        $task = DB::table('notulensi_tugas as t')
+            ->join('notulensi_detail as d', 'd.id', '=', 't.id_notulensi_detail')
+            ->join('notulensi as n', 'n.id', '=', 'd.id_notulensi')
+            ->join('rapat as r', 'r.id', '=', 'n.id_rapat')
+            ->join('users as u', 'u.id', '=', 't.user_id')
+            ->select(
+                't.id','t.status','t.user_id',
+                'd.hasil_pembahasan','d.tgl_penyelesaian',
+                'r.judul','r.tanggal','r.tempat',
+                'u.name as peserta_nama'
+            )
+            ->where('t.id', $id)
+            ->first();
+
+        if (!$task) {
+            return back()->withErrors('Tugas tidak ditemukan.');
+        }
+
+        if (in_array($task->status, ['done'])) {
+            return back()->with('info', 'Tugas sudah selesai, tidak perlu mengirim pengingat.');
+        }
+
+        $phone = $this->extractPhoneNumberByUserId($task->user_id);
+        if (!$phone) {
+            return back()->withErrors('Nomor WhatsApp peserta tidak ditemukan.');
+        }
+
+        $deadline = $task->tgl_penyelesaian ? \Carbon\Carbon::parse($task->tgl_penyelesaian)->isoFormat('D MMM Y') : 'tidak ditentukan';
+        $tglRapat = $task->tanggal ? \Carbon\Carbon::parse($task->tanggal)->isoFormat('D MMM Y') : '-';
+
+        $cleanUraian = trim(strip_tags($task->hasil_pembahasan));
+        $message =
+            "*Pengingat Tugas Notulensi*\n\n".
+            "Yth. *{$task->peserta_nama}*,\n".
+            "Anda memiliki tugas notulensi dari rapat *{$task->judul}* ({$tglRapat} · {$task->tempat}).\n\n".
+            "Uraian: {$cleanUraian}\n".
+            "Target selesai: *{$deadline}*\n\n".
+            "Mohon segera menindaklanjuti dan mengunggah eviden bila sudah dikerjakan. Terima kasih.";
+
+        try {
+            $response = FonnteWa::send($phone, $message);
+            $ok = (bool) ($response['status'] ?? $response['ok'] ?? false);
+        } catch (\Throwable $e) {
+            Log::error('Gagal kirim WA tugas reminder', ['task_id'=>$task->id,'err'=>$e->getMessage()]);
+            $ok = false;
+        }
+
+        return $ok
+            ? back()->with('success', 'Pengingat WA telah dikirim ke peserta.')
+            : back()->withErrors('Gagal mengirim pengingat WA. Silakan coba lagi.');
     }
 
     /**
@@ -1386,5 +1541,23 @@ public function notifyFirstPendingApproverOnResubmission(int $rapatId, string $d
     }
 }
 
+    private function extractPhoneNumberByUserId(int $userId): ?string
+    {
+        $user = DB::table('users')->where('id', $userId)->first();
+        if (!$user) return null;
+        return $this->extractPhoneNumberFromRow($user);
+    }
 
+    private function extractPhoneNumberFromRow($row): ?string
+    {
+        if (!$row) return null;
+        $fields = ['no_hp','phone','telp','telepon','hp','whatsapp','wa','no_telp','no_wa'];
+        foreach ($fields as $field) {
+            if (!empty($row->{$field})) {
+                $normalized = FonnteWa::normalizeNumber($row->{$field});
+                if ($normalized) return $normalized;
+            }
+        }
+        return null;
+    }
 }

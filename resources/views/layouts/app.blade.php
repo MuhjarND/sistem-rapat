@@ -429,6 +429,11 @@
                         href="{{ route('approval.rapat') }}">
                             <i class="fas fa-calendar-alt"></i> Rapat
                         </a>
+
+                        <a class="nav-link d-flex align-items-center {{ request()->routeIs('approval.tugas') ? 'active' : '' }}"
+                        href="{{ route('approval.tugas') }}">
+                            <i class="fas fa-tasks"></i> Monitoring Tugas Peserta
+                        </a>
                     </nav>
 
                 @elseif($isOperator)

@@ -133,6 +133,8 @@ Route::middleware(['auth', 'cekrole:admin,peserta,approval,operator,notulis'])->
 Route::middleware(['auth', 'cekrole:approval,admin'])->group(function () {
     Route::get('/approval', 'ApprovalController@dashboard')->name('approval.dashboard');
     Route::get('/approval/pending', 'ApprovalController@pending')->name('approval.pending');
+    Route::get('/approval/tugas', 'ApprovalController@tasks')->name('approval.tugas');
+    Route::post('/approval/tugas/{id}/remind', 'ApprovalController@remindTask')->name('approval.tugas.remind');
     Route::get('/approval/sign/{token}', 'ApprovalController@signForm')->name('approval.sign');
     Route::post('/approval/sign/{token}', 'ApprovalController@signSubmit')->name('approval.sign.submit');
     Route::get('/approval/done/{token}', 'ApprovalController@done')->name('approval.done');
