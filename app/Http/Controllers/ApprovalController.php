@@ -857,7 +857,7 @@ public function signSubmit(Request $request, $token)
         $pesan =
             "Assalamu’alaikum warahmatullahi wabarakatuh,\n\n"
           . "Yth. Bapak/Ibu Peserta Rapat,\n\n"
-          . "Dengan hormat, kami sampaikan bahwa undangan rapat berikut telah *disetujui oleh seluruh pihak terkait* dan siap untuk dilaksanakan:\n\n"
+          . "Dengan hormat, kami sampaikan bahwa undangan rapat berikut:\n\n"
           . "• Nomor: *{$nomor}*\n"
           . "• Judul: *{$judul}*\n"
           . "• Hari/Tanggal: *{$tanggal}*\n"
@@ -867,8 +867,7 @@ public function signSubmit(Request $request, $token)
           . ($previewLink ? "🔗 *Preview Rapat:* {$previewLink}\n" : "")
           . ($pdfLink ? "📄 *Undangan (PDF):* {$pdfLink}\n" : "")
           . "\nAtas perhatian dan kehadirannya kami ucapkan terima kasih.\n\n"
-          . "Wassalamu’alaikum warahmatullahi wabarakatuh.\n\n"
-          . "*Sekretariat Rapat*";
+          . "Wassalamu’alaikum warahmatullahi wabarakatuh.\n\n";
 
         // ===== Kirim WA =====
         $sent = 0;

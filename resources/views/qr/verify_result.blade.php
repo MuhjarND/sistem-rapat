@@ -29,7 +29,7 @@
   @endif
 
   <div class="mt-3 text-muted" style="font-size:12px">
-    <i>Tips:</i> Pastikan URL ini berasal dari domain resmi instansi Anda.
+    <i>Ket :</i> Validitas dokumen resmi berdasarkan SK ....
   </div>
 </div>
 @endsection
