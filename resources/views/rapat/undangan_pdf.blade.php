@@ -144,7 +144,7 @@
             @if($qrA1Exists)
                 {{-- Tampilkan QR jika sudah approved --}}
                 <img class="qr" src="{{ public_path($qrA1) }}"><br>
-                <span class="qr-caption">Terverifikasi digital (Melalui Sistem Rapat)</span><br>
+                <span class="qr-caption">Terverifikasi digital (Melalui SMART)</span><br>
             @else
                 {{-- Jika belum approved, tampilkan placeholder + teks menunggu --}}
                 <div class="qr-placeholder"></div><br>

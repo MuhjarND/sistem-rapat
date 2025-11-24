@@ -44,17 +44,29 @@ class UserController extends Controller
             ->pluck('nama')
             ->toArray();
 
-        $qry = DB::table('users')
-            ->select('id','name','jabatan','email','no_hp','unit','bidang','tingkatan','role','hirarki','created_at');
+        $daftar_jabatan = DB::table('jabatan')
+            ->where('is_active', 1)
+            ->orderBy('nama', 'asc')
+            ->get();
+
+        $qry = DB::table('users as u')
+            ->leftJoin('jabatan as j','j.id','=','u.jabatan_id')
+            ->select(
+                'u.id','u.name','u.jabatan','u.jabatan_id',
+                DB::raw('COALESCE(u.jabatan_keterangan, j.keterangan) as jabatan_keterangan'),
+                'u.email','u.no_hp','u.unit','u.bidang','u.tingkatan','u.role','u.hirarki','u.created_at',
+                'j.nama as jabatan_ref'
+            );
 
         if ($q !== '') {
             $qry->where(function ($w) use ($q) {
-                $w->where('name', 'like', "%{$q}%")
-                  ->orWhere('email', 'like', "%{$q}%")
-                  ->orWhere('jabatan', 'like', "%{$q}%")
-                  ->orWhere('unit', 'like', "%{$q}%")
-                  ->orWhere('bidang', 'like', "%{$q}%")
-                  ->orWhere('no_hp', 'like', "%{$q}%");
+                $w->where('u.name', 'like', "%{$q}%")
+                  ->orWhere('u.email', 'like', "%{$q}%")
+                  ->orWhere('u.jabatan', 'like', "%{$q}%")
+                  ->orWhere('u.unit', 'like', "%{$q}%")
+                  ->orWhere('u.bidang', 'like', "%{$q}%")
+                  ->orWhere('u.no_hp', 'like', "%{$q}%")
+                  ->orWhere('j.nama', 'like', "%{$q}%");
             });
         }
 
@@ -71,21 +83,22 @@ class UserController extends Controller
         }
 
         // Urutkan berdasarkan hirarki (kecil di atas), baru nama
-        $qry->orderByRaw('COALESCE(hirarki, 9999) ASC')
-            ->orderBy('name', 'asc');
+        $qry->orderByRaw('COALESCE(u.hirarki, 9999) ASC')
+            ->orderBy('u.name', 'asc');
 
         $daftar_user = $qry->paginate($perPage)->appends($request->all());
 
         return view('user.index', [
-            'daftar_user'  => $daftar_user,
-            'q'            => $q,
-            'role'         => $role,
-            'unitName'     => $unitName,
-            'bidangName'   => $bidangName,
-            'daftar_unit'  => $daftar_unit,
-            'daftar_bidang'=> $daftar_bidang,
-            'perPage'      => $perPage,
-            'pickUnit'     => $pickUnit,
+            'daftar_user'    => $daftar_user,
+            'q'              => $q,
+            'role'           => $role,
+            'unitName'       => $unitName,
+            'bidangName'     => $bidangName,
+            'daftar_unit'    => $daftar_unit,
+            'daftar_bidang'  => $daftar_bidang,
+            'daftar_jabatan' => $daftar_jabatan,
+            'perPage'        => $perPage,
+            'pickUnit'       => $pickUnit,
         ]);
     }
 
@@ -112,6 +125,11 @@ class UserController extends Controller
             ->pluck('nama')
             ->toArray();
 
+        $daftar_jabatan = DB::table('jabatan')
+            ->where('is_active', 1)
+            ->orderBy('nama', 'asc')
+            ->get();
+
         // Preselect unit jika datang dari Units (pick_unit=id)
         $pickUnit   = $request->get('pick_unit');
         $pickedName = null;
@@ -120,7 +138,7 @@ class UserController extends Controller
         }
 
         return view('user.create', compact(
-            'daftar_role', 'daftar_unit', 'daftar_tingkatan', 'daftar_bidang', 'pickedName', 'pickUnit'
+            'daftar_role', 'daftar_unit', 'daftar_tingkatan', 'daftar_bidang', 'daftar_jabatan', 'pickedName', 'pickUnit'
         ));
     }
 
@@ -131,7 +149,8 @@ class UserController extends Controller
     {
         $request->validate([
             'name'      => 'required|string|max:100',
-            'jabatan'   => 'nullable|string|max:100',
+            'jabatan_id'=> ['nullable', Rule::exists('jabatan','id')->where(function($q){ $q->where('is_active',1); })],
+            'jabatan_keterangan' => 'nullable|string|max:255',
             'email'     => 'required|email|unique:users,email',
             'no_hp'     => ['nullable','regex:/^0[0-9]{9,13}$/'],
             // unit harus ada di tabel units.nama dan aktif
@@ -168,9 +187,16 @@ class UserController extends Controller
             $role      = $request->filled('tingkatan') ? 'approval' : $roleInput;
         }
 
+        $jabatanName = null;
+        if ($request->filled('jabatan_id')) {
+            $jabatanName = DB::table('jabatan')->where('id', $request->jabatan_id)->value('nama');
+        }
+
         DB::table('users')->insert([
             'name'       => $request->name,
-            'jabatan'    => $request->jabatan,
+            'jabatan'    => $jabatanName,
+            'jabatan_id' => $request->jabatan_id ?: null,
+            'jabatan_keterangan' => $request->jabatan_keterangan ?: null,
             'email'      => $request->email,
             'no_hp'      => $request->no_hp,
             'unit'       => $request->unit,
@@ -209,7 +235,12 @@ class UserController extends Controller
             ->pluck('nama')
             ->toArray();
 
-        return view('user.edit', compact('user','daftar_role','daftar_unit','daftar_tingkatan','daftar_bidang'));
+        $daftar_jabatan = DB::table('jabatan')
+            ->where('is_active', 1)
+            ->orderBy('nama', 'asc')
+            ->get();
+
+        return view('user.edit', compact('user','daftar_role','daftar_unit','daftar_tingkatan','daftar_bidang','daftar_jabatan'));
     }
 
     /**
@@ -222,7 +253,8 @@ class UserController extends Controller
 
         $request->validate([
             'name'      => 'required|string|max:100',
-            'jabatan'   => 'nullable|string|max:100',
+            'jabatan_id'=> ['nullable', Rule::exists('jabatan','id')->where(function($q){ $q->where('is_active',1); })],
+            'jabatan_keterangan' => 'nullable|string|max:255',
             'email'     => 'required|email|unique:users,email,'.$id,
             'no_hp'     => ['nullable','regex:/^0[0-9]{9,13}$/'],
             'unit'      => [
@@ -256,9 +288,16 @@ class UserController extends Controller
             $role      = $request->filled('tingkatan') ? 'approval' : $roleInput;
         }
 
+        $jabatanName = null;
+        if ($request->filled('jabatan_id')) {
+            $jabatanName = DB::table('jabatan')->where('id', $request->jabatan_id)->value('nama');
+        }
+
         $data = [
             'name'       => $request->name,
-            'jabatan'    => $request->jabatan,
+            'jabatan'    => $jabatanName,
+            'jabatan_id' => $request->jabatan_id ?: null,
+            'jabatan_keterangan' => $request->jabatan_keterangan ?: null,
             'email'      => $request->email,
             'no_hp'      => $request->no_hp,
             'unit'       => $request->unit,
