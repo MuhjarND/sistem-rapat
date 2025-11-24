@@ -1,15 +1,22 @@
 <div style="font-size: 13pt; font-weight:bold; margin-bottom: 10px;">LAMPIRAN</div>
 
+@php
+    $approval1Jabatan = $rapat->approval1_jabatan_manual ?: ($approval1->jabatan ?? 'Approval 1');
+@endphp
+
 <div style="margin-bottom:8px;">
-    Surat Undangan {{ $rapat->judul }}<br>
+    Surat Undangan {{ $approval1Jabatan }}
+    @if(!empty($approval1->unit))
+        {{ $approval1->unit }}
+    @endif
+    <br>
     Nomor : {{ $rapat->nomor_undangan }}<br>
     Tanggal : {{ \Carbon\Carbon::parse($rapat->tanggal)->isoFormat('D MMMM Y') }}
-</div>
+</div><br>
 
-<div style="margin-bottom: 5px;">DAFTAR PEJABAT/PEGAWAI YANG DIUNDANG</div>
+<div style="margin-bottom: 5px; text-align:center; font-weight:bold;">DAFTAR PEJABAT/PEGAWAI YANG DIUNDANG</div><br>
 
 @php
-    // Ambil daftar jabatan unik (case-insensitive), hilangkan kosong/“-”
     $jabatanUnik = collect($daftar_peserta ?? [])
         ->map(function($p){ return trim((string)($p->jabatan ?? '')); })
         ->filter(function($v){ return $v !== '' && $v !== '-'; })
@@ -27,7 +34,7 @@
     <div style="color:#666;">(Tidak ada jabatan yang dapat ditampilkan)</div>
 @endif
 
-<br>
+<br><br>
 
 {{-- Tanda tangan approval --}}
 <style>
@@ -36,12 +43,15 @@
     .qr-placeholder { height: 90px; }
 </style>
 
-<div style="float:right; width:260px; text-align:left;">
+<div style="float:right; width:300px; text-align:left;">
     {{-- Approval 1 (wajib) --}}
-    {{ $approval1->jabatan ?? 'Approval 1' }},<br>
+    <b>{{ $approval1Jabatan }},</b><br>
+    @if(!empty($approval1->unit))
+        <b>{{ $approval1->unit }}</b><br>
+    @endif
     @if(!empty($qrA1) && file_exists(public_path($qrA1)))
         <img class="qr" src="{{ public_path($qrA1) }}"><br>
-        <span class="qr-caption">Terverifikasi digital (Melalui Sistem Rapat)</span><br>
+        <span class="qr-caption">Terverifikasi digital (Melalui SMART)</span><br>
     @else
         <div class="qr-placeholder"></div><br>
     @endif

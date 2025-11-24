@@ -430,10 +430,16 @@
                             <i class="fas fa-calendar-alt"></i> Rapat
                         </a>
 
-                        <a class="nav-link d-flex align-items-center {{ request()->routeIs('approval.tugas') ? 'active' : '' }}"
-                        href="{{ route('approval.tugas') }}">
-                            <i class="fas fa-tasks"></i> Monitoring Tugas Peserta
-                        </a>
+                        @php
+                            $jab  = strtolower(trim((string) (Auth::user()->jabatan ?? '')));
+                            $allowMon = Str::contains($jab, 'panitera') || Str::contains($jab, 'sekretaris');
+                        @endphp
+                        @if($allowMon)
+                            <a class="nav-link d-flex align-items-center {{ request()->routeIs('approval.tugas') ? 'active' : '' }}"
+                            href="{{ route('approval.tugas') }}">
+                                <i class="fas fa-tasks"></i> Monitoring Tugas Peserta
+                            </a>
+                        @endif
                     </nav>
 
                 @elseif($isOperator)
@@ -593,6 +599,9 @@
                                 </a>
                                 <a class="nav-link {{ request()->is('units*') ? 'active' : '' }}" href="{{ route('units.index') }}">
                                     <i class="fas fa-layer-group"></i> Unit
+                                </a>
+                                <a class="nav-link {{ request()->is('jabatan*') ? 'active' : '' }}" href="{{ route('jabatan.index') }}">
+                                    <i class="fas fa-briefcase"></i> Jabatan
                                 </a>
                                 <a class="nav-link" href="{{ route('bidang.index') }}">
                                     <i class="fas fa-layer-group mr-1"></i>Bidang

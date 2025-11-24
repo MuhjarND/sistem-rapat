@@ -103,8 +103,9 @@
       ->where('id', $rapat->approval1_user_id ?? 0)
       ->select('name','jabatan','unit')
       ->first();
+  $approval1_jabatan = $rapat->approval1_jabatan_manual ?: ($approval1->jabatan ?? '-');
   $approval1_text = $approval1
-      ? trim(($approval1->name ?? '-') . ' — ' . ($approval1->jabatan ?? '-') . (($approval1->unit ?? '') ? ' · '.$approval1->unit : ''))
+      ? trim(($approval1->name ?? '-') . ' — ' . $approval1_jabatan . (($approval1->unit ?? '') ? ' · '.$approval1->unit : ''))
       : '-';
 @endphp
 

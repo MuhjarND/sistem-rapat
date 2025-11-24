@@ -76,6 +76,10 @@
 
   $approver_nama    = isset($approver) ? $get($approver,'nama','-') : '-';
   $approver_jabatan = isset($approver) ? $get($approver,'jabatan','Penanggung Jawab') : 'Penanggung Jawab';
+  $jabatan_manual   = $get($R, 'approval1_jabatan_manual');
+  if ($jabatan_manual) {
+      $approver_jabatan = $jabatan_manual;
+  }
   $peserta = is_iterable($peserta ?? null) ? $peserta : [];
 @endphp
 
@@ -149,21 +153,19 @@
         <table class="ttd">
             <tr>
                 <td>
-                    {{-- <div>{{ $approver_jabatan ?: 'Penanggung Jawab' }},</div> <br><br> --}}
-                    <div>Ketua Panitia,</div> <br><br><br><br><br>
+                    <div>{{ $approver_jabatan ?: 'Penanggung Jawab' }},</div> <br><br>
 
-                    {{-- @if(!empty($qrSrc))
+                    @if(!empty($qrSrc))
                         <img src="{{ $qrSrc }}" style="width:130px; height:auto; margin:8px 0;">
-                        <div class="qr-note">Terverifikasi digital (Melalui Aplikasi Sistem Rapat)</div>
+                        <div class="qr-note">Terverifikasi digital (Melalui SMART)</div>
                     @else
                         <div class="qr-note" style="margin:8px 0;">
                             <i>MENUNGGU APPROVAL ABSENSI</i><br>
                             QR absensi akan muncul otomatis setelah seluruh approval ABSENSI selesai.
                         </div>
-                    @endif --}}
+                    @endif
 
-                    <b>I M R A N</b>
-                    {{-- <b>{{ $approver_nama ?: '-' }}</b> --}}
+                    <b>{{ $approver_nama ?: '-' }}</b>
                 </td>
             </tr>
         </table>

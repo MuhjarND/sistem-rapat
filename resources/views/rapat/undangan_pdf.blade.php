@@ -25,8 +25,8 @@
         body { font-family: 'Times New Roman', Times, serif; font-size: 12pt; margin: 0; }
         .kop { text-align: center; border-bottom: 3px double #000; padding-bottom: 6px; margin-bottom: 18px; }
         .judul { text-align: center; font-size: 14pt; font-weight: bold; margin: 24px 0 16px 0;}
-        .ttd { float:right; width:260px; text-align:left; }
-        .ttd2 { float:right; width:260px; text-align:left; margin-top: 18px; }
+        .ttd { float:right; width:300px; text-align:left; }
+        .ttd2 { float:right; width:300px; text-align:left; margin-top: 18px; }
         .alamat { font-size: 10pt; }
         table { width: 100%; }
         ol { margin: 6px 0 8px 18px; padding: 0; }
@@ -62,7 +62,7 @@
         <tr>
             <td>Hal</td>
             <td>:</td>
-            <td>Undangan {{ $rapat->judul }}</td>
+            <td>Undangan {{ $rapat->nama_kategori ?? '-' }}</td>
         </tr>
     </table>
 
@@ -70,11 +70,22 @@
     <p style="margin-bottom: 6px;">Kepada Yth.</p>
 
     @if($tampilkan_daftar_di_surat)
-        <ol>
-            @foreach($daftar_peserta as $p)
-                <li>{{ $p->jabatan ? $p->jabatan.' - ' : '' }}{{ $p->name }}</li>
-            @endforeach
-        </ol>
+        @php
+            $jabatanList = collect($daftar_peserta ?? [])
+                ->map(function($p){ return trim($p->jabatan ?? ''); })
+                ->filter(function($v){ return $v !== ''; })
+                ->unique()
+                ->values();
+        @endphp
+        @if($jabatanList->count())
+            <ol>
+                @foreach($jabatanList as $jab)
+                    <li>{{ $jab }}</li>
+                @endforeach
+            </ol>
+        @else
+            <div class="text-muted">-</div>
+        @endif
     @endif
 
     <p style="margin-top: 0;">
@@ -82,8 +93,8 @@
         &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tempat
     </p>
 
-    <p>Assalamu’alaikum Wr.Wb.</p>
-    <p>
+   <p><i>Assalamu’alaikum Wr.Wb.</i></p>
+    <p style="text-indent:24px;">
         Memohon kehadiran Bapak/Ibu/Saudara dalam <b>{{ $rapat->judul }}</b>, yang akan dilaksanakan pada:
     </p>
 
@@ -110,17 +121,22 @@
         </tr>
     </table>
 
-    <p>
+    <p style="text-indent:24px;">
         Demikian, atas perhatiannya diucapkan terima kasih.<br>
-        Wassalamu’alaikum Wr.Wb.
+        <i>Wassalamu'alaikum Wr.Wb.</i>
     </p>
     <br><br>
 
     <div class="clearfix">
         {{-- Tanda tangan Approval 1 (wajib) --}}
+        @php
+            $approval1Jabatan = $rapat->approval1_jabatan_manual ?: ($approval1->jabatan ?? 'Approval 1');
+        @endphp
         <div class="ttd">
-            {{ $approval1->jabatan ?? 'Approval 1' }},<br>
-
+            <b>{{ $approval1Jabatan }},</b><br>
+            @if(!empty($approval1->unit))
+            <b><span style="font-size:16px;">{{ $approval1->unit }}</span><br></b>
+            @endif
             @php
                 $qrA1Exists = !empty($qrA1) && file_exists(public_path($qrA1));
             @endphp

@@ -6,9 +6,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\UserLookupController;
 
 
-Route::get('/', function () {
-    return view('welcome');
-});
+Route::redirect('/', '/login');
 
 Auth::routes();
 
@@ -54,6 +52,7 @@ Route::middleware(['auth', 'cekrole:admin'])->group(function () {
     Route::put('/units/{id}',       'UnitController@update')->name('units.update');
     Route::delete('/units/{id}',    'UnitController@destroy')->name('units.destroy');
     Route::post('/units/{id}/toggle','UnitController@toggle')->name('units.toggle');    
+    Route::resource('jabatan', 'JabatanController');
     Route::get('/bidang', 'BidangController@index')->name('bidang.index');
     Route::post('/bidang', 'BidangController@store')->name('bidang.store');
     Route::put('/bidang/{id}', 'BidangController@update')->name('bidang.update');
@@ -62,6 +61,12 @@ Route::middleware(['auth', 'cekrole:admin'])->group(function () {
 
 // ADMIN
 Route::middleware(['auth', 'cekrole:admin,operator'])->group(function () {
+    // Jadwal rapat berkala (tidak langsung ke approval)
+    Route::get('rapat/jadwal', 'RapatController@scheduleIndex')->name('rapat.schedule.index');
+    Route::get('rapat/jadwal/create', 'RapatController@createSchedule')->name('rapat.schedule.create');
+    Route::post('rapat/jadwal', 'RapatController@storeSchedule')->name('rapat.schedule.store');
+    Route::post('rapat/{id}/send-approval', 'RapatController@sendToApproval')->name('rapat.sendApproval');
+
     //RAPAT
     Route::resource('rapat', 'RapatController');
     //ABSENSI

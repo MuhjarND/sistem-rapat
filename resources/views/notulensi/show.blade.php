@@ -116,6 +116,7 @@
       ->where('id', $rapat->approval1_user_id)
       ->select('name','jabatan','unit')
       ->first();
+  $approval1_jabatan = $rapat->approval1_jabatan_manual ?: ($approval1->jabatan ?? null);
 
   // jumlah peserta yang mengikuti (hadir) rapat -> dihitung dari absensi
   $pesertaHadirCount = \DB::table('absensi')
@@ -169,7 +170,7 @@
               @if($approval1)
                 <strong>{{ $approval1->name }}</strong>
                 <span class="muted">
-                  — {{ $approval1->jabatan ?: '—' }}{{ $approval1->unit ? ' · '.$approval1->unit : '' }}
+                  — {{ $approval1_jabatan ?: '—' }}{{ $approval1->unit ? ' · '.$approval1->unit : '' }}
                 </span>
               @else
                 <span class="muted">-</span>

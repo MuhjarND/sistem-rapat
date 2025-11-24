@@ -6,11 +6,36 @@
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h3 class="mb-0">Daftar Rapat</h3>
         @if(in_array(Auth::user()->role, ['admin','operator']))
-            <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#modalTambahRapat">
-                + Tambah Rapat
-            </button>
+            <div class="d-flex align-items-center gap-2">
+                <a href="{{ route('rapat.schedule.create') }}" class="btn btn-outline-info mr-2">
+                    Buat Jadwal Rapat
+                </a>
+                <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#modalTambahRapat">
+                    + Tambah Rapat
+                </button>
+            </div>
         @endif
     </div>
+
+    @if(in_array(Auth::user()->role, ['admin','operator']))
+        <div class="d-flex align-items-center justify-content-between mb-3" style="
+            background: linear-gradient(90deg, rgba(59,130,246,.16), rgba(14,165,233,.18));
+            border:1px solid rgba(59,130,246,.45);
+            border-radius:12px;
+            padding:14px 16px;
+            box-shadow:0 10px 24px rgba(15,23,42,.1);">
+            <div>
+                <div class="mb-1" style="color:#ffffff;font-weight:800;font-size:1.05rem;">Pusat Jadwal Rapat</div>
+                <div style="color:#f8fafc;font-weight:600;">Lihat dan kirim seluruh rapat terjadwal dari halaman khusus.</div>
+            </div>
+            <div class="d-flex align-items-center">
+                @if(!empty($pendingScheduledCount))
+                    <span class="badge badge-warning mr-2" style="font-weight:800;">{{ $pendingScheduledCount }} belum dikirim</span>
+                @endif
+                <a href="{{ route('rapat.schedule.index') }}" class="btn btn-sm btn-primary" style="font-weight:700;">Buka Halaman Jadwal</a>
+            </div>
+        </div>
+    @endif
 
     @if(session('success'))
         <div class="alert alert-success">{{ session('success') }}</div>
@@ -112,6 +137,7 @@
     </style>
 
     @php
+        $statusPriority = ['approved'=>3,'rejected'=>2,'pending'=>1,'blocked'=>0];
         // Warna badge pop tombol "Cek Status"
         $popBadgeClass = function (string $overall) {
             return $overall === 'approved' ? 'badge-success'
@@ -129,24 +155,22 @@
                  : ($s === 'rejected' ? 'step-badge step-reject'
                  : ($s === 'blocked'  ? 'step-badge step-blocked' : 'step-badge step-pending'));
         };
-        // Overall status dari 2 jenis dokumen
-        $overallStatus = function (array $map) {
-            $types = ['undangan','absensi'];
-            $hasReject = false; $allApproved = true; $hasAny = false;
-
-            foreach ($types as $t) {
-                if (!empty($map[$t])) {
-                    $hasAny = true;
-                    foreach ($map[$t] as $row) {
-                        if ($row['status'] === 'rejected') $hasReject = true;
-                        if ($row['status'] !== 'approved') $allApproved = false;
-                    }
-                } else {
-                    $allApproved = false;
-                }
+        // Overall status dari seluruh approval (undangan + absensi)
+        $overallStatus = function (array $map, $rapat) {
+            // Jika kedua dokumen sudah approved (kolom di rapat), langsung approved
+            if (!empty($rapat->undangan_approved_at ?? null) && !empty($rapat->absensi_approved_at ?? null)) {
+                return 'approved';
             }
-            if ($hasReject) return 'rejected';
-            if ($hasAny && $allApproved) return 'approved';
+
+            $rows = collect($map)->flatten(1);
+            if ($rows->isEmpty()) return 'pending';
+
+            if ($rows->contains(function($r){ return ($r['status'] ?? null) === 'rejected'; })) {
+                return 'rejected';
+            }
+            if ($rows->every(function($r){ return ($r['status'] ?? null) === 'approved'; })) {
+                return 'approved';
+            }
             return 'pending';
         };
         // Label status utama untuk ditampilkan di cell
@@ -184,6 +208,7 @@
                                 ->select(
                                     'ar.doc_type','ar.order_index','ar.status',
                                     'ar.signed_at','ar.rejected_at','ar.rejection_note',
+                                    'ar.updated_at',
                                     'u.name'
                                 )
                                 ->where('ar.rapat_id', $rapat->id)
@@ -193,22 +218,26 @@
                                 ->get();
 
                             $approvalMap = $steps->groupBy('doc_type')->map(function($g){
-                                return $g->unique(function($r){
-                                    return ($r->order_index ?? 0).'|'.($r->name ?? '');
-                                })->values()->map(function($r){
+                                return $g->groupBy('order_index')->map(function($rowsPerOrder) use ($statusPriority){
+                                    $picked = collect($rowsPerOrder)
+                                        ->sortByDesc(function($row) use ($statusPriority){
+                                            return $statusPriority[$row->status] ?? 0;
+                                        })
+                                        ->sortByDesc('updated_at')
+                                        ->first();
                                     return [
-                                        'order'          => (int)$r->order_index,
-                                        'name'           => $r->name ?: 'Approver',
-                                        'status'         => $r->status,
-                                        'signed_at'      => $r->signed_at,
-                                        'rejected_at'    => $r->rejected_at,
-                                        'rejection_note' => $r->rejection_note,
+                                        'order'          => (int)$picked->order_index,
+                                        'name'           => $picked->name ?: 'Approver',
+                                        'status'         => $picked->status,
+                                        'signed_at'      => $picked->signed_at,
+                                        'rejected_at'    => $picked->rejected_at,
+                                        'rejection_note' => $picked->rejection_note,
                                     ];
-                                })->all();
+                                })->values()->all();
                             })->toArray();
                         }
 
-                        $overall = $overallStatus($approvalMap);
+                        $overall = $overallStatus($approvalMap, $rapat);
                         $modalId = 'apprModal-'.$rapat->id;
                     @endphp
 
@@ -309,10 +338,7 @@
                                     {{-- ===== Rincian per dokumen ===== --}}
                                     @foreach (['undangan'=>'Undangan','absensi'=>'Absensi'] as $tpKey => $tpTitle)
                                       @php
-                                        $rowsRaw = $approvalMap[$tpKey] ?? [];
-                                        $rows = $tpKey === 'absensi'
-                                          ? collect($rowsRaw)->unique(function($r){ return trim($r['name'] ?? ''); })->values()->all()
-                                          : $rowsRaw;
+                                        $rows = $approvalMap[$tpKey] ?? [];
                                       @endphp
                                       <hr>
                                       <h6 class="mb-2 text-left">{{ $tpTitle }}</h6>
@@ -400,6 +426,16 @@
                                 </a>
 
                                 @if(in_array(Auth::user()->role, ['admin','operator']))
+                                    @if(!empty($rapat->schedule_type) && empty($rapat->approval_enqueued_at))
+                                        <form action="{{ route('rapat.sendApproval', $rapat->id) }}" method="POST" class="d-inline"
+                                              onsubmit="return confirm('Kirim rapat ini ke approval?');">
+                                            @csrf
+                                            <button class="aksi-btn aksi-view" style="background:#16a34a" title="Kirim ke Approval" type="submit">
+                                                <i class="fa fa-paper-plane"></i>
+                                            </button>
+                                        </form>
+                                    @endif
+
                                     <button type="button"
                                             class="aksi-btn aksi-edit"
                                             data-toggle="modal"
@@ -442,6 +478,7 @@
                         ->select(
                             'ar.doc_type','ar.order_index','ar.status',
                             'ar.signed_at','ar.rejected_at','ar.rejection_note',
+                            'ar.updated_at',
                             'u.name'
                         )
                         ->where('ar.rapat_id', $rapat->id)
@@ -464,7 +501,7 @@
                     })->toArray();
                 }
 
-                $overall = $overallStatus($approvalMap);
+                $overall = $overallStatus($approvalMap, $rapat);
                 $modalId = 'apprModal-m-'.$rapat->id;
                 $overallChipClass = $overall==='approved' ? 'ok' : ($overall==='rejected' ? 'err' : 'warn');
             @endphp
@@ -506,6 +543,18 @@
                     </button>
 
                     @if(in_array(Auth::user()->role, ['admin','operator']))
+                        @if(!empty($rapat->schedule_type) && empty($rapat->approval_enqueued_at))
+                            <form action="{{ route('rapat.sendApproval', $rapat->id) }}"
+                                  method="POST"
+                                  onsubmit="return confirm('Kirim rapat ini ke approval?')"
+                                  class="d-inline">
+                                @csrf
+                                <button class="btn-pill primary" type="submit" style="background:#16a34a;border-color:#16a34a;">
+                                    <i class="fas fa-paper-plane"></i>
+                                </button>
+                            </form>
+                        @endif
+
                         <button type="button"
                                 class="btn-pill warn"
                                 data-toggle="modal"

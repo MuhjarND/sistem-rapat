@@ -34,10 +34,21 @@
         {{-- Jabatan --}}
         <div class="form-group mb-3">
           <label for="jabatan">Jabatan</label>
-          <input type="text" name="jabatan" id="jabatan"
-                 class="form-control @error('jabatan') is-invalid @enderror"
-                 value="{{ old('jabatan') }}" maxlength="100" placeholder="Opsional">
-          @error('jabatan') <div class="invalid-feedback">{{ $message }}</div> @enderror
+          <select name="jabatan_id" id="jabatan" class="form-control @error('jabatan_id') is-invalid @enderror">
+            <option value="">-- Pilih Jabatan --</option>
+            @foreach($daftar_jabatan as $jab)
+              <option value="{{ $jab->id }}" data-ket="{{ $jab->keterangan ?? '' }}" {{ old('jabatan_id') == $jab->id ? 'selected' : '' }}>
+                {{ $jab->nama }}{{ $jab->kategori ? ' - '.$jab->kategori : '' }}
+              </option>
+            @endforeach
+          </select>
+          @error('jabatan_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
+          <small class="form-text text-muted">Pilih jabatan dari master jabatan.</small>
+        </div>
+
+        <div class="form-group mb-3">
+          <label>Keterangan Jabatan</label>
+          <textarea id="jabatan_keterangan" class="form-control" name="jabatan_keterangan" rows="2" placeholder="Keterangan jabatan">{{ old('jabatan_id') ? optional($daftar_jabatan->firstWhere('id', old('jabatan_id')))->keterangan : old('jabatan_keterangan') }}</textarea>
         </div>
 
         {{-- Email --}}
@@ -150,4 +161,20 @@
     </div>
   </div>
 </div>
+
+@push('scripts')
+<script>
+  (function(){
+    var select = document.getElementById('jabatan');
+    var ket = document.getElementById('jabatan_keterangan');
+    if(!select || !ket) return;
+    function syncKet(){
+      var opt = select.options[select.selectedIndex];
+      ket.value = opt ? (opt.getAttribute('data-ket')||'') : '';
+    }
+    select.addEventListener('change', syncKet);
+    syncKet();
+  })();
+</script>
+@endpush
 @endsection

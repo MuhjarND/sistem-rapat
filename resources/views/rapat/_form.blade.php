@@ -153,6 +153,32 @@
   </div>
 </div>
 
+@if(!empty($show_schedule))
+<div class="form-group">
+  <label>Jenis Jadwal</label>
+  @php $scheduleVal = old('schedule_type', $rapat->schedule_type ?? ''); @endphp
+  <select name="schedule_type" class="form-control" required>
+    <option value="">-- Pilih frekuensi --</option>
+    <option value="bulanan" {{ $scheduleVal === 'bulanan' ? 'selected' : '' }}>Bulanan</option>
+    <option value="triwulanan" {{ $scheduleVal === 'triwulanan' ? 'selected' : '' }}>Triwulanan</option>
+    <option value="tahunan" {{ $scheduleVal === 'tahunan' ? 'selected' : '' }}>Tahunan</option>
+  </select>
+  <small class="form-text text-muted">Rapat yang dibuat di halaman jadwal tidak otomatis masuk approval; kirim manual dari daftar rapat.</small>
+</div>
+
+<div class="form-group">
+  <label>Keterangan Jadwal</label>
+  <input type="text"
+         name="schedule_label"
+         class="form-control"
+         maxlength="120"
+         placeholder="Contoh: Triwulan 1 / September / 2025"
+         value="{{ old('schedule_label', $rapat->schedule_label ?? '') }}"
+         required>
+  <small class="form-text text-muted">Isi deskripsi singkat jadwal, misalnya “Triwulan 1”, “September”, atau “2025”.</small>
+</div>
+@endif
+
 <div class="form-group">
   <label>Kategori</label>
   <select name="id_kategori" class="form-control" required
@@ -175,11 +201,17 @@
         </option>
       @endforeach
     </select>
+    <small class="form-text text-muted mt-1">Isi jabatan manual jika ingin menampilkan jabatan khusus di surat.</small>
+    <input type="text"
+           name="approval1_jabatan_manual"
+           class="form-control mt-2"
+           placeholder="Contoh: Plh Ketua, Plh Sekretaris"
+           value="{{ old('approval1_jabatan_manual', $rapat->approval1_jabatan_manual ?? '') }}">
   </div>
   <div class="form-group col-md-6">
-    <label>Approval 2 (opsional)</label>
+    <label>Paraf (opsional)</label>
     <select name="approval2_user_id" class="form-control">
-      <option value="">-- Tanpa Approval 2 --</option>
+      <option value="">-- Tanpa Paraf--</option>
       @foreach($approval2_list as $u)
         <option value="{{ $u->id }}" {{ old('approval2_user_id', $rapat->approval2_user_id ?? '') == $u->id ? 'selected' : '' }}>
           {{ $u->name }} (T2)

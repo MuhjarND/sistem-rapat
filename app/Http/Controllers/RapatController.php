@@ -101,6 +101,17 @@ class RapatController extends Controller
     {
         // === Master data ===
         $daftar_kategori = DB::table('kategori_rapat')->orderBy('nama')->get();
+        $pendingScheduledCount = DB::table('rapat')
+            ->whereNotNull('schedule_type')
+            ->whereNull('approval_enqueued_at')
+            ->count();
+        $pendingScheduledList = DB::table('rapat')
+            ->whereNotNull('schedule_type')
+            ->whereNull('approval_enqueued_at')
+            ->select('id','judul','nomor_undangan','tanggal','waktu_mulai','schedule_type')
+            ->orderBy('tanggal','asc')
+            ->limit(5)
+            ->get();
 
         // === Base query daftar rapat ===
         $query = DB::table('rapat')
@@ -143,7 +154,7 @@ class RapatController extends Controller
             $rapat->status_label = $this->getStatusRapat($rapat);
         }
 
-        // === PRELOAD: Peserta terpilih (nama saja) — urut by hirarki lalu nama
+        // === PRELOAD: Peserta terpilih (nama saja) GÃ‡Ã¶ urut by hirarki lalu nama
         $rapatIds = $daftar_rapat->pluck('id')->all();
         if (!empty($rapatIds)) {
             $pesertaMap = DB::table('undangan as u')
@@ -171,7 +182,7 @@ class RapatController extends Controller
                 ->whereIn('ar.doc_type', ['undangan', 'absensi'])
                 ->select(
                     'ar.rapat_id','ar.doc_type','ar.order_index','ar.status',
-                    'ar.signed_at','ar.rejected_at','ar.rejection_note',
+                    'ar.signed_at','ar.rejected_at','ar.rejection_note','ar.updated_at',
                     'u.name as approver_name'
                 )
                 ->orderBy('ar.doc_type')->orderBy('ar.order_index')
@@ -180,17 +191,29 @@ class RapatController extends Controller
             $approvalMapByRapat = $apprRows
                 ->groupBy('rapat_id')
                 ->map(function ($rowsPerRapat) {
-                    return $rowsPerRapat->groupBy('doc_type')->map(function ($groupPerType) {
-                        return $groupPerType->map(function ($r) {
-                            return [
-                                'order'          => (int)$r->order_index,
-                                'name'           => $r->approver_name ?: 'Approver',
-                                'status'         => $r->status,
-                                'signed_at'      => $r->signed_at,
-                                'rejected_at'    => $r->rejected_at,
-                                'rejection_note' => $r->rejection_note,
-                            ];
-                        })->values()->all();
+                    $priority = ['approved' => 3, 'rejected' => 2, 'pending' => 1, 'blocked' => 0];
+                    return $rowsPerRapat->groupBy('doc_type')->map(function ($groupPerType) use ($priority) {
+                        return $groupPerType
+                            ->groupBy('order_index')
+                            ->map(function ($rowsPerOrder) use ($priority) {
+                                $picked = collect($rowsPerOrder)
+                                    ->sortByDesc(function ($row) use ($priority) {
+                                        return $priority[$row->status] ?? 0;
+                                    })
+                                    ->sortByDesc('updated_at')
+                                    ->first();
+
+                                return [
+                                    'order'          => (int)$picked->order_index,
+                                    'name'           => $picked->approver_name ?: 'Approver',
+                                    'status'         => $picked->status,
+                                    'signed_at'      => $picked->signed_at,
+                                    'rejected_at'    => $picked->rejected_at,
+                                    'rejection_note' => $picked->rejection_note,
+                                ];
+                            })
+                            ->values()
+                            ->all();
                     })->toArray();
                 });
 
@@ -232,7 +255,9 @@ class RapatController extends Controller
             'approval1_list',
             'approval2_list',
             'daftar_unit',
-            'daftar_bidang'
+            'daftar_bidang',
+            'pendingScheduledCount',
+            'pendingScheduledList'
         ));
     }
 
@@ -268,6 +293,88 @@ class RapatController extends Controller
         ));
     }
 
+    // Form jadwal rapat berkala (tidak langsung ke approval)
+    public function createSchedule()
+    {
+        $daftar_peserta  = $this->getSelectableParticipants();
+        $daftar_kategori = DB::table('kategori_rapat')->orderBy('nama')->get();
+        $pendingScheduledCount = DB::table('rapat')
+            ->whereNotNull('schedule_type')
+            ->whereNull('approval_enqueued_at')
+            ->count();
+        $pendingScheduledList = DB::table('rapat')
+            ->whereNotNull('schedule_type')
+            ->whereNull('approval_enqueued_at')
+            ->select('id','judul','nomor_undangan','tanggal','waktu_mulai','schedule_type')
+            ->orderBy('tanggal','asc')
+            ->limit(5)
+            ->get();
+
+        $approval1_list = DB::table('users')
+            ->select('id','name','tingkatan')
+            ->where('role', 'approval')
+            ->orderBy('name')
+            ->get();
+
+        $approval2_list = DB::table('users')
+            ->select('id','name','tingkatan')
+            ->where('role', 'approval')
+            ->where('tingkatan', 2)
+            ->orderBy('name')
+            ->get();
+
+        $daftar_unit   = $this->getDistinctUnits();
+        $daftar_bidang = $this->getDistinctBidang();
+
+        return view('rapat.schedule', compact(
+            'daftar_peserta',
+            'daftar_kategori',
+            'approval1_list',
+            'approval2_list',
+            'daftar_unit',
+            'daftar_bidang',
+            'pendingScheduledCount',
+            'pendingScheduledList'
+        ));
+    }
+
+    // Daftar rapat terjadwal (schedule_type tidak null)
+    public function scheduleIndex(Request $request)
+    {
+        $rapatList = DB::table('rapat')
+            ->leftJoin('kategori_rapat', 'rapat.id_kategori', '=', 'kategori_rapat.id')
+            ->leftJoin('users as pembuat', 'rapat.dibuat_oleh', '=', 'pembuat.id')
+            ->select(
+                'rapat.*',
+                'kategori_rapat.nama as nama_kategori',
+                'pembuat.name as nama_pembuat'
+            )
+            ->whereNotNull('rapat.schedule_type');
+
+        if ($request->filled('schedule_type')) {
+            $rapatList->where('rapat.schedule_type', $request->schedule_type);
+        }
+        if ($request->filled('keyword')) {
+            $kw = trim($request->keyword);
+            $rapatList->where(function($q) use ($kw) {
+                $q->where('rapat.judul','like','%'.$kw.'%')
+                  ->orWhere('rapat.nomor_undangan','like','%'.$kw.'%')
+                  ->orWhere('rapat.schedule_label','like','%'.$kw.'%');
+            });
+        }
+
+        $rapatList = $rapatList
+            ->orderBy('rapat.approval_enqueued_at','asc')
+            ->orderBy('rapat.tanggal','asc')
+            ->get()
+            ->map(function($r){
+                $r->status_label = $this->getStatusRapat($r);
+                return $r;
+            });
+
+        return view('rapat.schedule_index', compact('rapatList'));
+    }
+
     // Proses simpan rapat & undangan
     public function store(Request $request)
     {
@@ -281,6 +388,7 @@ class RapatController extends Controller
             'waktu_mulai'       => 'required',
             'tempat'            => 'required',
             'approval1_user_id' => 'required|exists:users,id',
+            'approval1_jabatan_manual' => 'nullable|string|max:150',
             'approval2_user_id' => 'nullable|exists:users,id',
             'peserta'           => $pesertaRule,
             'peserta.*'         => [
@@ -307,6 +415,7 @@ class RapatController extends Controller
             'dibuat_oleh'       => Auth::id(),
             'id_kategori'       => $request->id_kategori,
             'approval1_user_id' => $request->approval1_user_id,
+            'approval1_jabatan_manual' => $request->approval1_jabatan_manual ?: null,
             'approval2_user_id' => $request->approval2_user_id,
             'token_qr'          => Str::random(32),     // QR internal peserta (login)
             'public_code'       => Str::random(12),     // token publik (absensi publik, tanpa login)
@@ -344,10 +453,100 @@ class RapatController extends Controller
         $this->createApprovalChainForDoc($id_rapat, 'undangan');
         $this->createApprovalChainForDoc($id_rapat, 'absensi');
 
+        DB::table('rapat')->where('id', $id_rapat)->update([
+            'approval_enqueued_at' => now(),
+            'updated_at'           => now(),
+        ]);
+
         $rapat = DB::table('rapat')->where('id', $id_rapat)->first();
         $this->notifyFirstApprover($id_rapat, 'undangan', $rapat->judul);
 
         return redirect()->route('rapat.index')->with('success', 'Rapat & Undangan berhasil dibuat. Notifikasi WA sudah dikirim!');
+    }
+
+    // Simpan rapat jadwal (tidak langsung enqueue approval)
+    public function storeSchedule(Request $request)
+    {
+        $pesertaRule = $request->boolean('pilih_semua') ? 'nullable|array' : 'required|array|min:1';
+
+        $request->validate([
+            'nomor_undangan'    => 'required|unique:rapat,nomor_undangan',
+            'judul'             => 'required',
+            'deskripsi'         => 'nullable',
+            'tanggal'           => 'required|date',
+            'waktu_mulai'       => 'required',
+            'tempat'            => 'required',
+            'approval1_user_id' => 'required|exists:users,id',
+            'approval1_jabatan_manual' => 'nullable|string|max:150',
+            'approval2_user_id' => 'nullable|exists:users,id',
+            'schedule_label'    => 'required|string|max:120',
+            'schedule_type'     => 'required|in:bulanan,triwulanan,tahunan',
+            'peserta'           => $pesertaRule,
+            'peserta.*'         => [
+                'integer',
+                Rule::exists('users','id')->where(function ($q) {
+                    if (Schema::hasColumn('users','role')) {
+                        $q->whereNotIn('role', ['admin','superadmin']);
+                    }
+                    if (Schema::hasColumn('users','is_active')) {
+                        $q->where('is_active', 1);
+                    }
+                }),
+            ],
+            'id_kategori'       => 'required|exists:kategori_rapat,id'
+        ]);
+
+        $id_rapat = DB::table('rapat')->insertGetId([
+            'nomor_undangan'    => $request->nomor_undangan,
+            'judul'             => $request->judul,
+            'deskripsi'         => $request->deskripsi,
+            'tanggal'           => $request->tanggal,
+            'waktu_mulai'       => $request->waktu_mulai,
+            'tempat'            => $request->tempat,
+            'dibuat_oleh'       => Auth::id(),
+            'id_kategori'       => $request->id_kategori,
+            'approval1_user_id' => $request->approval1_user_id,
+            'approval1_jabatan_manual' => $request->approval1_jabatan_manual ?: null,
+            'approval2_user_id' => $request->approval2_user_id,
+            'token_qr'          => Str::random(32),
+            'public_code'       => Str::random(12),
+            'schedule_type'     => $request->schedule_type,
+            'schedule_label'    => $request->schedule_label,
+            'approval_enqueued_at' => null,
+            'created_at'        => now(),
+            'updated_at'        => now(),
+        ]);
+
+        if ($request->boolean('pilih_semua')) {
+            $allowedIds = $this->getSelectableParticipants()->pluck('id')->all();
+        } else {
+            $pesertaIds = array_unique(array_map('intval', $request->peserta ?: []));
+            $allowedIds = DB::table('users')
+                ->when(Schema::hasColumn('users','role'), function($q){
+                    $q->whereNotIn('role',['admin','superadmin']);
+                })
+                ->whereIn('id', $pesertaIds)
+                ->pluck('id')->all();
+        }
+
+        $now = now();
+        $bulk = [];
+        foreach ($allowedIds as $uid) {
+            $bulk[] = [
+                'id_rapat'   => $id_rapat,
+                'id_user'    => $uid,
+                'status'     => 'terkirim',
+                'created_at' => $now,
+                'updated_at' => $now,
+            ];
+        }
+        if (!empty($bulk)) {
+            DB::table('undangan')->insert($bulk);
+        }
+
+        return redirect()
+            ->route('rapat.index')
+            ->with('success', 'Jadwal rapat berhasil dibuat. Klik "Kirim ke Approval" dari daftar rapat ketika siap.');
     }
 
     // Detail rapat
@@ -407,10 +606,10 @@ class RapatController extends Controller
         if (!empty($rapat->guest_token)) {
             $qrTamuUrl = \Illuminate\Support\Facades\Route::has('absensi.guest.form')
                 ? route('absensi.guest.form', [$rapat->id, $rapat->guest_token])
-                : url('/absensi/guest/'.$rapat->id.'/'.$rapat->guest_token); // ✅ perbaiki typo
+                : url('/absensi/guest/'.$rapat->id.'/'.$rapat->guest_token); // GÂ£Ã  perbaiki typo
         }
 
-        // ✅ QR Publik (absensi publik tanpa login; pakai public_code)
+        // GÂ£Ã  QR Publik (absensi publik tanpa login; pakai public_code)
         $qrPublikUrl = null;
         if (!empty($rapat->public_code)) {
             if (\Illuminate\Support\Facades\Route::has('absensi.publik.show')) {
@@ -458,7 +657,7 @@ class RapatController extends Controller
         $rapat = DB::table('rapat')->where('id', $id)->first();
         if (!$rapat) abort(404);
 
-        // === Semua user non-admin untuk daftar peserta — termasuk jabatan, unit, dan bidang
+        // === Semua user non-admin untuk daftar peserta GÃ‡Ã¶ termasuk jabatan, unit, dan bidang
         $q = DB::table('users');
         if (Schema::hasColumn('users','role')) {
             $q->whereNotIn('role', ['admin','superadmin']);
@@ -532,6 +731,10 @@ class RapatController extends Controller
     {
         $pesertaRule = $request->boolean('pilih_semua') ? 'nullable|array' : 'required|array|min:1';
 
+        $rapat = DB::table('rapat')->where('id', $id)->first();
+        if (!$rapat) abort(404);
+        $isEnqueued = !empty($rapat->approval_enqueued_at);
+
         $request->validate([
             'nomor_undangan'    => 'required|unique:rapat,nomor_undangan,' . $id,
             'judul'             => 'required',
@@ -540,6 +743,7 @@ class RapatController extends Controller
             'waktu_mulai'       => 'required',
             'tempat'            => 'required',
             'approval1_user_id' => 'required|exists:users,id',
+            'approval1_jabatan_manual' => 'nullable|string|max:150',
             'approval2_user_id' => 'nullable|exists:users,id',
             'peserta'           => $pesertaRule,
             'peserta.*'         => [
@@ -567,7 +771,9 @@ class RapatController extends Controller
                 'tempat'            => $request->tempat,
                 'id_kategori'       => $request->id_kategori,
                 'approval1_user_id' => $request->approval1_user_id,
+                'approval1_jabatan_manual' => $request->approval1_jabatan_manual ?: null,
                 'approval2_user_id' => $request->approval2_user_id,
+                'schedule_type'     => $rapat->schedule_type,
                 'updated_at'        => now(),
             ]);
 
@@ -600,118 +806,152 @@ class RapatController extends Controller
                 DB::table('undangan')->insert($bulk);
             }
 
-            // === Sinkronisasi approval UNDANGAN (versimu)
-            $desired = [];
-            if (!empty($request->approval2_user_id)) $desired[1] = (int)$request->approval2_user_id;
-            if (!empty($request->approval1_user_id)) $desired[2] = (int)$request->approval1_user_id;
+            if ($isEnqueued) {
+                // === Sinkronisasi approval UNDANGAN (versimu)
+                $desired = [];
+                if (!empty($request->approval2_user_id)) $desired[1] = (int)$request->approval2_user_id;
+                if (!empty($request->approval1_user_id)) $desired[2] = (int)$request->approval1_user_id;
 
-            $existing = DB::table('approval_requests')
-                ->where('rapat_id', $id)
-                ->where('doc_type', 'undangan')
-                ->orderBy('order_index')
-                ->get();
-
-            $approvedByOrder = $existing->where('status','approved')->keyBy('order_index');
-            $nonApproved     = $existing->where('status','!=','approved');
-
-            foreach ($nonApproved as $row) {
-                if (!isset($desired[$row->order_index]) || (int)$desired[$row->order_index] !== (int)$row->approver_user_id) {
-                    DB::table('approval_requests')->where('id', $row->id)->delete();
-                }
-            }
-
-            foreach ($desired as $ord => $uid) {
-                $existsOrd = DB::table('approval_requests')
+                $existing = DB::table('approval_requests')
                     ->where('rapat_id', $id)
                     ->where('doc_type', 'undangan')
-                    ->where('order_index', $ord)
-                    ->first();
+                    ->orderBy('order_index')
+                    ->get();
 
-                if ($existsOrd) {
-                    if ($existsOrd->status !== 'approved' && (int)$existsOrd->approver_user_id !== (int)$uid) {
-                        DB::table('approval_requests')->where('id',$existsOrd->id)->update([
+                $approvedByOrder = $existing->where('status','approved')->keyBy('order_index');
+                $nonApproved     = $existing->where('status','!=','approved');
+
+                foreach ($nonApproved as $row) {
+                    if (!isset($desired[$row->order_index]) || (int)$desired[$row->order_index] !== (int)$row->approver_user_id) {
+                        DB::table('approval_requests')->where('id', $row->id)->delete();
+                    }
+                }
+
+                foreach ($desired as $ord => $uid) {
+                    $existsOrd = DB::table('approval_requests')
+                        ->where('rapat_id', $id)
+                        ->where('doc_type', 'undangan')
+                        ->where('order_index', $ord)
+                        ->first();
+
+                    if ($existsOrd) {
+                        if ($existsOrd->status !== 'approved' && (int)$existsOrd->approver_user_id !== (int)$uid) {
+                            DB::table('approval_requests')->where('id',$existsOrd->id)->update([
+                                'approver_user_id' => $uid,
+                                'status'           => 'pending',
+                                'sign_token'       => Str::random(32),
+                                'updated_at'       => now(),
+                            ]);
+                        }
+                    } else {
+                        DB::table('approval_requests')->insert([
+                            'rapat_id'         => $id,
+                            'doc_type'         => 'undangan',
                             'approver_user_id' => $uid,
+                            'order_index'      => $ord,
                             'status'           => 'pending',
                             'sign_token'       => Str::random(32),
+                            'created_at'       => now(),
                             'updated_at'       => now(),
                         ]);
                     }
+                }
+
+                $rejected = DB::table('approval_requests')
+                    ->where('rapat_id', $id)
+                    ->where('doc_type', 'undangan')
+                    ->where('status', 'rejected')
+                    ->orderBy('order_index','asc')
+                    ->first();
+
+                if ($rejected) {
+                    $extra = [];
+                    if (Schema::hasColumn('approval_requests','resubmitted')) {
+                        $extra['resubmitted'] = 1;
+                    }
+                    if (Schema::hasColumn('approval_requests','resubmitted_at')) {
+                        $extra['resubmitted_at'] = now();
+                    }
+
+                    DB::table('approval_requests')->where('id', $rejected->id)->update(array_merge([
+                        'status'         => 'pending',
+                        'rejection_note' => null,
+                        'rejected_at'    => null,
+                        'sign_token'     => Str::random(32),
+                        'updated_at'     => now(),
+                    ], $extra));
+
+                    DB::table('approval_requests')
+                        ->where('rapat_id', $id)
+                        ->where('doc_type', 'undangan')
+                        ->where('order_index', '>', $rejected->order_index)
+                        ->where('status', 'blocked')
+                        ->update([
+                            'status'     => 'pending',
+                            'updated_at' => now(),
+                        ]);
                 } else {
-                    DB::table('approval_requests')->insert([
-                        'rapat_id'         => $id,
-                        'doc_type'         => 'undangan',
-                        'approver_user_id' => $uid,
-                        'order_index'      => $ord,
-                        'status'           => 'pending',
-                        'sign_token'       => Str::random(32),
-                        'created_at'       => now(),
-                        'updated_at'       => now(),
+                    DB::table('approval_requests')
+                        ->where('rapat_id', $id)
+                        ->where('doc_type', 'undangan')
+                        ->where('status', 'blocked')
+                        ->update(['status' => 'pending', 'updated_at' => now()]);
+                }
+
+                if (Schema::hasColumn('rapat','undangan_revised_at')) {
+                    DB::table('rapat')->where('id',$id)->update([
+                        'undangan_revised_at' => now(),
+                        'updated_at'          => now(),
                     ]);
+                } else {
+                    DB::table('rapat')->where('id',$id)->update(['updated_at'=>now()]);
                 }
-            }
-
-            $rejected = DB::table('approval_requests')
-                ->where('rapat_id', $id)
-                ->where('doc_type', 'undangan')
-                ->where('status', 'rejected')
-                ->orderBy('order_index','asc')
-                ->first();
-
-            if ($rejected) {
-                $extra = [];
-                if (Schema::hasColumn('approval_requests','resubmitted')) {
-                    $extra['resubmitted'] = 1;
-                }
-                if (Schema::hasColumn('approval_requests','resubmitted_at')) {
-                    $extra['resubmitted_at'] = now();
-                }
-
-                DB::table('approval_requests')->where('id', $rejected->id)->update(array_merge([
-                    'status'         => 'pending',
-                    'rejection_note' => null,
-                    'rejected_at'    => null,
-                    'sign_token'     => Str::random(32),
-                    'updated_at'     => now(),
-                ], $extra));
-
-                DB::table('approval_requests')
-                    ->where('rapat_id', $id)
-                    ->where('doc_type', 'undangan')
-                    ->where('order_index', '>', $rejected->order_index)
-                    ->where('status', 'blocked')
-                    ->update([
-                        'status'     => 'pending',
-                        'updated_at' => now(),
-                    ]);
-            } else {
-                DB::table('approval_requests')
-                    ->where('rapat_id', $id)
-                    ->where('doc_type', 'undangan')
-                    ->where('status', 'blocked')
-                    ->update(['status' => 'pending', 'updated_at' => now()]);
-            }
-
-            if (Schema::hasColumn('rapat','undangan_revised_at')) {
-                DB::table('rapat')->where('id',$id)->update([
-                    'undangan_revised_at' => now(),
-                    'updated_at'          => now(),
-                ]);
             } else {
                 DB::table('rapat')->where('id',$id)->update(['updated_at'=>now()]);
             }
 
             DB::commit();
 
-            app(\App\Http\Controllers\ApprovalController::class)
-                ->notifyFirstPendingApproverOnResubmission((int)$id, 'undangan');
+            if ($isEnqueued) {
+                app(\App\Http\Controllers\ApprovalController::class)
+                    ->notifyFirstPendingApproverOnResubmission((int)$id, 'undangan');
 
-            return redirect()->route('rapat.index')->with('success', 'Undangan berhasil diperbarui & dikirim ulang ke antrean approval (status: sudah diperbaiki).');
+                return redirect()->route('rapat.index')->with('success', 'Undangan berhasil diperbarui & dikirim ulang ke antrean approval (status: sudah diperbaiki).');
+            }
+
+            return redirect()->route('rapat.index')->with('success', 'Rapat berhasil diperbarui (belum dikirim ke approval).');
 
         } catch (\Throwable $e) {
             DB::rollBack();
             report($e);
             return back()->withErrors('Gagal memperbarui undangan.')->withInput();
         }
+    }
+
+    // Kirim rapat jadwal ke antrean approval
+    public function sendToApproval($id)
+    {
+        $rapat = DB::table('rapat')->where('id', $id)->first();
+        if (!$rapat) abort(404);
+
+        if (!empty($rapat->approval_enqueued_at)) {
+            return redirect()->route('rapat.index')->with('success', 'Rapat sudah ada di antrean approval.');
+        }
+
+        $existing = DB::table('approval_requests')->where('rapat_id', $id)->count();
+        if ($existing === 0) {
+            $this->createApprovalChainForDoc($id, 'undangan');
+            $this->createApprovalChainForDoc($id, 'absensi');
+        }
+
+        DB::table('rapat')->where('id', $id)->update([
+            'approval_enqueued_at' => now(),
+            'updated_at'           => now(),
+        ]);
+
+        $this->notifyFirstApprover($id, 'undangan', $rapat->judul);
+
+        return redirect()->route('rapat.index')->with('success', 'Rapat berhasil dikirim ke approval.');
     }
 
     // Hapus rapat & undangan terkait
@@ -726,7 +966,11 @@ class RapatController extends Controller
     // Export undangan PDF (tidak diubah)
     public function undanganPdf($id)
     {
-        $rapat = DB::table('rapat')->where('id', $id)->first();
+        $rapat = DB::table('rapat')
+            ->leftJoin('kategori_rapat','kategori_rapat.id','=','rapat.id_kategori')
+            ->select('rapat.*','kategori_rapat.nama as nama_kategori')
+            ->where('rapat.id', $id)
+            ->first();
         if (!$rapat) abort(404);
 
         $daftar_peserta = DB::table('undangan')
@@ -850,20 +1094,23 @@ class RapatController extends Controller
             ->first();
 
         if ($firstReq) {
-            $approver = DB::table('users')->where('id',$firstReq->approver_user_id)->first();
+            $approver = DB::table('users')->where('id', $firstReq->approver_user_id)->first();
             if ($approver && $approver->no_hp) {
-                $wa = preg_replace('/^0/', '62', $approver->no_hp);
-                $signUrl = url('/approval/sign/'.$firstReq->sign_token);
-                \App\Helpers\FonnteWa::send($wa,
-                    "Assalamu’alaikum Wr. Wb.\n\n".
-                    "Dengan hormat,\n".
-                    "Mohon kesediaan Bapak/Ibu untuk memberikan *Approval* pada dokumen *{$docType}* rapat berikut:\n\n".
-                    "📄 *{$judulRapat}*\n\n".
-                    "Silakan melakukan persetujuan melalui tautan di bawah ini:\n{$signUrl}\n\n".
-                    "Terima kasih atas perhatian dan kerja samanya.\n".
-                    "Wassalamu’alaikum Wr. Wb."
+                $wa      = preg_replace('/^0/', '62', $approver->no_hp);
+                $signUrl = url('/approval/sign/' . $firstReq->sign_token);
+                \App\Helpers\FonnteWa::send(
+                    $wa,
+                    "Assalamu'alaikum Wr. Wb.\n\n" .
+                    "Dengan hormat,\n" .
+                    "Mohon kesediaan Bapak/Ibu untuk memberikan *Approval* pada dokumen *{$docType}* rapat berikut:\n\n" .
+                    "*{$judulRapat}*\n\n" .
+                    "Silakan melakukan persetujuan melalui tautan di bawah ini:\n{$signUrl}\n\n" .
+                    "Terima kasih atas perhatian dan kerja samanya.\n" .
+                    "Wassalamu'alaikum Wr. Wb."
                 );
             }
         }
     }
 }
+
+

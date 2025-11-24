@@ -13,10 +13,11 @@
         ->select('name','jabatan','unit')
         ->first();
 
+    $approval1Jabatan = $rapat->approval1_jabatan_manual ?: ($approval1->jabatan ?? '-');
     $approval1Text = $approval1
         ? trim(
             ($approval1->name ?? '-') .
-            ' — ' . ($approval1->jabatan ?? '-') .
+            ' — ' . $approval1Jabatan .
             (($approval1->unit ?? '') ? ' · '.$approval1->unit : '')
           )
         : '-';

@@ -310,7 +310,7 @@
                 </span>
               </form>
 
-              <a href="{{ route('peserta.rapat.show', $t->id_rapat) }}" class="btn-pill primary">
+              <a href="{{ route('peserta.notulensi.show', $t->id_rapat) }}" class="btn-pill primary">
                 <i class="fas fa-eye"></i> Detail
               </a>
             </div>

@@ -4,8 +4,15 @@
 @section('style')
 <style>
   /* ===== Desktop table ===== */
-  .table thead th{ text-align:center; vertical-align:middle; }
+  .table thead th{
+    text-align:center;
+    vertical-align:middle;
+    background:rgba(79,70,229,.18);
+    border-bottom:1px solid rgba(255,255,255,.12);
+  }
   .table td{ vertical-align: middle; }
+  .table tbody tr:nth-child(even){ background:rgba(255,255,255,.015); }
+  .table tbody tr:hover{ background:rgba(79,70,229,.08); }
 
   .badge-chip{
     display:inline-block; padding:.15rem .55rem; border-radius:999px;
@@ -20,6 +27,24 @@
   .btn-amber { background: linear-gradient(180deg,#f59e0b,#d97706); }
   .btn-rose  { background: linear-gradient(180deg,#ef4444,#dc2626); }
   .btn-icon:hover{ filter: brightness(1.06); }
+
+  .card-filter{
+    border-radius:16px;
+    border:1px solid rgba(255,255,255,.12);
+    background:linear-gradient(180deg,rgba(15,23,42,.9),rgba(11,18,41,.95));
+    box-shadow:var(--shadow);
+  }
+
+  .summary-card{
+    border-radius:14px;
+    padding:14px 16px;
+    background:linear-gradient(180deg,rgba(79,70,229,.22),rgba(14,165,233,.15));
+    color:#fff;
+    box-shadow:var(--shadow);
+    border:1px solid rgba(255,255,255,.12);
+  }
+  .summary-card .value{font-size:1.8rem;font-weight:800;letter-spacing:.2px}
+  .summary-card .label{font-size:.85rem;opacity:.85}
 
   /* ===== Mobile cards ===== */
   @media (max-width: 575.98px){
@@ -85,6 +110,34 @@
     <a href="{{ $createUrl }}" class="btn btn-primary">+ Tambah User</a>
   </div>
 
+  @php
+    $totalUsers = method_exists($daftar_user, 'total') ? $daftar_user->total() : count($daftar_user);
+    $totalUnit  = isset($daftar_unit) ? count($daftar_unit) : 0;
+    $totalBidang= isset($daftar_bidang) ? count($daftar_bidang) : 0;
+  @endphp
+
+  {{-- Summary --}}
+  <div class="row mb-3">
+    <div class="col-md-4 mb-2">
+      <div class="summary-card">
+        <div class="label">Total Pengguna</div>
+        <div class="value">{{ $totalUsers }}</div>
+      </div>
+    </div>
+    <div class="col-md-4 mb-2">
+      <div class="summary-card">
+        <div class="label">Unit Terdaftar</div>
+        <div class="value">{{ $totalUnit }}</div>
+      </div>
+    </div>
+    <div class="col-md-4 mb-2">
+      <div class="summary-card">
+        <div class="label">Bidang Terdaftar</div>
+        <div class="value">{{ $totalBidang }}</div>
+      </div>
+    </div>
+  </div>
+
   {{-- Alert sukses --}}
   @if(session('success'))
     <div class="alert alert-success">{{ session('success') }}</div>
@@ -99,7 +152,7 @@
   @endif
 
   {{-- ================= Filter ================= --}}
-  <form method="GET" action="{{ route('user.index') }}" class="card mb-3">
+  <form method="GET" action="{{ route('user.index') }}" class="card card-filter mb-3">
     <div class="card-body">
       <div class="form-row align-items-end">
         <div class="col-md-3 mb-2">
@@ -145,31 +198,19 @@
         </div>
 
         <div class="col-md-1 mb-2">
-          <label class="mb-1 text-muted d-none d-md-block">Per Hal.</label>
-          <select name="per_page" class="custom-select custom-select-sm">
-            @foreach([10,12,15,25,50] as $pp)
-              <option value="{{ $pp }}" {{ (int)($perPage ?? 12)===$pp ? 'selected' : '' }}>{{ $pp }}</option>
-            @endforeach
-          </select>
-        </div>
-
-        <div class="col-md-12 mt-2">
-          {{-- pertahankan pick_unit ketika menerapkan filter --}}
-          @if(!empty($pickUnit))
-            <input type="hidden" name="pick_unit" value="{{ $pickUnit }}">
-          @endif
-
-          <button class="btn btn-primary btn-sm mr-2">
-            <i class="fas fa-filter mr-1"></i> Terapkan
-          </button>
-          <a href="{{ route('user.index') }}" class="btn btn-outline-secondary btn-sm">Reset</a>
+          <label class="mb-1 d-block text-muted">&nbsp;</label>
+          <button class="btn btn-primary btn-sm btn-block">Filter</button>
         </div>
       </div>
     </div>
   </form>
 
   {{-- ================= Tabel / Mobile Cards ================= --}}
-  <div class="card">
+  <div class="card card-filter">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <h5 class="mb-0">Hasil Pencarian</h5>
+      <small class="text-muted">{{ $totalUsers }} pengguna ditemukan</small>
+    </div>
     <div class="card-body p-0">
       <div class="table-responsive">
         <table class="table table-striped table-sm mb-0">
@@ -177,11 +218,9 @@
             <tr class="text-center">
               <th style="width:60px">#</th>
               <th>Nama</th>
-              <th style="width:200px;">Jabatan</th>
-              <th style="width:200px;">Email</th>
-              <th style="width:120px;">No. HP</th>
-              <th style="width:160px;">Unit</th>
-              <th style="width:160px;">Bidang</th>
+              <th style="width:240px;">Jabatan & Keterangan</th>
+              <th style="width:240px;">Kontak</th>
+              <th style="width:240px;">Unit & Bidang</th>
               <th style="width:100px;">Tingkatan</th>
               <th style="width:120px;">Role</th>
               <th style="width:80px;">Hirarki</th>
@@ -199,20 +238,21 @@
                   <strong>{{ $user->name }}</strong>
                 </td>
 
-                <td data-label="Jabatan">{{ $user->jabatan ?? '-' }}</td>
-
-                <td data-label="Email">{{ $user->email }}</td>
-
-                <td data-label="No. HP">{{ $user->no_hp ?? '-' }}</td>
-
-                <td data-label="Unit">{{ $user->unit ?? '-' }}</td>
-
-                <td data-label="Bidang">
-                  @if($user->bidang)
-                    <span class="badge-chip">{{ $user->bidang }}</span>
-                  @else
-                    —
+                <td data-label="Jabatan & Keterangan">
+                  <div><strong>{{ $user->jabatan_ref ?? $user->jabatan ?? '-' }}</strong></div>
+                  @if(!empty($user->jabatan_keterangan))
+                    <div class="text-muted small">Ket: {{ $user->jabatan_keterangan }}</div>
                   @endif
+                </td>
+
+                <td data-label="Kontak">
+                  <div>{{ $user->email }}</div>
+                  <div class="text-muted small">{{ $user->no_hp ?? 'No HP: -' }}</div>
+                </td>
+
+                <td data-label="Unit & Bidang">
+                  <div>{{ $user->unit ?? '-' }}</div>
+                  <div class="text-muted small">{{ $user->bidang ?: 'Tanpa bidang' }}</div>
                 </td>
 
                 <td class="text-center" data-label="Tingkatan">{{ $user->tingkatan ? 'T'.$user->tingkatan : '-' }}</td>
@@ -237,7 +277,7 @@
               </tr>
             @empty
               <tr>
-                <td colspan="11" class="text-center text-muted p-4">Belum ada user.</td>
+                <td colspan="9" class="text-center text-muted p-4">Belum ada user.</td>
               </tr>
             @endforelse
           </tbody>

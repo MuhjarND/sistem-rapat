@@ -1,7 +1,21 @@
-{{-- Modal status approval (dipakai desktop & mobile) --}}
+﻿{{-- Modal status approval (dipakai desktop & mobile) --}}
 @php
   // Guard: variabel yang dibutuhkan dari parent
   // $modalId, $overall, $approvalMap, $stepIcon, $stepClass, $popBadgeClass, $rapat
+
+  // Hitung ulang overall dari semua baris approval (fallback jika $overall belum akurat)
+  $overall = 'pending';
+  // Jika kedua dokumen sudah approved (kolom di rapat), langsung approved
+  if (!empty($rapat->undangan_approved_at ?? null) && !empty($rapat->absensi_approved_at ?? null)) {
+    $overall = 'approved';
+  } else {
+    $allRows = collect($approvalMap)->flatten(1);
+    if ($allRows->contains(fn($s) => ($s['status'] ?? null) === 'rejected')) {
+      $overall = 'rejected';
+    } elseif ($allRows->count() && $allRows->every(fn($s) => ($s['status'] ?? null) === 'approved')) {
+      $overall = 'approved';
+    }
+  }
 
   // Cek apakah ada penolakan pada salah satu doc type
   $hasReject =
@@ -38,7 +52,7 @@
             @if(count($rows))
               @foreach($rows as $st)
                 <span class="{{ $stepClass($st['status'] ?? 'pending') }}"
-                      title="{{ ($st['name'] ?? 'Approver') }} • Step {{ $st['order'] ?? '?' }} • {{ ucfirst($st['status'] ?? 'pending') }}">
+                      title="{{ ($st['name'] ?? 'Approver') }} â€¢ Step {{ $st['order'] ?? '?' }} â€¢ {{ ucfirst($st['status'] ?? 'pending') }}">
                   <b>{{ $stepIcon($st['status'] ?? 'pending') }}</b>
                   Step {{ $st['order'] ?? '?' }}
                 </span>
@@ -91,14 +105,14 @@
                         @if($when)
                           {{ \Carbon\Carbon::parse($when)->translatedFormat('d M Y H:i') }}
                         @else
-                          —
+                          â€”
                         @endif
                       </td>
                       <td>
                         @if($status==='rejected' && !empty($st['rejection_note']))
                           {{ $st['rejection_note'] }}
                         @else
-                          <span class="muted">—</span>
+                          <span class="muted">â€”</span>
                         @endif
                       </td>
                     </tr>
@@ -125,3 +139,6 @@
     </div>
   </div>
 </div>
+
+
+
