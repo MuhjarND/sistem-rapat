@@ -3,6 +3,7 @@
 <head>
     <meta charset="utf-8">
     <title>@yield('title', 'Sistem Manajemen Rapat')</title>
+    <link rel="icon" type="image/png" href="{{ asset('logo_app.png') }}">
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
     {{-- Google Font --}}
@@ -252,10 +253,12 @@
 
             <a class="navbar-brand d-flex align-items-center mb-0" href="{{ url('/') }}">
                 <span class="mr-2 d-inline-flex align-items-center justify-content-center"
-                      style="width:38px;height:38px;border-radius:8px;overflow:hidden;box-shadow:var(--shadow)">
-                    <img src="{{ asset('logo_qr.png') }}" alt="Logo PTA Papua Barat" style="width:100%;height:100%;object-fit:contain;">
+                      style="width:48px;height:48px;border-radius:10px;overflow:hidden;box-shadow:var(--shadow)">
+                    <img src="{{ asset('logo_app.png') }}" alt="Logo Sistem Rapat" style="width:100%;height:100%;object-fit:contain;">
                 </span>
-                <span style="font-weight:700; letter-spacing:.3px;">SISTEM RAPAT</span>
+                <span class="d-none d-sm-inline" style="height:50px; display:flex; align-items:center;">
+                    <img src="{{ asset('logo_app2.png') }}" alt="Sistem Rapat" style="height:46px; width:auto; object-fit:contain;">
+                </span>
             </a>
         </div>
 

@@ -4,6 +4,7 @@
     <meta charset="utf-8">
     <title>@yield('title','Login') - Sistem Manajemen Rapat</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" type="image/png" href="{{ asset('logo_app.png') }}">
 
     {{-- Bootstrap 4 --}}
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
@@ -34,13 +35,14 @@
             box-shadow:0 12px 40px rgba(0,0,0,.3);
         }
         .login-logo{
-            width:80px; height:80px;
-            border-radius:50%; margin:-64px auto 10px auto;
+            width:120px; height:120px;
+            border-radius:50%; margin:-90px auto 18px auto;
             display:flex; align-items:center; justify-content:center;
-            background: radial-gradient(circle at 50% 40%, rgba(254,231,21,.12), rgba(254,231,21,.06));
-            border:1px dashed rgba(254,231,21,.4);
-            box-shadow:0 10px 26px rgba(254,231,21,.12);
+            background: radial-gradient(circle at 50% 40%, rgba(254,231,21,.14), rgba(254,231,21,.08));
+            border:1px dashed rgba(254,231,21,.45);
+            box-shadow:0 14px 32px rgba(254,231,21,.18);
         }
+        .login-logo img{ width:100%; height:100%; object-fit:contain; border-radius:50%; }
         .login-logo i{ font-size:40px; color:var(--accent) }
         .login-title{
             text-align:center; font-weight:700; font-size:22px; color:#fff;
@@ -71,7 +73,7 @@
 <body>
     <div class="login-card">
         <div class="login-logo">
-            <i class="fas fa-users-cog"></i>
+            <img src="{{ asset('logo_app.png') }}" alt="Logo Aplikasi">
         </div>
         <div class="login-title">
             Selamat Datang
