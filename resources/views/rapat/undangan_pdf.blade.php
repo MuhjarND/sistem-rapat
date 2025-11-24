@@ -130,7 +130,7 @@
     <div class="clearfix">
         {{-- Tanda tangan Approval 1 (wajib) --}}
         @php
-            $approval1Jabatan = $rapat->approval1_jabatan_manual ?: ($approval1->jabatan ?? 'Approval 1');
+            $approval1Jabatan = data_get($rapat, 'approval1_jabatan_manual') ?: ($approval1->jabatan ?? 'Approval 1');
         @endphp
         <div class="ttd">
             <b>{{ $approval1Jabatan }},</b><br>
