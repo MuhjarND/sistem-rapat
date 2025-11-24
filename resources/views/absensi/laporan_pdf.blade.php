@@ -76,7 +76,8 @@
 
   $approver_nama    = isset($approver) ? $get($approver,'nama','-') : '-';
   $approver_jabatan = isset($approver) ? $get($approver,'jabatan','Penanggung Jawab') : 'Penanggung Jawab';
-  $jabatan_manual   = $get($R, 'approval1_jabatan_manual');
+  $approver_unit    = isset($approver) ? $get($approver,'unit','') : '';
+  $jabatan_manual   = data_get($R, 'approval1_jabatan_manual');
   if ($jabatan_manual) {
       $approver_jabatan = $jabatan_manual;
   }
@@ -153,7 +154,11 @@
         <table class="ttd">
             <tr>
                 <td>
-                    <div>{{ $approver_jabatan ?: 'Penanggung Jawab' }},</div> <br><br>
+                    <div><b>{{ $approver_jabatan ?: 'Penanggung Jawab' }}</b>,</div>
+                    @if(!empty($approver_unit))
+                        <div><b>{{ $approver_unit }}</b></div>
+                    @endif
+                    <br>
 
                     @if(!empty($qrSrc))
                         <img src="{{ $qrSrc }}" style="width:130px; height:auto; margin:8px 0;">
@@ -161,7 +166,6 @@
                     @else
                         <div class="qr-note" style="margin:8px 0;">
                             <i>MENUNGGU APPROVAL ABSENSI</i><br>
-                            QR absensi akan muncul otomatis setelah seluruh approval ABSENSI selesai.
                         </div>
                     @endif
 

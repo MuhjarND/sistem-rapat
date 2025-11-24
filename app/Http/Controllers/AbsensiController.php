@@ -743,6 +743,7 @@ public function exportPdf(Request $request, $id_rapat)
     $approver = [
         'nama'    => (string) ($approverFinal->name ?? ''),
         'jabatan' => (string) ($approverFinal->jabatan ?? 'Penanggung Jawab'),
+        'unit'    => (string) ($approverFinal->unit ?? ''),
     ];
 
     // ===== Meta rapat (skalar)
@@ -755,6 +756,7 @@ public function exportPdf(Request $request, $id_rapat)
             : '-',
         'waktu_mulai'   => (string) ($rapat->waktu_mulai ?? ''),
         'tempat'        => (string) ($rapat->tempat ?? '-'),
+        'approval1_jabatan_manual' => (string) ($rapat->approval1_jabatan_manual ?? ''),
     ];
 
     // ===== Render PDF
