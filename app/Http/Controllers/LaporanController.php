@@ -129,6 +129,104 @@ class LaporanController extends Controller
         ]);
     }
 
+    /**
+     * Laporan khusus tindak lanjut & eviden tugas notulensi.
+     */
+    public function tindakLanjut(Request $request)
+    {
+        $q = trim($request->get('q',''));
+        $status = $request->get('status',''); // pending/proses/done
+        $perPage = (int) ($request->get('per_page', 15) ?: 15);
+
+        $rows = DB::table('notulensi_tugas as t')
+            ->join('notulensi_detail as d', 'd.id', '=', 't.id_notulensi_detail')
+            ->join('notulensi as n', 'n.id', '=', 'd.id_notulensi')
+            ->join('rapat as r', 'r.id', '=', 'n.id_rapat')
+            ->leftJoin('users as u', 'u.id', '=', 't.user_id')
+            ->select(
+                't.id',
+                't.status',
+                't.eviden_path',
+                't.eviden_link',
+                't.eviden_note',
+                't.updated_at',
+                'd.urut as no_rekom',
+                'd.hasil_pembahasan',
+                'd.rekomendasi',
+                'r.judul as rapat_judul',
+                'r.tanggal as rapat_tanggal',
+                'r.waktu_mulai',
+                'r.tempat',
+                'u.name as peserta_nama',
+                'r.id as rapat_id'
+            )
+            ->when($status !== '' && in_array($status, ['pending','proses','in_progress','done'], true), function($qq) use ($status){
+                $qq->where('t.status', $status);
+            })
+            ->when($q !== '', function($qq) use ($q){
+                $qq->where(function($w) use ($q){
+                    $w->where('r.judul','like',"%{$q}%")
+                      ->orWhere('u.name','like',"%{$q}%")
+                      ->orWhere('d.hasil_pembahasan','like',"%{$q}%")
+                      ->orWhere('t.eviden_note','like',"%{$q}%");
+                });
+            })
+            ->orderByDesc('t.updated_at')
+            ->paginate($perPage)
+            ->appends($request->query());
+
+        return view('laporan.tindaklanjut', [
+            'rows'    => $rows,
+            'filter'  => ['q'=>$q, 'status'=>$status, 'per_page'=>$perPage],
+        ]);
+    }
+
+    /**
+     * Cetak (PDF) tindak lanjut per rapat.
+     */
+    public function cetakTindakLanjutRapat($rapatId)
+    {
+        $rapat = DB::table('rapat')->where('id', $rapatId)->first();
+        if (!$rapat) abort(404);
+
+        $approval = null;
+        if (!empty($rapat->approval1_user_id)) {
+            $approval = DB::table('users')
+                ->select('name','jabatan','unit')
+                ->where('id', $rapat->approval1_user_id)
+                ->first();
+        }
+
+        $tasks = DB::table('notulensi_tugas as t')
+            ->join('notulensi_detail as d', 'd.id', '=', 't.id_notulensi_detail')
+            ->join('notulensi as n', 'n.id', '=', 'd.id_notulensi')
+            ->join('rapat as r', 'r.id', '=', 'n.id_rapat')
+            ->leftJoin('users as u', 'u.id', '=', 't.user_id')
+            ->where('r.id', $rapatId)
+            ->select(
+                't.status',
+                't.eviden_path',
+                't.eviden_link',
+                't.eviden_note',
+                't.updated_at',
+                'd.urut as no_rekom',
+                'd.hasil_pembahasan',
+                'd.rekomendasi',
+                'u.name as peserta_nama'
+            )
+            ->orderBy('d.urut')
+            ->get();
+
+        $pdf = Pdf::loadView('laporan.tindaklanjut_pdf', [
+            'rapat' => $rapat,
+            'tasks' => $tasks,
+            'approval' => $approval,
+        ])->setPaper('A4', 'portrait');
+
+        $filename = 'Laporan-Tindak-Lanjut-Rapat-'.$rapat->id.'.pdf';
+        return $pdf->download($filename);
+    }
+
     /** ============= CETAK REKAP ============= */
     public function cetak(Request $request)
     {

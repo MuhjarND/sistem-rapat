@@ -154,7 +154,7 @@
               <th class="text-center">Tanggal Selesai Surat</th>
               <th class="text-center" style="width:210px">Status</th>
               <th class="text-center" style="width:230px">Pengumpulan Eviden</th>
-              <th class="text-center" style="width:110px">Aksi</th>
+              <th class="text-center" style="width:200px">Keterangan Tindak Lanjut</th>
             </tr>
           </thead>
           <tbody>
@@ -162,6 +162,8 @@
               @php
                 $tglSelesai = $t->tgl_penyelesaian_surat ?? $t->tgl_penyelesaian;
                 $tglSelesaiCarbon = $tglSelesai ? \Carbon\Carbon::parse($tglSelesai) : null;
+                $uraianPlain = trim(preg_replace('/\s+/', ' ', str_replace('&nbsp;',' ', strip_tags($t->hasil_pembahasan ?? '-'))));
+                $rekomPlain  = trim(preg_replace('/\s+/', ' ', str_replace('&nbsp;',' ', strip_tags($t->rekomendasi ?? ''))));
                 $statusBadgeMap = [
                   'pending'      => ['badge-secondary','Pending'],
                   'proses'       => ['badge-warning','Proses'],
@@ -179,10 +181,15 @@
                   </small>
                 </td>
                 <td>
-                  {!! $t->hasil_pembahasan ?? '-' !!}
-                  @if(!empty($t->rekomendasi))
-                    <div class="mt-1"><span class="badge badge-info">Rekomendasi</span> {!! $t->rekomendasi !!}</div>
-                  @endif
+                  <button type="button"
+                          class="btn btn-primary btn-sm mr-2 btn-modal-uraian"
+                          data-toggle="modal"
+                          data-target="#modalUraian"
+                          data-uraian="{{ $uraianPlain }}"
+                          data-rekomendasi="{{ $rekomPlain }}"
+                          data-rapat="{{ $t->rapat_judul }}">
+                    Lihat Uraian
+                  </button>
                 </td>
                 <td class="text-center">
                   {{ $tglSelesaiCarbon ? $tglSelesaiCarbon->isoFormat('D MMM Y') : '—' }}
@@ -214,19 +221,38 @@
                     @if(!$t->eviden_path && !$t->eviden_link)
                       <small class="text-muted">Belum ada eviden.</small>
                     @endif
+                    <div class="mt-2">
+                      <button type="button"
+                            class="btn btn-primary btn-sm mr-1 btn-modal-eviden"
+                            data-id="{{ $t->id }}"
+                            data-action="{{ route('peserta.tugas.eviden', $t->id) }}"
+                            data-rapat="{{ $t->rapat_judul }}"
+                            data-existing-file="{{ $t->eviden_path ? asset($t->eviden_path) : '' }}"
+                            data-existing-link="{{ $t->eviden_link ?? '' }}"
+                            data-existing-note="{{ $t->eviden_note ?? '' }}"
+                            data-mode="eviden">
+                        Unggah / Ubah Eviden
+                      </button>
+                    </div>
                   </div>
-                  <button type="button"
-                          class="btn btn-sm btn-outline-primary btn-modal-eviden"
-                          data-id="{{ $t->id }}"
-                          data-action="{{ route('peserta.tugas.eviden', $t->id) }}"
-                          data-rapat="{{ $t->rapat_judul }}"
-                          data-existing-file="{{ $t->eviden_path ? asset($t->eviden_path) : '' }}"
-                          data-existing-link="{{ $t->eviden_link ?? '' }}">
-                    Kumpulkan Eviden
-                  </button>
                 </td>
                 <td class="text-center">
-                  <a href="{{ route('peserta.rapat.show', $t->id_rapat) }}" class="btn btn-sm btn-outline-light">Detail</a>
+                  @if(!empty($t->eviden_note))
+                    <div class="text-left">{{ $t->eviden_note }}</div>
+                  @else
+                    <small class="text-muted d-block">Belum ada catatan.</small>
+                  @endif
+                  <button type="button"
+                        class="btn btn-info btn-sm mt-1 btn-modal-eviden"
+                        data-id="{{ $t->id }}"
+                        data-action="{{ route('peserta.tugas.eviden', $t->id) }}"
+                        data-rapat="{{ $t->rapat_judul }}"
+                        data-existing-file="{{ $t->eviden_path ? asset($t->eviden_path) : '' }}"
+                        data-existing-link="{{ $t->eviden_link ?? '' }}"
+                        data-existing-note="{{ $t->eviden_note ?? '' }}"
+                        data-mode="note">
+                    Perbarui Catatan
+                  </button>
                 </td>
               </tr>
             @empty
@@ -242,6 +268,8 @@
           @php
             $tglSelesai = $t->tgl_penyelesaian_surat ?? $t->tgl_penyelesaian;
             $tglSelesaiCarbon = $tglSelesai ? \Carbon\Carbon::parse($tglSelesai) : null;
+            $uraianPlain = trim(preg_replace('/\s+/', ' ', str_replace('&nbsp;',' ', strip_tags($t->hasil_pembahasan ?? '-'))));
+            $rekomPlain  = trim(preg_replace('/\s+/', ' ', str_replace('&nbsp;',' ', strip_tags($t->rekomendasi ?? ''))));
             $statusBadgeMap = [
               'pending'      => ['badge-secondary','Pending'],
               'proses'       => ['badge-warning','Proses'],
@@ -258,11 +286,14 @@
             </div>
 
             <div class="mt-2">
-              <div class="font-weight-bold mb-1">Uraian</div>
-              <div class="text-light">{!! $t->hasil_pembahasan ?? '—' !!}</div>
-              @if(!empty($t->rekomendasi))
-                <div class="mt-1"><span class="mchip info">Rekomendasi</span></div>
-              @endif
+              <div class="font-weight-bold mb-1">Uraian & Rekomendasi</div>
+              <button type="button"
+                      class="btn btn-primary btn-sm mr-2 btn-modal-uraian"
+                      data-uraian="{{ $uraianPlain }}"
+                      data-rekomendasi="{{ $rekomPlain }}"
+                      data-rapat="{{ $t->rapat_judul }}">
+                Lihat Uraian
+              </button>
             </div>
 
             <div class="m-meta">
@@ -273,27 +304,46 @@
 
             <div class="mt-3">
               <div class="font-weight-bold mb-1">Eviden</div>
-              <div class="text-light small">
-                @if($t->eviden_path)
-                  <div><a href="{{ asset($t->eviden_path) }}" target="_blank" class="text-light"><i class="fas fa-image mr-1"></i>Lihat Gambar</a></div>
-                @endif
-                @if($t->eviden_link)
+                <div class="text-light small">
+                  @if($t->eviden_path)
+                    <div><a href="{{ asset($t->eviden_path) }}" target="_blank" class="text-light"><i class="fas fa-image mr-1"></i>Lihat Gambar</a></div>
+                  @endif
+                  @if($t->eviden_link)
                   <div><a href="{{ $t->eviden_link }}" target="_blank" class="text-light"><i class="fas fa-link mr-1"></i>Link Eviden</a></div>
                 @endif
-                @if(!$t->eviden_path && !$t->eviden_link)
-                  <div class="text-muted">Belum ada eviden.</div>
-                @endif
+                  @if(!$t->eviden_path && !$t->eviden_link)
+                    <div class="text-muted">Belum ada eviden.</div>
+                  @endif
+                  <div class="mt-2">
+                    <div class="font-weight-bold text-light">Keterangan Tindak Lanjut</div>
+                    <div class="text-muted small">{{ $t->eviden_note ?: 'Belum ada catatan.' }}</div>
+                    <div class="mt-2 d-flex flex-wrap gap-2">
+                      <button type="button"
+                              class="btn btn-primary btn-sm mr-1 btn-modal-eviden"
+                              data-id="{{ $t->id }}"
+                              data-action="{{ route('peserta.tugas.eviden', $t->id) }}"
+                              data-rapat="{{ $t->rapat_judul }}"
+                              data-existing-file="{{ $t->eviden_path ? asset($t->eviden_path) : '' }}"
+                              data-existing-link="{{ $t->eviden_link ?? '' }}"
+                              data-existing-note="{{ $t->eviden_note ?? '' }}"
+                              data-mode="eviden">
+                        Unggah / Ubah Eviden
+                      </button>
+                      <button type="button"
+                              class="btn btn-info btn-sm mt-1 btn-modal-eviden"
+                              data-id="{{ $t->id }}"
+                              data-action="{{ route('peserta.tugas.eviden', $t->id) }}"
+                              data-rapat="{{ $t->rapat_judul }}"
+                              data-existing-file="{{ $t->eviden_path ? asset($t->eviden_path) : '' }}"
+                              data-existing-link="{{ $t->eviden_link ?? '' }}"
+                              data-existing-note="{{ $t->eviden_note ?? '' }}"
+                              data-mode="note">
+                        Perbarui Catatan
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <button type="button"
-                      class="btn-pill primary mt-2 btn-modal-eviden"
-                      data-id="{{ $t->id }}"
-                      data-action="{{ route('peserta.tugas.eviden', $t->id) }}"
-                      data-rapat="{{ $t->rapat_judul }}"
-                      data-existing-file="{{ $t->eviden_path ? asset($t->eviden_path) : '' }}"
-                      data-existing-link="{{ $t->eviden_link ?? '' }}">
-                <i class="fas fa-upload"></i> Kumpulkan Eviden
-              </button>
-            </div>
 
             <div class="m-actions">
               {{-- Status (AJAX) --}}
@@ -339,27 +389,65 @@
       </div>
       <form method="POST" enctype="multipart/form-data" id="formEviden">
         @csrf
-        <div class="modal-body">
-          <div class="mb-2">
-            <small class="text-muted">Tugas: <span id="modalEvidenRapat">-</span></small>
+          <div class="modal-body">
+            <div class="mb-2">
+              <small class="text-muted">Tugas: <span id="modalEvidenRapat">-</span></small>
+            </div>
+            <div class="mb-3" id="modalEvidenExisting">
+              <small class="text-muted">Belum ada eviden.</small>
+            </div>
+            <div id="evidenInputSection">
+              <div class="form-group">
+                <label>Unggah Gambar (maks 2MB)</label>
+                <input type="file" name="eviden_file" accept="image/*" class="form-control">
+              </div>
+              <div class="form-group">
+                <label>Link Eviden</label>
+                <input type="url" name="eviden_link" class="form-control" placeholder="https://contoh.com/eviden">
+              </div>
+            </div>
+            <div id="noteInputSection">
+              <div class="form-group">
+                <label>Keterangan Tindak Lanjut</label>
+                <textarea name="eviden_note" class="form-control" rows="2" placeholder="Catatan/keterangan eviden">{{ old('eviden_note') }}</textarea>
+              </div>
+            </div>
           </div>
-          <div class="mb-3" id="modalEvidenExisting">
-            <small class="text-muted">Belum ada eviden.</small>
-          </div>
-          <div class="form-group">
-            <label>Unggah Gambar (maks 2MB)</label>
-            <input type="file" name="eviden_file" accept="image/*" class="form-control">
-          </div>
-          <div class="form-group">
-            <label>Link Eviden</label>
-            <input type="url" name="eviden_link" class="form-control" placeholder="https://contoh.com/eviden">
-          </div>
-        </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-dismiss="modal">Tutup</button>
           <button type="submit" class="btn btn-primary">Kirim Eviden</button>
         </div>
       </form>
+    </div>
+  </div>
+</div>
+
+{{-- Modal Uraian/Rekomendasi --}}
+<div class="modal fade modal-dark" id="modalUraian" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Detail Uraian & Rekomendasi</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-2">
+          <small class="text-muted">Rapat: <span id="modalUraianRapat">-</span></small>
+        </div>
+        <div class="mb-2">
+          <div class="text-muted small">Uraian:</div>
+          <div id="modalUraianText" class="text-light"></div>
+        </div>
+        <div class="mb-2">
+          <div class="text-muted small">Rekomendasi:</div>
+          <div id="modalRekomendasiText" class="text-light"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Tutup</button>
+      </div>
     </div>
   </div>
 </div>
@@ -413,6 +501,9 @@ document.addEventListener('DOMContentLoaded', function(){
   const evidenForm = document.getElementById('formEviden');
   const evidenRapat = document.getElementById('modalEvidenRapat');
   const evidenExisting = document.getElementById('modalEvidenExisting');
+  const evidenNoteField = document.querySelector('textarea[name="eviden_note"]');
+  const evidenInputSection = document.getElementById('evidenInputSection');
+  const noteInputSection = document.getElementById('noteInputSection');
   let evidenModalInstance = null;
   if (window.bootstrap && evidenModalEl) {
     evidenModalInstance = new bootstrap.Modal(evidenModalEl);
@@ -420,14 +511,16 @@ document.addEventListener('DOMContentLoaded', function(){
 
   document.querySelectorAll('.btn-modal-eviden').forEach(function(btn){
     btn.addEventListener('click', function(){
-      const action = this.dataset.action;
-      const rapat = this.dataset.rapat || '-';
-      const file = this.dataset.existingFile;
-      const link = this.dataset.existingLink;
+    const action = this.dataset.action;
+    const rapat = this.dataset.rapat || '-';
+    const file = this.dataset.existingFile;
+    const link = this.dataset.existingLink;
+    const note = this.dataset.existingNote || '';
+    const mode = this.dataset.mode || 'all'; // eviden | note | all
 
-      evidenForm.reset();
-      evidenForm.action = action;
-      evidenRapat.textContent = rapat;
+    evidenForm.reset();
+    evidenForm.action = action;
+    evidenRapat.textContent = rapat;
 
       if ((file && file.length) || (link && link.length)) {
         let html = '';
@@ -442,11 +535,62 @@ document.addEventListener('DOMContentLoaded', function(){
         evidenExisting.innerHTML = '<small class="text-muted">Belum ada eviden.</small>';
       }
 
-      if (evidenModalInstance) {
-        evidenModalInstance.show();
-      } else {
-        $(evidenModalEl).modal('show');
+      if (note) {
+        evidenExisting.innerHTML += `<div class="mt-1"><small class="text-muted">Catatan: ${note}</small></div>`;
       }
+
+    if (evidenNoteField) {
+      evidenNoteField.value = note;
+    }
+
+    // Atur tampilan field sesuai mode
+    if (mode === 'note') {
+      if (evidenInputSection) evidenInputSection.style.display = 'none';
+      if (noteInputSection) noteInputSection.style.display = 'block';
+    } else if (mode === 'eviden') {
+      if (evidenInputSection) evidenInputSection.style.display = 'block';
+      if (noteInputSection) noteInputSection.style.display = 'none';
+    } else {
+      if (evidenInputSection) evidenInputSection.style.display = 'block';
+      if (noteInputSection) noteInputSection.style.display = 'block';
+    }
+
+    if (evidenModalInstance) {
+      evidenModalInstance.show();
+    } else {
+      $(evidenModalEl).modal('show');
+      }
+    });
+  });
+});
+</script>
+
+{{-- Modal Uraian/Rekomendasi handler --}}
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+  const uraianModalEl   = document.getElementById('modalUraian');
+  const uraianRapat     = document.getElementById('modalUraianRapat');
+  const uraianText      = document.getElementById('modalUraianText');
+  const rekomText       = document.getElementById('modalRekomendasiText');
+  const uraianButtons   = document.querySelectorAll('.btn-modal-uraian');
+  let   uraianInstance  = null;
+
+  if (window.bootstrap && uraianModalEl) {
+    uraianInstance = new bootstrap.Modal(uraianModalEl);
+  }
+
+  uraianButtons.forEach(function(btn){
+    btn.addEventListener('click', function(){
+      const rapat = this.dataset.rapat || '-';
+      const uraian = this.dataset.uraian || '-';
+      const rekom  = this.dataset.rekomendasi || '-';
+
+      if (uraianRapat) uraianRapat.textContent = rapat;
+      if (uraianText)  uraianText.innerHTML = uraian || '-';
+      if (rekomText)   rekomText.innerHTML  = rekom || '-';
+
+      if (uraianInstance) { uraianInstance.show(); }
+      else if (uraianModalEl) { $(uraianModalEl).modal('show'); }
     });
   });
 });

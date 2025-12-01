@@ -384,16 +384,17 @@ public function tugasIndex(Request $request)
         ->join('notulensi as n', 'n.id', '=', 'd.id_notulensi')
         ->join('rapat as r', 'r.id', '=', 'n.id_rapat')
         ->where('t.user_id', $userId)
-        ->select(
-            't.id',
-            't.status',
-            't.eviden_path',
-            't.eviden_link',
-            'd.hasil_pembahasan',
-            'd.rekomendasi',
-            'd.tgl_penyelesaian',
-            'r.id as id_rapat',
-            'r.judul as rapat_judul',
+            ->select(
+                't.id',
+                't.status',
+                't.eviden_path',
+                't.eviden_link',
+                't.eviden_note',
+                'd.hasil_pembahasan',
+                'd.rekomendasi',
+                'd.tgl_penyelesaian',
+                'r.id as id_rapat',
+                'r.judul as rapat_judul',
             'r.tanggal as rapat_tanggal',
             'r.waktu_mulai as rapat_waktu_mulai',
             'r.tempat as rapat_tempat'
@@ -436,14 +437,20 @@ public function tugasIndex(Request $request)
         $request->validate([
             'eviden_file' => 'nullable|image|max:2048',
             'eviden_link' => 'nullable|url',
+            'eviden_note' => 'nullable|string|max:500',
         ],[
             'eviden_file.image' => 'File eviden harus berupa gambar.',
             'eviden_file.max'   => 'Ukuran file maksimal 2MB.',
             'eviden_link.url'   => 'Link eviden harus berupa URL yang valid.',
+            'eviden_note.max'   => 'Keterangan tindak lanjut maksimal 500 karakter.',
         ]);
 
-        if (!$request->hasFile('eviden_file') && !$request->filled('eviden_link')) {
-            return back()->withErrors('Harap unggah gambar atau isi link eviden.')->withInput();
+        if (
+            !$request->hasFile('eviden_file')
+            && !$request->filled('eviden_link')
+            && !$request->filled('eviden_note')
+        ) {
+            return back()->withErrors('Harap isi catatan tindak lanjut atau unggah eviden.')->withInput();
         }
 
         $userId = Auth::id();
@@ -479,6 +486,8 @@ public function tugasIndex(Request $request)
         if ($request->filled('eviden_link')) {
             $update['eviden_link'] = $request->eviden_link;
         }
+
+        $update['eviden_note'] = $request->filled('eviden_note') ? $request->eviden_note : null;
 
         $update['updated_at'] = now();
 

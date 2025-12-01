@@ -148,6 +148,21 @@
         .form-control,.custom-select{background:rgba(255,255,255,.06);border:1px solid rgba(226,232,240,.15);color:var(--text)}
         .form-control:focus,.custom-select:focus{background:rgba(255,255,255,.08);border-color:rgba(79,70,229,.55);box-shadow:0 0 0 .2rem rgba(79,70,229,.25);color:var(--text)}
         label{font-weight:600;color:#dbe7ff;font-size:.85rem}
+        /* Native select dropdown (improve contrast) */
+        select, .custom-select, .form-control[size], .form-control[multiple]{
+            background-color: rgba(12,19,51,.95);
+            color: #eaf1ff;
+        }
+        select option,
+        .custom-select option{
+            background-color: #0f1533;
+            color: #eaf1ff;
+        }
+        select option:checked,
+        .custom-select option:checked{
+            background-color: #243075;
+            color: #fff;
+        }
 
         /* ======= BOOTSTRAP DROPDOWN (kontras tinggi) ======= */
         .dropdown-menu{
@@ -495,6 +510,10 @@
                                     </span>
                                     @if($badgeLaporan>0) <span class="badge-chip info">{{ $badgeLaporan }}</span> @endif
                                 </a>
+                                <a class="nav-link d-flex align-items-center {{ request()->routeIs('laporan.tindaklanjut') ? 'active' : '' }}"
+                                   href="{{ route('laporan.tindaklanjut') }}">
+                                    <i class="fas fa-tasks mr-2"></i> Laporan Tindak Lanjut
+                                </a>
                                 <a class="nav-link d-flex justify-content-between align-items-center {{ request()->routeIs('laporan.arsip') ? 'active' : '' }}"
                                    href="{{ route('laporan.arsip') }}">
                                     <span class="d-inline-flex align-items-center">
@@ -580,6 +599,10 @@
                                       <i class="fas fa-file-invoice mr-2"></i> Laporan
                                     </span>
                                     @if($badgeLaporan>0) <span class="badge-chip info">{{ $badgeLaporan }}</span> @endif
+                                </a>
+                                <a class="nav-link d-flex align-items-center {{ request()->routeIs('laporan.tindaklanjut') ? 'active' : '' }}"
+                                   href="{{ route('laporan.tindaklanjut') }}">
+                                    <i class="fas fa-tasks mr-2"></i> Laporan Tindak Lanjut
                                 </a>
                                 <a class="nav-link d-flex justify-content-between align-items-center {{ request()->routeIs('laporan.arsip') ? 'active' : '' }}"
                                    href="{{ route('laporan.arsip') }}">

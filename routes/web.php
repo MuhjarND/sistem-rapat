@@ -85,6 +85,8 @@ Route::middleware(['auth', 'cekrole:admin,operator'])->group(function () {
     Route::post('/laporan/file/{id}/unarchive', 'LaporanController@unarchiveFile')->name('laporan.file.unarchive');
     Route::post('/laporan/rapat/{id}/archive', 'LaporanController@archiveRapat')->name('laporan.rapat.archive');
     Route::get('/laporan/file/{id}/preview', 'LaporanController@previewFile')->name('laporan.file.preview');
+    Route::get('/laporan/tindak-lanjut', 'LaporanController@tindakLanjut')->name('laporan.tindaklanjut');
+    Route::get('/laporan/tindak-lanjut/rapat/{id}/cetak', 'LaporanController@cetakTindakLanjutRapat')->name('laporan.tindaklanjut.cetak');
 });
 
 //NOTULENSI

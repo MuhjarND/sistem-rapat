@@ -33,8 +33,86 @@
   .badge-pending{background:rgba(148,163,184,.35);color:#fff}
   .badge-proses{background:rgba(245,158,11,.35);color:#fff}
   .badge-done{background:rgba(34,197,94,.35);color:#fff}
+
+  /* Modal uraian agar kontras dengan tema */
+  #modalUraianApproval .modal-content{
+    background:linear-gradient(180deg, rgba(15,23,42,.96), rgba(11,18,41,.98));
+    border:1px solid rgba(99,102,241,.4);
+    color:#e5e7eb;
+    border-radius:14px;
+    box-shadow:0 16px 40px rgba(0,0,0,.6);
+  }
+  #modalUraianApproval .modal-header,
+  #modalUraianApproval .modal-footer{
+    border-color:rgba(99,102,241,.25);
+  }
+  #modalUraianApproval .modal-title{
+    font-weight:800;
+    letter-spacing:.2px;
+  }
+  #modalUraianApproval .modal-body small{
+    color:#93a4c7;
+  }
 </style>
 @endsection
+
+{{-- Modal Uraian/Rekomendasi --}}
+<div class="modal fade modal-dark" id="modalUraianApproval" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Detail Uraian & Rekomendasi</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-2">
+          <small class="text-muted">Rapat: <span id="modalUraianRapatApproval">-</span></small>
+        </div>
+        <div class="mb-2">
+          <div class="text-muted small">Uraian:</div>
+          <div id="modalUraianTextApproval" class="text-light"></div>
+        </div>
+        <div class="mb-2">
+          <div class="text-muted small">Rekomendasi:</div>
+          <div id="modalRekomendasiTextApproval" class="text-light"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Tutup</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+  const uraianModalEl   = document.getElementById('modalUraianApproval');
+  const uraianRapat     = document.getElementById('modalUraianRapatApproval');
+  const uraianText      = document.getElementById('modalUraianTextApproval');
+  const rekomText       = document.getElementById('modalRekomendasiTextApproval');
+  let uraianInstance    = null;
+  if (window.bootstrap && uraianModalEl) uraianInstance = new bootstrap.Modal(uraianModalEl);
+
+  document.querySelectorAll('.btn-modal-uraian-approval').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      const rapat = this.dataset.rapat || '-';
+      const uraian = this.dataset.uraian || '-';
+      const rekom = this.dataset.rekomendasi || '-';
+
+      if (uraianRapat) uraianRapat.textContent = rapat;
+      if (uraianText) uraianText.innerHTML = uraian || '-';
+      if (rekomText) rekomText.innerHTML = rekom || '-';
+
+      if (uraianInstance) uraianInstance.show();
+      else if (uraianModalEl) $(uraianModalEl).modal('show');
+    });
+  });
+});
+</script>
+@endpush
 
 @section('content')
 <div class="container">
@@ -145,7 +223,7 @@
               <th>Tugas</th>
               <th class="text-center">Target</th>
               <th class="text-center">Status</th>
-              <th class="text-center">Eviden</th>
+              <th class="text-center">Eviden & Catatan</th>
               <th class="text-center">Update</th>
               <th class="text-center">Aksi</th>
             </tr>
@@ -153,6 +231,8 @@
           <tbody>
             @forelse($tasks as $task)
               @php
+                $uraianPlain = trim(preg_replace('/\s+/', ' ', str_replace('&nbsp;',' ', strip_tags($task->hasil_pembahasan ?? '-'))));
+                $rekomPlain  = trim(preg_replace('/\s+/', ' ', str_replace('&nbsp;',' ', strip_tags($task->rekomendasi ?? ''))));
                 $badgeMap = [
                   'pending' => ['badge-status badge-pending', 'Pending'],
                   'proses' => ['badge-status badge-proses', 'Proses'],
@@ -175,23 +255,34 @@
                   </small>
                 </td>
                 <td>
-                  {!! $task->hasil_pembahasan !!}
-                  @if($task->rekomendasi)
-                    <div class="mt-1"><span class="badge badge-info">Rekomendasi</span> {!! $task->rekomendasi !!}</div>
-                  @endif
+                  <button type="button"
+                          class="btn btn-info btn-sm mr-2 btn-modal-uraian-approval"
+                          data-toggle="modal"
+                          data-target="#modalUraianApproval"
+                          data-uraian="{{ $uraianPlain }}"
+                          data-rekomendasi="{{ $rekomPlain }}"
+                          data-rapat="{{ $task->rapat_judul }}">
+                    Lihat Uraian
+                  </button>
                 </td>
                 <td class="text-center">{{ $deadline }}</td>
                 <td class="text-center"><span class="{{ $badge[0] }}">{{ $badge[1] }}</span></td>
                 <td class="text-center">
-                  @if($task->eviden_path)
-                    <a href="{{ asset($task->eviden_path) }}" target="_blank"><i class="fas fa-image mr-1"></i>Gambar</a><br>
-                  @endif
-                  @if($task->eviden_link)
-                    <a href="{{ $task->eviden_link }}" target="_blank"><i class="fas fa-link mr-1"></i>Link</a>
-                  @endif
-                  @if(!$task->eviden_path && !$task->eviden_link)
-                    <small class="text-muted">Belum ada</small>
-                  @endif
+                  <div class="mb-1">
+                    @if($task->eviden_path)
+                      <a href="{{ asset($task->eviden_path) }}" target="_blank"><i class="fas fa-image mr-1"></i>Gambar</a><br>
+                    @endif
+                    @if($task->eviden_link)
+                      <a href="{{ $task->eviden_link }}" target="_blank"><i class="fas fa-link mr-1"></i>Link</a>
+                    @endif
+                    @if(!$task->eviden_path && !$task->eviden_link)
+                      <small class="text-muted">Belum ada eviden.</small>
+                    @endif
+                  </div>
+                  <div class="text-left">
+                    <small class="text-muted">Catatan:</small>
+                    <div class="small">{{ $task->eviden_note ?: 'Belum ada catatan.' }}</div>
+                  </div>
                 </td>
                 <td class="text-center">
                   {{ $task->updated_at ? \Carbon\Carbon::parse($task->updated_at)->diffForHumans() : '—' }}
