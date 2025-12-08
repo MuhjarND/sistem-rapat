@@ -96,12 +96,12 @@ class AgendaPimpinanController extends Controller
 
         $buildMessage = function (string $nama) use ($nomorNaskah, $request, $tglFormatted, $seragam, $lampiranUrl) {
             return "Assalamu'alaikum warahmatullahi wabarakatuh,\n\n"
-                . "Yth. Bapak/Ibu {$nama},\n\n"
-                . "Dengan hormat, kami sampaikan kepada Bapak/Ibu untuk dapat menjalankan sebagaimana hasil disposisi pada detail berikut:\n\n"
+                . "Yth. Bapak/Ibu *{$nama}*,\n\n"
+                . "Dengan hormat, kami sampaikan kepada Bapak/Ibu untuk dapat menjalankan sebagaimana surat/undangan pada detail berikut:\n\n"
                 . "* Nomor Naskah Dinas: {$nomorNaskah}\n"
-                . "* Kegiatan: {$request->judul}\n"
-                . "* Hari/Tanggal: {$tglFormatted}\n"
-                . "* Waktu: {$request->waktu} WIB\n"
+                . "* Kegiatan: *{$request->judul}*\n"
+                . "* Hari/Tanggal: *{$tglFormatted}*\n"
+                . "* Waktu: *{$request->waktu}* WIT\n"
                 . "* Tempat: {$request->tempat}\n"
                 . "* Pakaian: {$seragam}\n\n"
                 . "Silakan meninjau detail kegiatan melalui tautan berikut:\n"
