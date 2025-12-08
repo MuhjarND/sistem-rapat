@@ -80,9 +80,9 @@
         </div>
 
         <div class="form-group">
-          <label>Lampiran undangan (opsional)</label>
-          <input type="file" name="lampiran" class="form-control-file" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.jpg,.jpeg,.png">
-          <small class="text-muted">Maks 10MB.</small>
+          <label>Link lampiran undangan (opsional)</label>
+          <input type="url" name="lampiran_url" class="form-control" value="{{ old('lampiran_url') }}" placeholder="https://contoh.com/undangan.pdf">
+          <small class="text-muted">Tempel tautan file undangan (PDF/dokumen) yang sudah diunggah di tempat lain.</small>
         </div>
 
         <div class="d-flex justify-content-end">

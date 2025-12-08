@@ -51,28 +51,10 @@ class AgendaPimpinanController extends Controller
             'judul'           => 'required|string|max:200',
             'tempat'          => 'required|string|max:200',
             'seragam'         => 'nullable|string|max:120',
+            'lampiran_url'    => 'nullable|url|max:500',
             'penerima_ids'    => 'required|array|min:1',
             'penerima_ids.*'  => 'integer|exists:users,id',
-            'lampiran'        => 'nullable|file|mimes:pdf,doc,docx,ppt,pptx,xls,xlsx,jpg,jpeg,png|max:10240',
         ]);
-
-        $lampiranPath = null;
-        $lampiranNama = null;
-        $lampiranSize = null;
-
-        if ($request->hasFile('lampiran')) {
-            $lampiran = $request->file('lampiran');
-            $lampiranNama = $lampiran->getClientOriginalName();
-            $lampiranSize = $lampiran->getSize();
-            $destDir = public_path('agenda_pimpinan');
-            if (!File::exists($destDir)) {
-                File::makeDirectory($destDir, 0755, true);
-            }
-            $ext = $lampiran->getClientOriginalExtension();
-            $safeName = Str::uuid()->toString() . ($ext ? '.' . $ext : '');
-            $lampiran->move($destDir, $safeName);
-            $lampiranPath = 'agenda_pimpinan/' . $safeName;
-        }
 
         $penerimaIds = array_values(array_unique(array_map('intval', $request->penerima_ids)));
         $sel = ['id','name'];
@@ -99,15 +81,15 @@ class AgendaPimpinanController extends Controller
             'tempat'          => $request->tempat,
             'yang_menghadiri' => $yangMenghadiri,
             'seragam'         => $request->seragam,
-            'lampiran_path'   => $lampiranPath,
-            'lampiran_nama'   => $lampiranNama,
-            'lampiran_size'   => $lampiranSize,
+            'lampiran_path'   => $request->lampiran_url, // simpan URL sebagai path
+            'lampiran_nama'   => null,
+            'lampiran_size'   => null,
             'dibuat_oleh'     => Auth::id(),
             'created_at'      => now(),
             'updated_at'      => now(),
         ]);
 
-        $lampiranUrl  = $lampiranPath ? asset($lampiranPath) : '-';
+        $lampiranUrl  = $request->lampiran_url ?: '-';
         $nomorNaskah  = $request->input('nomor_naskah', '-');
         $tglFormatted = Carbon::parse($request->tanggal)->translatedFormat('l, d F Y');
         $seragam      = $request->seragam ?: '-';
@@ -186,4 +168,3 @@ class AgendaPimpinanController extends Controller
             ->with('success', 'Agenda tersimpan dan notifikasi WA telah dikirim.');
     }
 }
-
