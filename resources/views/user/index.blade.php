@@ -188,7 +188,7 @@
         <div class="col-md-2 mb-2">
           <label class="mb-1 text-muted">Role</label>
           <select name="role" class="custom-select custom-select-sm">
-            @php $roles = ['', 'admin', 'operator', 'notulis', 'peserta', 'approval']; @endphp
+            @php $roles = ['', 'admin', 'operator', 'notulis', 'peserta', 'approval', 'protokoler']; @endphp
             @foreach($roles as $r)
               <option value="{{ $r }}" {{ ($role ?? '')===$r ? 'selected' : '' }}>
                 {{ $r==='' ? 'Semua' : ucfirst($r) }}

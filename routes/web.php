@@ -113,7 +113,7 @@ Route::middleware(['auth', 'cekrole:admin,notulis'])->group(function () {
 });
 
 // PESERTA
-Route::middleware(['auth', 'cekrole:admin,peserta,approval,operator,notulis'])->group(function () {
+Route::middleware(['auth', 'cekrole:admin,peserta,approval,operator,notulis,protokoler'])->group(function () {
     Route::get('undangan-saya', 'UndanganController@undanganSaya')->name('undangan.saya');
     Route::get('absensi-saya', 'AbsensiController@absensiSaya')->name('absensi.saya');
     Route::post('absensi/isi', 'AbsensiController@isiAbsensi')->name('absensi.isi');
@@ -160,6 +160,12 @@ Route::middleware(['auth', 'cekrole:approval,notulis,admin,operator'])->group(fu
     Route::get('absensi/laporan/{id_rapat}', 'AbsensiController@exportPdf')->name('absensi.export.pdf');
     Route::get('notulensi/{id}/cetak', 'NotulensiController@cetakGabung')->name('notulensi.cetak');
     Route::get('rapat/{id}/show', 'RapatController@show')->name('rapat.show');
+});
+
+// PROTOKOLER
+Route::middleware(['auth', 'cekrole:protokoler'])->group(function () {
+    Route::get('/agenda-pimpinan', 'AgendaPimpinanController@index')->name('agenda-pimpinan.index');
+    Route::post('/agenda-pimpinan', 'AgendaPimpinanController@store')->name('agenda-pimpinan.store');
 });
 
 //GUEST (TAMU)

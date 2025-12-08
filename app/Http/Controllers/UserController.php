@@ -16,7 +16,7 @@ class UserController extends Controller
     public function index(Request $request)
     {
         $q          = trim($request->get('q', ''));
-        $role       = $request->get('role', '');           // '', admin, operator, notulis, peserta, approval
+        $role       = $request->get('role', '');           // '', admin, operator, notulis, peserta, approval, protokoler
         $unitName   = $request->get('unit', '');           // filter by unit name
         $bidangName = $request->get('bidang', '');         // filter by bidang (nama pada tabel bidang)
         $pickUnit   = $request->get('pick_unit');          // id unit dari halaman Units
@@ -70,7 +70,7 @@ class UserController extends Controller
             });
         }
 
-        if ($role !== '' && in_array($role, ['admin','operator','notulis','peserta','approval'], true)) {
+        if ($role !== '' && in_array($role, ['admin','operator','notulis','peserta','approval','protokoler'], true)) {
             $qry->where('role', $role);
         }
 
@@ -110,7 +110,7 @@ class UserController extends Controller
      */
     public function create(Request $request)
     {
-        $daftar_role      = ['admin', 'operator', 'notulis', 'peserta']; // approval auto dari tingkatan
+        $daftar_role      = ['admin', 'operator', 'notulis', 'peserta', 'protokoler']; // approval auto dari tingkatan
         $daftar_tingkatan = [1, 2];
 
         $daftar_unit = DB::table('units')
@@ -168,7 +168,7 @@ class UserController extends Controller
                 }),
             ],
             'tingkatan' => ['nullable', Rule::in([1,2])],
-            'role'      => ['required', Rule::in(['admin','operator','notulis','peserta'])],
+            'role'      => ['required', Rule::in(['admin','operator','notulis','peserta','protokoler'])],
             'password'  => 'required|min:6|confirmed',
             'hirarki'   => 'nullable|integer|min:0|max:65535',
         ],[
@@ -220,7 +220,7 @@ class UserController extends Controller
         $user = DB::table('users')->where('id', $id)->first();
         if (!$user) abort(404);
 
-        $daftar_role      = ['admin', 'operator', 'notulis', 'peserta']; // approval auto dari tingkatan
+        $daftar_role      = ['admin', 'operator', 'notulis', 'peserta', 'protokoler']; // approval auto dari tingkatan
         $daftar_tingkatan = [1, 2];
 
         $daftar_unit = DB::table('units')
@@ -270,7 +270,7 @@ class UserController extends Controller
                 }),
             ],
             'tingkatan' => ['nullable', Rule::in([1,2])],
-            'role'      => ['required', Rule::in(['admin','operator','notulis','peserta'])],
+            'role'      => ['required', Rule::in(['admin','operator','notulis','peserta','protokoler'])],
             'password'  => 'nullable|min:6|confirmed',
             'hirarki'   => 'nullable|integer|min:0|max:65535',
         ],[

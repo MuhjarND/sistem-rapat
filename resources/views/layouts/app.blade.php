@@ -292,14 +292,15 @@
             <div id="appSidebar" class="sidebar">
                 @php
                   $role = Auth::user()->role ?? null;
-                  $isPeserta  = $role === 'peserta';
+                  $isPeserta  = in_array($role, ['peserta','protokoler']);
                   $isNotulis  = in_array($role, ['notulis','notulensi']);
                   $isApproval = $role === 'approval';
                   $isOperator = $role === 'operator';
+                  $isProtokoler = $role === 'protokoler';
                 @endphp
 
                 @if($isPeserta)
-                    {{-- =================== SIDEBAR KHUSUS PESERTA =================== --}}
+                    {{-- =================== SIDEBAR KHUSUS PESERTA (termasuk protokoler) =================== --}}
                     @php
                         $userId = Auth::id();
 
@@ -349,6 +350,13 @@
                             <span class="badge-chip warn" title="Tugas perlu diselesaikan">{{ $tugasPendingCount }}</span>
                             @endif
                         </a>
+
+                        @if($isProtokoler)
+                        <a class="nav-link d-flex align-items-center {{ request()->routeIs('agenda-pimpinan.*') ? 'active' : '' }}"
+                        href="{{ route('agenda-pimpinan.index') }}">
+                            <i class="fas fa-bullhorn"></i> Agenda Pimpinan
+                        </a>
+                        @endif
                     </nav>
 
                 @elseif($isNotulis)
