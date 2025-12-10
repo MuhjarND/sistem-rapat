@@ -49,7 +49,7 @@
         <tr>
             <td width="17%">Nomor</td>
             <td width="3%">:</td>
-            <td>{{ $rapat->nomor_undangan }}</td>
+            <td style="font-size:12px;">{{ $rapat->nomor_undangan }}</td>
             <td style="text-align:right;" width="40%">
                 Manokwari, {{ \Carbon\Carbon::parse($rapat->tanggal)->isoFormat('D MMMM Y') }}
             </td>
@@ -67,7 +67,7 @@
     </table>
 
     {{-- Kepada Yth + daftar peserta (jika ≤ 5) --}}
-    <p style="margin-bottom: 6px;">Kepada Yth.</p>
+    <p style="margin-bottom: 6px;">Kepada Yth. Para pejabat pada daftar terlampir</p>
 
     @if($tampilkan_daftar_di_surat)
         @php

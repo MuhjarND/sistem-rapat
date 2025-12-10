@@ -988,7 +988,7 @@ class RapatController extends Controller
 
         $kop_path = public_path('Screenshot 2025-08-23 121254.jpeg');
 
-        $tampilkan_lampiran        = $daftar_peserta->count() > 5;
+        $tampilkan_lampiran        = $daftar_peserta->count() > 1;
         $tampilkan_daftar_di_surat = !$tampilkan_lampiran;
 
         $qrA1 = DB::table('approval_requests')
