@@ -52,7 +52,12 @@
     {{-- Info jendela absensi --}}
     @isset($abs_start, $abs_end, $abs_open, $abs_before, $abs_after)
       <div class="mb-3">
-        @if($abs_open)
+        @if(!empty($abs_unlimited))
+          <span class="badge badge-success">Absensi selalu dibuka</span>
+          <div class="hint mt-1">
+            Tidak ada batas waktu untuk melakukan absensi.
+          </div>
+        @elseif($abs_open)
           <span class="badge badge-success">Jendela absensi SEDANG DIBUKA</span>
           <div class="hint mt-1">
             Tutup pada: <b>{{ $abs_end->isoFormat('D MMM Y HH:mm') }}</b> (WIT).
@@ -80,11 +85,11 @@
       </div>
     @else
       {{-- Jika jendela tertutup / belum dibuka, tampilkan peringatan jelas --}}
-      @if(isset($abs_before) && $abs_before)
+      @if(empty($abs_unlimited) && isset($abs_before) && $abs_before)
         <div class="alert alert-warning">
           Absensi <b>belum dibuka</b>. Silakan kembali saat waktu yang ditentukan.
         </div>
-      @elseif(isset($abs_after) && $abs_after)
+      @elseif(empty($abs_unlimited) && isset($abs_after) && $abs_after)
         <div class="alert alert-danger">
           Absensi <b>sudah ditutup</b>. Pengisian tanda tangan tidak tersedia.
         </div>
@@ -135,9 +140,10 @@
   tzInput.value  = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
 
   // Status dari server
-  const absOpen  = {{ isset($abs_open)  && $abs_open  ? 'true' : 'false' }};
-  const absBefore= {{ isset($abs_before)&& $abs_before? 'true' : 'false' }};
-  const absAfter = {{ isset($abs_after) && $abs_after ? 'true' : 'false' }};
+  const absUnlimited = {{ !empty($abs_unlimited) ? 'true' : 'false' }};
+  const absOpen  = absUnlimited ? true : {{ isset($abs_open)  && $abs_open  ? 'true' : 'false' }};
+  const absBefore= absUnlimited ? false : {{ isset($abs_before)&& $abs_before? 'true' : 'false' }};
+  const absAfter = absUnlimited ? false : {{ isset($abs_after) && $abs_after ? 'true' : 'false' }};
   const already  = {{ !empty($sudah_absen) && $sudah_absen===true ? 'true' : 'false' }};
 
   // Countdown "dibuka dalam ..."

@@ -6,6 +6,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Str;
+use App\Helpers\FonnteWa;
 
 class UserController extends Controller
 {
@@ -323,5 +325,118 @@ class UserController extends Controller
     {
         DB::table('users')->where('id', $id)->delete();
         return redirect()->route('user.index')->with('success', 'User berhasil dihapus!');
+    }
+
+    /**
+     * Kirim info login via WA (reset password user).
+     */
+    public function sendCredentials($id)
+    {
+        $user = DB::table('users')->where('id', $id)->first();
+        if (!$user) abort(404);
+
+        if (empty($user->no_hp)) {
+            return back()->with('error', 'Nomor WA user belum diisi.');
+        }
+
+        $wa = FonnteWa::normalizeNumber($user->no_hp);
+        if (!$wa) {
+            return back()->with('error', 'Format nomor WA tidak valid.');
+        }
+
+        $loginUrl = url('/login');
+        $msg = "Berikut informasi login aplikasi SMART:\n\n"
+            . "Username: {$user->email}\n"
+            . "Password: ptapabar\n\n"
+            . "Silakan login melalui tautan berikut:\n{$loginUrl}\n\n"
+            . "Demi keamanan, segera ganti password setelah berhasil login.";
+
+        FonnteWa::send($wa, $msg);
+
+        return back()->with('success', 'Informasi login berhasil dikirim via WA.');
+    }
+
+    /**
+     * Kirim info login via WA ke semua user (sesuai filter).
+     */
+    public function sendCredentialsAll(Request $request)
+    {
+        $q          = trim($request->get('q', ''));
+        $role       = $request->get('role', '');
+        $unitName   = $request->get('unit', '');
+        $bidangName = $request->get('bidang', '');
+
+        $qry = DB::table('users as u')
+            ->leftJoin('jabatan as j','j.id','=','u.jabatan_id')
+            ->select('u.id','u.name','u.email','u.no_hp','u.unit','u.bidang','u.role');
+
+        if ($q !== '') {
+            $qry->where(function ($w) use ($q) {
+                $w->where('u.name', 'like', "%{$q}%")
+                  ->orWhere('u.email', 'like', "%{$q}%")
+                  ->orWhere('u.jabatan', 'like', "%{$q}%")
+                  ->orWhere('u.unit', 'like', "%{$q}%")
+                  ->orWhere('u.bidang', 'like', "%{$q}%")
+                  ->orWhere('u.no_hp', 'like', "%{$q}%")
+                  ->orWhere('j.nama', 'like', "%{$q}%");
+            });
+        }
+
+        if ($role !== '' && in_array($role, ['admin','operator','notulis','peserta','approval','protokoler'], true)) {
+            $qry->where('u.role', $role);
+        }
+
+        if ($unitName !== '') {
+            $qry->where('u.unit', $unitName);
+        }
+
+        if ($bidangName !== '') {
+            $qry->where('u.bidang', $bidangName);
+        }
+
+        $sent = 0;
+        $skippedNoWa = 0;
+        $skippedNoEmail = 0;
+        $failed = 0;
+
+        $qry->orderBy('u.id', 'asc')->chunk(100, function ($rows) use (&$sent, &$skippedNoWa, &$skippedNoEmail, &$failed) {
+            foreach ($rows as $user) {
+                if (empty($user->email)) {
+                    $skippedNoEmail++;
+                    continue;
+                }
+                if (empty($user->no_hp)) {
+                    $skippedNoWa++;
+                    continue;
+                }
+
+                $wa = FonnteWa::normalizeNumber($user->no_hp);
+                if (!$wa) {
+                    $skippedNoWa++;
+                    continue;
+                }
+
+                $loginUrl = url('/login');
+                $msg = "Berikut informasi login aplikasi SMART:\n\n"
+                    . "Username: {$user->email}\n"
+                    . "Password: ptapabar\n\n"
+                    . "Silakan login melalui tautan berikut:\n{$loginUrl}\n\n"
+                    . "Demi keamanan, segera ganti password setelah berhasil login.";
+
+                try {
+                    FonnteWa::send($wa, $msg);
+                    $sent++;
+                } catch (\Throwable $e) {
+                    $failed++;
+                }
+            }
+        });
+
+        $info = "WA terkirim: {$sent}.";
+        if ($skippedNoWa > 0) $info .= " Dilewati (tanpa WA): {$skippedNoWa}.";
+        if ($skippedNoEmail > 0) $info .= " Dilewati (tanpa email): {$skippedNoEmail}.";
+        if ($failed > 0) $info .= " Gagal kirim: {$failed}.";
+
+        return back()->with('success', $info);
     }
 }

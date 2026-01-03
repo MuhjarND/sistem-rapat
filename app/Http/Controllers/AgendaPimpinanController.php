@@ -7,9 +7,7 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Str;
 
 class AgendaPimpinanController extends Controller
 {
@@ -69,6 +67,7 @@ class AgendaPimpinanController extends Controller
         if (!$pimpinanId) {
             return back()->withErrors('Gagal menentukan penerima utama.')->withInput();
         }
+
         $yangMenghadiri = $penerimaRows->pluck('name')->implode(', ');
 
         DB::table('agenda_pimpinan')->insert([
@@ -81,7 +80,7 @@ class AgendaPimpinanController extends Controller
             'tempat'          => $request->tempat,
             'yang_menghadiri' => $yangMenghadiri,
             'seragam'         => $request->seragam,
-            'lampiran_path'   => $request->lampiran_url, // simpan URL sebagai path
+            'lampiran_path'   => $request->lampiran_url,
             'lampiran_nama'   => null,
             'lampiran_size'   => null,
             'dibuat_oleh'     => Auth::id(),
@@ -94,15 +93,15 @@ class AgendaPimpinanController extends Controller
         $tglFormatted = Carbon::parse($request->tanggal)->translatedFormat('l, d F Y');
         $seragam      = $request->seragam ?: '-';
 
-        $buildMessage = function (string $nama) use ($nomorNaskah, $request, $tglFormatted, $seragam, $lampiranUrl) {
-            return "*[INFORMASI AGENDA/UNDANGAN EKSTERNAL]*\n\n"
+        $buildMessage = function ($nama) use ($nomorNaskah, $request, $tglFormatted, $seragam, $lampiranUrl) {
+            return "[INFORMASI AGENDA/UNDANGAN EKSTERNAL]\n"
                 . "Assalamu'alaikum warahmatullahi wabarakatuh,\n\n"
-                . "Yth. Bapak/Ibu *{$nama}*,\n\n"
-                . "Dengan hormat, kami sampaikan kepada Bapak/Ibu untuk dapat menjalankan agenda kegiatan sebagaimana surat/undangan pada detail berikut:\n\n"
+                . "Yth. Bapak/Ibu {$nama},\n\n"
+                . "Dengan hormat, kami sampaikan kepada Bapak/Ibu untuk dapat menjalankan sebagaimana hasil disposisi pada detail berikut:\n\n"
                 . "* Nomor Naskah Dinas: {$nomorNaskah}\n"
-                . "* Kegiatan: *{$request->judul}*\n"
-                . "* Hari/Tanggal: *{$tglFormatted}*\n"
-                . "* Waktu: *{$request->waktu}* WIT\n"
+                . "* Kegiatan: {$request->judul}\n"
+                . "* Hari/Tanggal: {$tglFormatted}\n"
+                . "* Waktu: {$request->waktu} WIB\n"
                 . "* Tempat: {$request->tempat}\n"
                 . "* Pakaian: {$seragam}\n\n"
                 . "Silakan meninjau detail kegiatan melalui tautan berikut:\n"

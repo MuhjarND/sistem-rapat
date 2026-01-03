@@ -2,6 +2,9 @@
 
 use Illuminate\Database\Seeder;
 
+require_once __DIR__.'/BidangJabatanSeederFromSheet.php';
+require_once __DIR__.'/UserSeederFromSheet.php';
+
 class DatabaseSeeder extends Seeder
 {
     /**
@@ -11,6 +14,7 @@ class DatabaseSeeder extends Seeder
      */
     public function run()
     {
+        $this->call(BidangJabatanSeederFromSheet::class);
         $this->call(UserSeederFromSheet::class);
     }
 }

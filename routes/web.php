@@ -45,6 +45,8 @@ Route::middleware(['auth', 'cekrole:admin'])->group(function () {
     //INPUT DATA
     Route::resource('pimpinan', 'PimpinanRapatController');
     Route::resource('user', 'UserController');
+    Route::post('user/{id}/send-credentials', 'UserController@sendCredentials')->name('user.sendCredentials');
+    Route::post('user/send-credentials-all', 'UserController@sendCredentialsAll')->name('user.sendCredentialsAll');
     Route::post('/users/assign-unit', 'UsersController@assignUnit')->name('users.assignUnit');
     Route::resource('kategori', 'KategoriRapatController');
     Route::get('/units',            'UnitController@index')->name('units.index');

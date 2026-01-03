@@ -950,14 +950,14 @@ public function update(Request $request, $id)
      */
     private function buildTaskAssignedMessage(string $nama, string $judulRapat, string $tglRapat, string $tempat, string $tglSelesai, string $urlTugas): string
     {
-        return "Halo {$nama},\n\n"
-            ."Anda mendapatkan *tugas notulensi* dari rapat:\n"
-            ."• *{$judulRapat}*\n"
-            ."• Tanggal: {$tglRapat}\n"
-            ."• Tempat: {$tempat}\n"
-            ."• Target selesai: {$tglSelesai}\n\n"
-            ."Silakan cek detail & update status tugas di sini:\n{$urlTugas}\n\n"
-            ."Terima kasih 🙏";
+        return "Yth. Bapak/Ibu {$nama},\n\n"
+            ."Dengan hormat, Bapak/Ibu mendapatkan *penugasan tindak lanjut notulensi* dengan detail berikut:\n\n"
+            ."*Rapat*          : {$judulRapat}\n"
+            ."*Tanggal*        : {$tglRapat}\n"
+            ."*Tempat*         : {$tempat}\n"
+            ."*Target selesai* : {$tglSelesai}\n\n"
+            ."Silakan meninjau detail dan memperbarui status tugas melalui tautan berikut:\n{$urlTugas}\n\n"
+            ."Atas perhatian dan kerja samanya, kami ucapkan terima kasih.";
     }
 
     /**
@@ -1005,3 +1005,4 @@ public function update(Request $request, $id)
         return $n;
     }
 }
+

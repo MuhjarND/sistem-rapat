@@ -26,6 +26,7 @@
   }
   .btn-amber { background: linear-gradient(180deg,#f59e0b,#d97706); }
   .btn-rose  { background: linear-gradient(180deg,#ef4444,#dc2626); }
+  .btn-cyan  { background: linear-gradient(180deg,#06b6d4,#0891b2); }
   .btn-icon:hover{ filter: brightness(1.06); }
 
   .card-filter{
@@ -107,7 +108,17 @@
         ? route('user.create', ['pick_unit' => $pickUnit])
         : route('user.create');
     @endphp
-    <a href="{{ $createUrl }}" class="btn btn-primary">+ Tambah User</a>
+    <div class="d-flex align-items-center">
+      <form action="{{ route('user.sendCredentialsAll') }}" method="POST" class="mr-2" onsubmit="return confirm('Kirim info login ke semua user sesuai filter?')">
+        @csrf
+        <input type="hidden" name="q" value="{{ $q ?? '' }}">
+        <input type="hidden" name="role" value="{{ $role ?? '' }}">
+        <input type="hidden" name="unit" value="{{ $unitName ?? '' }}">
+        <input type="hidden" name="bidang" value="{{ $bidangName ?? '' }}">
+        <button class="btn btn-outline-info">Kirim Login Semua</button>
+      </form>
+      <a href="{{ $createUrl }}" class="btn btn-primary">+ Tambah User</a>
+    </div>
   </div>
 
   @php
@@ -141,6 +152,9 @@
   {{-- Alert sukses --}}
   @if(session('success'))
     <div class="alert alert-success">{{ session('success') }}</div>
+  @endif
+  @if(session('error'))
+    <div class="alert alert-danger">{{ session('error') }}</div>
   @endif
 
   {{-- Info filter dari Units --}}
@@ -266,6 +280,12 @@
                     <a href="{{ route('user.edit', $user->id) }}" class="btn-icon btn-amber mr-1" title="Edit">
                       <i class="fas fa-edit"></i>
                     </a>
+                    <form action="{{ route('user.sendCredentials', $user->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Kirim info login ke user ini?')">
+                      @csrf
+                      <button class="btn-icon btn-cyan mr-1" title="Kirim Login">
+                        <i class="fas fa-paper-plane"></i>
+                      </button>
+                    </form>
                     <form action="{{ route('user.destroy', $user->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Hapus user ini?')">
                       @csrf @method('DELETE')
                       <button class="btn-icon btn-rose" title="Hapus">

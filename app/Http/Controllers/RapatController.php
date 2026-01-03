@@ -43,7 +43,7 @@ class RapatController extends Controller
         $q->select($select);
 
         if (Schema::hasColumn('users', 'role')) {
-            $q->whereNotIn('role', ['admin', 'superadmin']);
+            $q->whereNotIn('role', ['admin', 'superadmin', 'operator']);
         }
         if (Schema::hasColumn('users', 'is_active')) {
             $q->where('is_active', 1);
@@ -234,14 +234,16 @@ class RapatController extends Controller
         $approval1_list = DB::table('users')
             ->select('id','name','tingkatan')
             ->where('role','approval')
-            ->orderBy('name')
+            ->orderByRaw('COALESCE(hirarki, 9999) ASC')
+            ->orderBy('name', 'asc')
             ->get();
 
         $approval2_list = DB::table('users')
             ->select('id','name','tingkatan')
             ->where('role','approval')
             ->where('tingkatan', 2)
-            ->orderBy('name')
+            ->orderByRaw('COALESCE(hirarki, 9999) ASC')
+            ->orderBy('name', 'asc')
             ->get();
 
         // === Quick-pick sources ===
@@ -270,14 +272,16 @@ class RapatController extends Controller
         $approval1_list = DB::table('users')
             ->select('id','name','tingkatan')
             ->where('role', 'approval')
-            ->orderBy('name')
+            ->orderByRaw('COALESCE(hirarki, 9999) ASC')
+            ->orderBy('name', 'asc')
             ->get();
 
         $approval2_list = DB::table('users')
             ->select('id','name','tingkatan')
             ->where('role', 'approval')
             ->where('tingkatan', 2)
-            ->orderBy('name')
+            ->orderByRaw('COALESCE(hirarki, 9999) ASC')
+            ->orderBy('name', 'asc')
             ->get();
 
         $daftar_unit   = $this->getDistinctUnits();
@@ -313,14 +317,16 @@ class RapatController extends Controller
         $approval1_list = DB::table('users')
             ->select('id','name','tingkatan')
             ->where('role', 'approval')
-            ->orderBy('name')
+            ->orderByRaw('COALESCE(hirarki, 9999) ASC')
+            ->orderBy('name', 'asc')
             ->get();
 
         $approval2_list = DB::table('users')
             ->select('id','name','tingkatan')
             ->where('role', 'approval')
             ->where('tingkatan', 2)
-            ->orderBy('name')
+            ->orderByRaw('COALESCE(hirarki, 9999) ASC')
+            ->orderBy('name', 'asc')
             ->get();
 
         $daftar_unit   = $this->getDistinctUnits();
@@ -395,7 +401,7 @@ class RapatController extends Controller
                 'integer',
                 Rule::exists('users','id')->where(function ($q) {
                     if (Schema::hasColumn('users','role')) {
-                        $q->whereNotIn('role', ['admin','superadmin']);
+                        $q->whereNotIn('role', ['admin','superadmin','operator']);
                     }
                     if (Schema::hasColumn('users','is_active')) {
                         $q->where('is_active', 1);
@@ -429,7 +435,7 @@ class RapatController extends Controller
             $pesertaIds = array_unique(array_map('intval', $request->peserta ?: []));
             $allowedIds = DB::table('users')
                 ->when(Schema::hasColumn('users','role'), function($q){
-                    $q->whereNotIn('role',['admin','superadmin']);
+                    $q->whereNotIn('role',['admin','superadmin','operator']);
                 })
                 ->whereIn('id', $pesertaIds)
                 ->pluck('id')->all();
@@ -486,7 +492,7 @@ class RapatController extends Controller
                 'integer',
                 Rule::exists('users','id')->where(function ($q) {
                     if (Schema::hasColumn('users','role')) {
-                        $q->whereNotIn('role', ['admin','superadmin']);
+                        $q->whereNotIn('role', ['admin','superadmin','operator']);
                     }
                     if (Schema::hasColumn('users','is_active')) {
                         $q->where('is_active', 1);
@@ -523,7 +529,7 @@ class RapatController extends Controller
             $pesertaIds = array_unique(array_map('intval', $request->peserta ?: []));
             $allowedIds = DB::table('users')
                 ->when(Schema::hasColumn('users','role'), function($q){
-                    $q->whereNotIn('role',['admin','superadmin']);
+                    $q->whereNotIn('role',['admin','superadmin','operator']);
                 })
                 ->whereIn('id', $pesertaIds)
                 ->pluck('id')->all();
@@ -660,7 +666,7 @@ class RapatController extends Controller
         // === Semua user non-admin untuk daftar peserta GÃ‡Ã¶ termasuk jabatan, unit, dan bidang
         $q = DB::table('users');
         if (Schema::hasColumn('users','role')) {
-            $q->whereNotIn('role', ['admin','superadmin']);
+            $q->whereNotIn('role', ['admin','superadmin','operator']);
         }
         $select = ['id','name','hirarki'];
         if (Schema::hasColumn('users','jabatan')) $select[] = 'jabatan';
@@ -695,14 +701,16 @@ class RapatController extends Controller
         $approval1_list = DB::table('users')
             ->select('id','name','tingkatan')
             ->where('role','approval')
-            ->orderBy('name')
+            ->orderByRaw('COALESCE(hirarki, 9999) ASC')
+            ->orderBy('name', 'asc')
             ->get();
 
         $approval2_list = DB::table('users')
             ->select('id','name','tingkatan')
             ->where('role','approval')
             ->where('tingkatan', 2)
-            ->orderBy('name')
+            ->orderByRaw('COALESCE(hirarki, 9999) ASC')
+            ->orderBy('name', 'asc')
             ->get();
 
         // Quick-pick sources untuk checklist
@@ -750,7 +758,7 @@ class RapatController extends Controller
                 'integer',
                 Rule::exists('users','id')->where(function ($q) {
                     if (Schema::hasColumn('users','role')) {
-                        $q->whereNotIn('role', ['admin','superadmin']);
+                        $q->whereNotIn('role', ['admin','superadmin','operator']);
                     }
                     if (Schema::hasColumn('users','is_active')) {
                         $q->where('is_active', 1);
@@ -785,7 +793,7 @@ class RapatController extends Controller
                 $pesertaIds = array_unique(array_map('intval', $request->peserta ?: []));
                 $allowedIds = DB::table('users')
                     ->when(Schema::hasColumn('users','role'), function($q){
-                        $q->whereNotIn('role',['admin','superadmin']);
+                        $q->whereNotIn('role',['admin','superadmin','operator']);
                     })
                     ->whereIn('id', $pesertaIds)
                     ->pluck('id')->all();

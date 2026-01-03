@@ -11,11 +11,25 @@ class FonnteWa
         $token = env('FONNTE_TOKEN');
         $endpoint = 'https://api.fonnte.com/send';
 
+        $prefix = '*[SMART NOTIF]*';
+        $suffix = '*- SMART PTA Papua Barat*';
+        $body = trim((string) $message);
+        if ($body === '') {
+            $body = $prefix . "\n\n" . $suffix;
+        } else {
+            if (strpos(ltrim($body), $prefix) !== 0) {
+                $body = $prefix . "\n" . $body;
+            }
+            if (substr(rtrim($body), -strlen($suffix)) !== $suffix) {
+                $body = rtrim($body) . "\n\n" . $suffix;
+            }
+        }
+
         $response = Http::withHeaders([
             'Authorization' => $token,
         ])->post($endpoint, [
             'target' => $to, // Format: 6281234567890
-            'message' => $message,
+            'message' => $body,
         ]);
 
         Log::info('Fonnte WA: '.$response->body());

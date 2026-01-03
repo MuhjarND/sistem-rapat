@@ -31,16 +31,11 @@ class AbsensiController extends Controller
      */
     private function getAbsensiWindow(\stdClass $rapat): array
     {
-        $window = (int) (config('absensi.window_minutes', env('ABSENSI_WINDOW_MINUTES', 180)));
-        if ($window <= 0) $window = 180;
-
         $start = \Carbon\Carbon::parse($rapat->tanggal . ' ' . $rapat->waktu_mulai);
-        $end   = (clone $start)->addMinutes($window);
-        $now   = now();
-
-        $before = $now->lt($start);
-        $after  = $now->gt($end);
-        $open   = !$before && !$after;
+        $end   = (clone $start);
+        $before = false;
+        $after  = false;
+        $open   = true;
 
         return [
             'start'          => $start,
@@ -48,7 +43,8 @@ class AbsensiController extends Controller
             'open'           => $open,
             'before'         => $before,
             'after'          => $after,
-            'window_minutes' => $window,
+            'window_minutes' => null,
+            'unlimited'      => true,
         ];
     }
 
@@ -240,6 +236,7 @@ class AbsensiController extends Controller
             'abs_before'          => $win['before'],          // bool
             'abs_after'           => $win['after'],           // bool
             'abs_window_minutes'  => $win['window_minutes'],  // int (menit)
+            'abs_unlimited'       => $win['unlimited'] ?? false,
         ]);
     }
 
@@ -259,14 +256,6 @@ class AbsensiController extends Controller
 
         if (!$diundang) {
             return redirect()->route('home')->with('error', 'Anda tidak terdaftar pada rapat ini.');
-        }
-
-        // >>> BATAS WAKTU ABSENSI
-        $win = $this->getAbsensiWindow($rapat);
-        if (!$win['open']) {
-            $mulai = $win['start']->isoFormat('D MMM Y HH:mm');
-            $akhir = $win['end']->isoFormat('D MMM Y HH:mm');
-            return back()->with('error', "Absensi hanya dibuka pada rentang {$mulai} s/d {$akhir}.");
         }
 
         // === VALIDASI SIGNATURE ===
@@ -799,6 +788,20 @@ public function exportPdf(Request $request, $id_rapat)
         $token = env('FONNTE_TOKEN');
         if (!$token) return false;
 
+        $prefix = '*[SMART NOTIF]*';
+        $suffix = '*- SMART PTA Papua Barat*';
+        $body = trim((string) $message);
+        if ($body === '') {
+            $body = $prefix . "\n\n" . $suffix;
+        } else {
+            if (strpos(ltrim($body), $prefix) !== 0) {
+                $body = $prefix . "\n" . $body;
+            }
+            if (substr(rtrim($body), -strlen($suffix)) !== $suffix) {
+                $body = rtrim($body) . "\n\n" . $suffix;
+            }
+        }
+
         $ch = curl_init();
         curl_setopt_array($ch, [
             CURLOPT_URL            => 'https://api.fonnte.com/send',
@@ -807,7 +810,7 @@ public function exportPdf(Request $request, $id_rapat)
             CURLOPT_HTTPHEADER     => ["Authorization: {$token}"],
             CURLOPT_POSTFIELDS     => [
                 'target'  => $phone,
-                'message' => $message,
+                'message' => $body,
             ],
             CURLOPT_TIMEOUT        => 10,
             CURLOPT_CONNECTTIMEOUT => 5,
@@ -832,13 +835,15 @@ public function exportPdf(Request $request, $id_rapat)
         $sender = env('FONNTE_SENDER', 'Sistem Rapat');
 
         $msg = "*{$sender}*\n"
-             . "Hai *{$user->name}*, terima kasih sudah mengisi absensi.\n\n"
+             . "Yth. Bapak/Ibu *{$user->name}*,\n"
+             . "terima kasih telah melakukan absensi kehadiran pada rapat berikut:\n\n"
              . "*Rapat*   : {$rapat->judul}\n"
              . "*Tanggal* : {$tgl}\n"
              . "*Waktu*   : {$rapat->waktu_mulai} WIT\n"
              . "*Tempat*  : {$rapat->tempat}\n"
              . "*Status*  : *".strtoupper($status)."*\n\n"
-             . "_Pesan otomatis dari sistem._";
+             . "Hormat kami,\n"
+             . "_Sistem Rapat_";
 
         try {
             $this->sendWaFonnte($msisdn, $msg);
@@ -858,13 +863,14 @@ public function exportPdf(Request $request, $id_rapat)
         $sender = env('FONNTE_SENDER', 'Sistem Rapat');
 
         $msg = "*{$sender}*\n"
-             . "Terima kasih *{$nama}* sudah melakukan absensi.\n\n"
+             . "Yth. *{$nama}*,\n"
+             . "terima kasih telah melakukan absensi kehadiran pada rapat berikut:\n\n"
              . "*Rapat*   : {$rapat->judul}\n"
              . "*Tanggal* : {$tgl}\n"
              . "*Waktu*   : {$rapat->waktu_mulai} WIT\n"
              . "*Tempat*  : {$rapat->tempat}\n"
              . "*Status*  : *".strtoupper($status)."*\n\n"
-             . "_Pesan otomatis dari sistem._";
+             . "Hormat kami,\n";
         try {
             $this->sendWaFonnte($msisdn, $msg);
         } catch (\Throwable $e) {
@@ -927,17 +933,17 @@ public function exportPdf(Request $request, $id_rapat)
 
             // Pesan formal
             $msg =
-                "Assalamu’alaikum Wr. Wb.\n\n".
-                "*{$sender}*\n\n".
-                "Yth. *{$t->name}*,\n".
-                "Rapat berikut telah dimulai. Mohon kesediaannya untuk melakukan *absensi* melalui tautan di bawah ini:\n\n".
-                "📄 *{$rapat->judul}*\n".
-                "🗓️ {$tgl}\n".
-                "⏰ {$jam} WIT\n".
-                "📍 {$tempat}\n\n".
+                "Assalamu'alaikum Wr. Wb.\n\n".
+                "Yth. Bapak/Ibu *{$t->name}*,\n".
+                "Dengan hormat, kami informasikan bahwa rapat berikut telah dimulai. Mohon kesediaannya untuk melakukan *absensi* melalui tautan di bawah ini:\n\n".
+                "*Rapat*   : {$rapat->judul}\n".
+                "*Tanggal* : {$tgl}\n".
+                "*Waktu*   : {$jam} WIT\n".
+                "*Tempat*  : {$tempat}\n\n".
                 "Tautan absensi:\n{$absensiUrl}\n\n".
-                "Terima kasih.\n".
-                "Wassalamu’alaikum Wr. Wb.";
+                "Atas perhatian dan kehadirannya, kami ucapkan terima kasih.\n".
+                "Wassalamu'alaikum Wr. Wb.";
+
 
             try {
                 if ($this->sendWaFonnte($msisdn, $msg)) $sent++; else $skipped++;
@@ -953,3 +959,4 @@ public function exportPdf(Request $request, $id_rapat)
     }
 
 }
+
