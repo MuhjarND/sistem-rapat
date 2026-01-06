@@ -14,8 +14,10 @@
   .alert-warning{background:rgba(245,158,11,.15);color:#f59e0b;border:1px solid rgba(245,158,11,.3)}
 
   /* Preview panel */
-  .preview-wrap{height:72vh; border-radius:12px; overflow:hidden; border:1px solid var(--border); background:rgba(255,255,255,.02); position:relative}
+  .preview-wrap{height:72vh; border-radius:12px; overflow:auto; border:1px solid var(--border); background:rgba(255,255,255,.02); position:relative}
   .preview-iframe{width:100%; height:100%; border:0}
+  .preview-pages{padding:10px; display:flex; flex-direction:column; gap:12px}
+  .preview-page{background:#fff; border-radius:10px; box-shadow:0 8px 18px rgba(0,0,0,.18); overflow:hidden}
   .preview-canvas{width:100%; height:auto; display:block}
   .preview-loading{
     position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
@@ -88,7 +90,7 @@
       @if(!empty($previewUrl))
         <div class="preview-wrap" id="pdfPreviewWrap">
           <div class="preview-loading" id="pdfPreviewLoading">Memuat preview...</div>
-          <canvas id="pdfPreviewCanvas" class="preview-canvas"></canvas>
+          <div id="pdfPreviewPages" class="preview-pages"></div>
           <iframe id="pdfPreviewIframe" class="preview-iframe d-none" src="{{ $previewUrl }}"></iframe>
         </div>
       @else
@@ -138,14 +140,18 @@
   (function(){
     var previewUrl = @json($previewUrl);
     var wrap = document.getElementById('pdfPreviewWrap');
-    var canvas = document.getElementById('pdfPreviewCanvas');
+    var pagesEl = document.getElementById('pdfPreviewPages');
     var loading = document.getElementById('pdfPreviewLoading');
     var iframe = document.getElementById('pdfPreviewIframe');
-    if (!previewUrl || !wrap || !canvas) return;
+    if (!previewUrl || !wrap || !pagesEl) return;
 
     function showIframeFallback(msg){
       if (loading) loading.textContent = msg || 'Preview tidak tersedia. Silakan buka di tab baru.';
       if (iframe) iframe.classList.remove('d-none');
+    }
+
+    function clearPages(){
+      while (pagesEl.firstChild) pagesEl.removeChild(pagesEl.firstChild);
     }
 
     function renderPdf(){
@@ -153,19 +159,37 @@
       window.pdfjsLib.GlobalWorkerOptions.workerSrc =
         'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-      var ctx = canvas.getContext('2d');
+      clearPages();
+      if (loading) loading.style.display = 'flex';
+
       window.pdfjsLib.getDocument({ url: previewUrl, withCredentials: true }).promise
-        .then(function(pdf){ return pdf.getPage(1); })
-        .then(function(page){
-          var viewport = page.getViewport({ scale: 1 });
-          var targetWidth = Math.max(320, wrap.clientWidth || 600);
-          var scale = targetWidth / viewport.width;
-          var scaled = page.getViewport({ scale: scale });
-          canvas.width = Math.floor(scaled.width);
-          canvas.height = Math.floor(scaled.height);
-          return page.render({ canvasContext: ctx, viewport: scaled }).promise;
-        })
-        .then(function(){
+        .then(async function(pdf){
+          var targetWidth = Math.max(320, (wrap.clientWidth || 600) - 20);
+          var dpr = window.devicePixelRatio || 1;
+
+          for (var pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+            var page = await pdf.getPage(pageNum);
+            var viewport = page.getViewport({ scale: 1 });
+            var scale = targetWidth / viewport.width;
+            var renderViewport = page.getViewport({ scale: scale * dpr });
+
+            var pageWrap = document.createElement('div');
+            pageWrap.className = 'preview-page';
+
+            var canvas = document.createElement('canvas');
+            canvas.className = 'preview-canvas';
+            canvas.width = Math.floor(renderViewport.width);
+            canvas.height = Math.floor(renderViewport.height);
+            canvas.style.width = Math.floor(renderViewport.width / dpr) + 'px';
+            canvas.style.height = Math.floor(renderViewport.height / dpr) + 'px';
+
+            pageWrap.appendChild(canvas);
+            pagesEl.appendChild(pageWrap);
+
+            var ctx = canvas.getContext('2d');
+            await page.render({ canvasContext: ctx, viewport: renderViewport }).promise;
+          }
+
           if (loading) loading.style.display = 'none';
         })
         .catch(function(){
