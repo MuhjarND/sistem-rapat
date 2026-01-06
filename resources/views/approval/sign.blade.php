@@ -14,8 +14,13 @@
   .alert-warning{background:rgba(245,158,11,.15);color:#f59e0b;border:1px solid rgba(245,158,11,.3)}
 
   /* Preview panel */
-  .preview-wrap{height:72vh; border-radius:12px; overflow:hidden; border:1px solid var(--border); background:rgba(255,255,255,.02)}
+  .preview-wrap{height:72vh; border-radius:12px; overflow:hidden; border:1px solid var(--border); background:rgba(255,255,255,.02); position:relative}
   .preview-iframe{width:100%; height:100%; border:0}
+  .preview-canvas{width:100%; height:auto; display:block}
+  .preview-loading{
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    color:var(--muted); font-weight:600; background:rgba(0,0,0,.12);
+  }
 
   /* Aksi approval */
   .act-card{background:linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));border:1px solid var(--border);border-radius:12px}
@@ -81,8 +86,10 @@
     </div>
     <div class="p-2">
       @if(!empty($previewUrl))
-        <div class="preview-wrap">
-          <iframe class="preview-iframe" src="{{ $previewUrl }}"></iframe>
+        <div class="preview-wrap" id="pdfPreviewWrap">
+          <div class="preview-loading" id="pdfPreviewLoading">Memuat preview...</div>
+          <canvas id="pdfPreviewCanvas" class="preview-canvas"></canvas>
+          <iframe id="pdfPreviewIframe" class="preview-iframe d-none" src="{{ $previewUrl }}"></iframe>
         </div>
       @else
         <div class="text-muted p-3">
@@ -124,6 +131,57 @@
     </div>
   </form>
 </div>
+
+@if(!empty($previewUrl))
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script>
+  (function(){
+    var previewUrl = @json($previewUrl);
+    var wrap = document.getElementById('pdfPreviewWrap');
+    var canvas = document.getElementById('pdfPreviewCanvas');
+    var loading = document.getElementById('pdfPreviewLoading');
+    var iframe = document.getElementById('pdfPreviewIframe');
+    if (!previewUrl || !wrap || !canvas) return;
+
+    function showIframeFallback(msg){
+      if (loading) loading.textContent = msg || 'Preview tidak tersedia. Silakan buka di tab baru.';
+      if (iframe) iframe.classList.remove('d-none');
+    }
+
+    function renderPdf(){
+      if (!window.pdfjsLib) { showIframeFallback(); return; }
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+        'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+      var ctx = canvas.getContext('2d');
+      window.pdfjsLib.getDocument({ url: previewUrl, withCredentials: true }).promise
+        .then(function(pdf){ return pdf.getPage(1); })
+        .then(function(page){
+          var viewport = page.getViewport({ scale: 1 });
+          var targetWidth = Math.max(320, wrap.clientWidth || 600);
+          var scale = targetWidth / viewport.width;
+          var scaled = page.getViewport({ scale: scale });
+          canvas.width = Math.floor(scaled.width);
+          canvas.height = Math.floor(scaled.height);
+          return page.render({ canvasContext: ctx, viewport: scaled }).promise;
+        })
+        .then(function(){
+          if (loading) loading.style.display = 'none';
+        })
+        .catch(function(){
+          showIframeFallback();
+        });
+    }
+
+    var resizeTimer;
+    window.addEventListener('resize', function(){
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(renderPdf, 180);
+    });
+    renderPdf();
+  })();
+  </script>
+@endif
 
 <script>
 document.addEventListener('DOMContentLoaded', function(){

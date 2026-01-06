@@ -33,7 +33,7 @@
             </div>
             <input type="email" id="email" name="email"
                    class="form-control @error('email') is-invalid @enderror"
-                   placeholder="nama@domain.com"
+                   placeholder="nama@pta-papuabarat.go.id"
                    value="{{ old('email') }}" required autofocus>
             @error('email')
                 <div class="invalid-feedback d-block">{{ $message }}</div>

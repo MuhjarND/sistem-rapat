@@ -588,7 +588,7 @@ public function exportPdf(Request $request, $id_rapat)
             DB::raw("'user' as tipe"),
             'users.id as user_id',
             'users.name as nama',
-            'users.jabatan',
+            DB::raw('COALESCE(users.jabatan_keterangan, users.jabatan) as jabatan'),
             // pastikan ambil kolom unit (atau bagian yang sudah dipetakan sebelumnya)
             'users.unit',
             'absensi.status',
