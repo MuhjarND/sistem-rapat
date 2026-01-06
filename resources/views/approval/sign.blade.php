@@ -16,8 +16,8 @@
   /* Preview panel */
   .preview-wrap{height:72vh; border-radius:12px; overflow:auto; border:1px solid var(--border); background:rgba(255,255,255,.02); position:relative}
   .preview-iframe{width:100%; height:100%; border:0}
-  .preview-pages{padding:10px; display:flex; flex-direction:column; gap:12px}
-  .preview-page{background:#fff; border-radius:10px; box-shadow:0 8px 18px rgba(0,0,0,.18); overflow:hidden}
+  .preview-pages{padding:10px; display:flex; flex-direction:column; gap:12px; align-items:center}
+  .preview-page{background:#fff; border-radius:10px; box-shadow:0 8px 18px rgba(0,0,0,.18); overflow:hidden; width:100%}
   .preview-canvas{width:100%; height:auto; display:block}
   .preview-loading{
     position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
@@ -154,11 +154,14 @@
       while (pagesEl.firstChild) pagesEl.removeChild(pagesEl.firstChild);
     }
 
+    var renderToken = 0;
     function renderPdf(){
       if (!window.pdfjsLib) { showIframeFallback(); return; }
       window.pdfjsLib.GlobalWorkerOptions.workerSrc =
         'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
+      renderToken += 1;
+      var token = renderToken;
       clearPages();
       if (loading) loading.style.display = 'flex';
 
@@ -168,6 +171,7 @@
           var dpr = window.devicePixelRatio || 1;
 
           for (var pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+            if (token !== renderToken) return;
             var page = await pdf.getPage(pageNum);
             var viewport = page.getViewport({ scale: 1 });
             var scale = targetWidth / viewport.width;
@@ -175,6 +179,7 @@
 
             var pageWrap = document.createElement('div');
             pageWrap.className = 'preview-page';
+            pageWrap.style.maxWidth = targetWidth + 'px';
 
             var canvas = document.createElement('canvas');
             canvas.className = 'preview-canvas';
@@ -190,6 +195,7 @@
             await page.render({ canvasContext: ctx, viewport: renderViewport }).promise;
           }
 
+          if (token !== renderToken) return;
           if (loading) loading.style.display = 'none';
         })
         .catch(function(){
