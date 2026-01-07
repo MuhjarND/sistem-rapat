@@ -22,15 +22,23 @@
                 </div>
                 <div class="form-group">
                     <label>Kategori Rapat</label>
-                    <select name="id_kategori" class="form-control" required>
+                    <select name="id_kategori" class="form-control js-kategori-select" data-pakaian-wrap="jenisPakaianWrap-edit" required>
                         <option value="">-- Pilih Kategori --</option>
                         @foreach($daftar_kategori as $kategori)
                             <option value="{{ $kategori->id }}"
+                                data-nama="{{ $kategori->nama }}"
                                 {{ old('id_kategori', $rapat->id_kategori ?? '') == $kategori->id ? 'selected' : '' }}>
                                 {{ $kategori->nama }}
                             </option>
                         @endforeach
                     </select>
+                </div>
+                <div class="form-group" id="jenisPakaianWrap-edit" style="display:none;">
+                    <label>Jenis Pakaian</label>
+                    <input type="text" name="jenis_pakaian" class="form-control"
+                           placeholder="Contoh: Seragam PDH, Batik, Pakaian Dinas"
+                           value="{{ old('jenis_pakaian', $rapat->jenis_pakaian ?? '') }}">
+                    <small class="form-text text-muted">Diisi untuk kategori Penandatanganan Pakta Integritas dan Komitmen Bersama.</small>
                 </div>
                 <div class="form-row">
                     <div class="form-group col-md-6">
@@ -77,3 +85,33 @@
     </div>
 </div>
 @endsection
+
+@push('scripts')
+<script>
+(function(){
+  var target = 'penandatanganan pakta integritas dan komitmen bersama';
+  document.querySelectorAll('select.js-kategori-select').forEach(function(sel){
+    var wrapId = sel.getAttribute('data-pakaian-wrap');
+    var wrap = wrapId ? document.getElementById(wrapId) : null;
+    if (!wrap) return;
+    var input = wrap.querySelector('input[name="jenis_pakaian"]');
+    function getSelectedName(){
+      var opt = sel.options[sel.selectedIndex];
+      if (!opt) return '';
+      return (opt.getAttribute('data-nama') || opt.textContent || '').toString();
+    }
+    function sync(){
+      var name = getSelectedName().trim().toLowerCase();
+      var show = name === target;
+      wrap.style.display = show ? '' : 'none';
+      if (input) {
+        if (show) input.setAttribute('required','required');
+        else input.removeAttribute('required');
+      }
+    }
+    sel.addEventListener('change', sync);
+    sync();
+  });
+})();
+</script>
+@endpush

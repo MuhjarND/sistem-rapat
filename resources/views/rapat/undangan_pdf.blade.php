@@ -7,6 +7,8 @@
     if (!isset($tampilkan_daftar_di_surat)) {
         $tampilkan_daftar_di_surat = !$tampilkan_lampiran;
     }
+    $kategoriNama = strtolower(trim((string) ($rapat->nama_kategori ?? $rapat->kategori_nama ?? $rapat->kategori ?? '')));
+    $isPakta = $kategoriNama === strtolower('Penandatanganan Pakta Integritas dan Komitmen Bersama');
 @endphp
 
 <!DOCTYPE html>
@@ -119,6 +121,13 @@
             <td>:</td>
             <td>{{ $rapat->deskripsi ?? $rapat->judul }}</td>
         </tr>
+        @if($isPakta)
+        <tr>
+            <td>Pakaian</td>
+            <td>:</td>
+            <td>{{ $rapat->jenis_pakaian ?: '-' }}</td>
+        </tr>
+        @endif
     </table>
 
     <p style="text-indent:24px;">

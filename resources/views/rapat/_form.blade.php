@@ -33,6 +33,7 @@
   $missingSelected = array_values(array_filter($selectedIds, function($sid) use ($masterSet){ return !isset($masterSet[$sid]); }));
 
   $wrapperId = $pesertaWrapperId ?? 'peserta-wrapper';
+  $pakaianWrapId = $isEdit ? ('jenisPakaianWrap-'.$rapat->id) : 'jenisPakaianWrap-new';
 @endphp
 
 @push('styles')
@@ -181,13 +182,28 @@
 
 <div class="form-group">
   <label>Kategori</label>
-  <select name="id_kategori" class="form-control" required
+  <select name="id_kategori" class="form-control js-kategori-select" required
+          data-pakaian-wrap="{{ $pakaianWrapId }}"
           @isset($dropdownParentId) data-dropdown-parent="{{ $dropdownParentId }}" @endisset>
     <option value="">-- Pilih Kategori --</option>
     @foreach($daftar_kategori as $kategori)
-      <option value="{{ $kategori->id }}" {{ old('id_kategori', $rapat->id_kategori ?? '') == $kategori->id ? 'selected' : '' }}>{{ $kategori->nama }}</option>
+      <option value="{{ $kategori->id }}"
+              data-nama="{{ $kategori->nama }}"
+              {{ old('id_kategori', $rapat->id_kategori ?? '') == $kategori->id ? 'selected' : '' }}>
+        {{ $kategori->nama }}
+      </option>
     @endforeach
   </select>
+</div>
+
+<div class="form-group" id="{{ $pakaianWrapId }}" style="display:none;">
+  <label>Jenis Pakaian</label>
+  <input type="text"
+         name="jenis_pakaian"
+         class="form-control"
+         placeholder="Contoh: Seragam PDH, Batik, Pakaian Dinas"
+         value="{{ old('jenis_pakaian', $rapat->jenis_pakaian ?? '') }}">
+  <small class="form-text text-muted">Diisi untuk kategori Penandatanganan Pakta Integritas dan Komitmen Bersama.</small>
 </div>
 
 <div class="form-row">
@@ -475,4 +491,32 @@
   })();
   </script>
 @endif
+  <script>
+  (function(){
+    var target = 'penandatanganan pakta integritas dan komitmen bersama';
+    document.querySelectorAll('select.js-kategori-select').forEach(function(sel){
+      var wrapId = sel.getAttribute('data-pakaian-wrap');
+      var wrap = wrapId ? document.getElementById(wrapId) : null;
+      if (!wrap) return;
+      var input = wrap.querySelector('input[name="jenis_pakaian"]');
+
+      function getSelectedName(){
+        var opt = sel.options[sel.selectedIndex];
+        if (!opt) return '';
+        return (opt.getAttribute('data-nama') || opt.textContent || '').toString();
+      }
+      function sync(){
+        var name = getSelectedName().trim().toLowerCase();
+        var show = name === target;
+        wrap.style.display = show ? '' : 'none';
+        if (input) {
+          if (show) input.setAttribute('required','required');
+          else input.removeAttribute('required');
+        }
+      }
+      sel.addEventListener('change', sync);
+      sync();
+    });
+  })();
+  </script>
 @endpush

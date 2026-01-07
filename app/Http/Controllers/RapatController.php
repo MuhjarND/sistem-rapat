@@ -386,6 +386,11 @@ class RapatController extends Controller
     {
         $pesertaRule = $request->boolean('pilih_semua') ? 'nullable|array' : 'required|array|min:1';
 
+        $kategoriNama = $request->filled('id_kategori')
+            ? DB::table('kategori_rapat')->where('id', $request->id_kategori)->value('nama')
+            : null;
+        $isPakta = strtolower(trim((string) $kategoriNama)) === strtolower('Penandatanganan Pakta Integritas dan Komitmen Bersama');
+
         $request->validate([
             'nomor_undangan'    => 'required|unique:rapat,nomor_undangan',
             'judul'             => 'required',
@@ -393,6 +398,7 @@ class RapatController extends Controller
             'tanggal'           => 'required|date',
             'waktu_mulai'       => 'required',
             'tempat'            => 'required',
+            'jenis_pakaian'     => [$isPakta ? 'required' : 'nullable', 'string', 'max:120'],
             'approval1_user_id' => 'required|exists:users,id',
             'approval1_jabatan_manual' => 'nullable|string|max:150',
             'approval2_user_id' => 'nullable|exists:users,id',
@@ -418,6 +424,7 @@ class RapatController extends Controller
             'tanggal'           => $request->tanggal,
             'waktu_mulai'       => $request->waktu_mulai,
             'tempat'            => $request->tempat,
+            'jenis_pakaian'     => Schema::hasColumn('rapat', 'jenis_pakaian') ? ($request->jenis_pakaian ?: null) : null,
             'dibuat_oleh'       => Auth::id(),
             'id_kategori'       => $request->id_kategori,
             'approval1_user_id' => $request->approval1_user_id,
@@ -475,6 +482,11 @@ class RapatController extends Controller
     {
         $pesertaRule = $request->boolean('pilih_semua') ? 'nullable|array' : 'required|array|min:1';
 
+        $kategoriNama = $request->filled('id_kategori')
+            ? DB::table('kategori_rapat')->where('id', $request->id_kategori)->value('nama')
+            : null;
+        $isPakta = strtolower(trim((string) $kategoriNama)) === strtolower('Penandatanganan Pakta Integritas dan Komitmen Bersama');
+
         $request->validate([
             'nomor_undangan'    => 'required|unique:rapat,nomor_undangan',
             'judul'             => 'required',
@@ -482,6 +494,7 @@ class RapatController extends Controller
             'tanggal'           => 'required|date',
             'waktu_mulai'       => 'required',
             'tempat'            => 'required',
+            'jenis_pakaian'     => [$isPakta ? 'required' : 'nullable', 'string', 'max:120'],
             'approval1_user_id' => 'required|exists:users,id',
             'approval1_jabatan_manual' => 'nullable|string|max:150',
             'approval2_user_id' => 'nullable|exists:users,id',
@@ -509,6 +522,7 @@ class RapatController extends Controller
             'tanggal'           => $request->tanggal,
             'waktu_mulai'       => $request->waktu_mulai,
             'tempat'            => $request->tempat,
+            'jenis_pakaian'     => Schema::hasColumn('rapat', 'jenis_pakaian') ? ($request->jenis_pakaian ?: null) : null,
             'dibuat_oleh'       => Auth::id(),
             'id_kategori'       => $request->id_kategori,
             'approval1_user_id' => $request->approval1_user_id,
@@ -743,6 +757,11 @@ class RapatController extends Controller
         if (!$rapat) abort(404);
         $isEnqueued = !empty($rapat->approval_enqueued_at);
 
+        $kategoriNama = $request->filled('id_kategori')
+            ? DB::table('kategori_rapat')->where('id', $request->id_kategori)->value('nama')
+            : null;
+        $isPakta = strtolower(trim((string) $kategoriNama)) === strtolower('Penandatanganan Pakta Integritas dan Komitmen Bersama');
+
         $request->validate([
             'nomor_undangan'    => 'required|unique:rapat,nomor_undangan,' . $id,
             'judul'             => 'required',
@@ -750,6 +769,7 @@ class RapatController extends Controller
             'tanggal'           => 'required|date',
             'waktu_mulai'       => 'required',
             'tempat'            => 'required',
+            'jenis_pakaian'     => [$isPakta ? 'required' : 'nullable', 'string', 'max:120'],
             'approval1_user_id' => 'required|exists:users,id',
             'approval1_jabatan_manual' => 'nullable|string|max:150',
             'approval2_user_id' => 'nullable|exists:users,id',
@@ -777,6 +797,7 @@ class RapatController extends Controller
                 'tanggal'           => $request->tanggal,
                 'waktu_mulai'       => $request->waktu_mulai,
                 'tempat'            => $request->tempat,
+                'jenis_pakaian'     => Schema::hasColumn('rapat', 'jenis_pakaian') ? ($request->jenis_pakaian ?: null) : null,
                 'id_kategori'       => $request->id_kategori,
                 'approval1_user_id' => $request->approval1_user_id,
                 'approval1_jabatan_manual' => $request->approval1_jabatan_manual ?: null,
