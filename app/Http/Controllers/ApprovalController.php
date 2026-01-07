@@ -1018,7 +1018,7 @@ public function signSubmit(Request $request, $token)
           . "• Nomor: *{$nomor}*\n"
           . "• Judul: *{$judul}*\n"
           . "• Hari/Tanggal: *{$tanggal}*\n"
-          . "• Waktu: *{$waktu} WIB*\n"
+          . "• Waktu: *{$waktu} WIT*\n"
           . "• Tempat: *{$tempat}*\n\n"
           . "Silakan meninjau detail rapat melalui tautan berikut:\n"
           . ($previewLink ? "🔗 *Preview Rapat:* {$previewLink}\n" : "")

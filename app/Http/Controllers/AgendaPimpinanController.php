@@ -101,7 +101,7 @@ class AgendaPimpinanController extends Controller
                 . "* Nomor Naskah Dinas: {$nomorNaskah}\n"
                 . "* Kegiatan: {$request->judul}\n"
                 . "* Hari/Tanggal: {$tglFormatted}\n"
-                . "* Waktu: {$request->waktu} WIB\n"
+                . "* Waktu: {$request->waktu} WIT\n"
                 . "* Tempat: {$request->tempat}\n"
                 . "* Pakaian: {$seragam}\n\n"
                 . "Silakan meninjau detail kegiatan melalui tautan berikut:\n"
