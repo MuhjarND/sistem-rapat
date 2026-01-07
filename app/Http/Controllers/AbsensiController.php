@@ -811,6 +811,7 @@ public function exportPdf(Request $request, $id_rapat)
             CURLOPT_POSTFIELDS     => [
                 'target'  => $phone,
                 'message' => $body,
+                'link_preview' => 0,
             ],
             CURLOPT_TIMEOUT        => 10,
             CURLOPT_CONNECTTIMEOUT => 5,

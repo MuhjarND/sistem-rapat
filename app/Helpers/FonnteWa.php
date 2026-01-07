@@ -30,6 +30,7 @@ class FonnteWa
         ])->post($endpoint, [
             'target' => $to, // Format: 6281234567890
             'message' => $body,
+            'link_preview' => 0,
         ]);
 
         Log::info('Fonnte WA: '.$response->body());
