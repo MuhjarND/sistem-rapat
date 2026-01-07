@@ -43,7 +43,7 @@ class RapatController extends Controller
         $q->select($select);
 
         if (Schema::hasColumn('users', 'role')) {
-            $q->whereNotIn('role', ['admin', 'superadmin', 'operator']);
+            $q->whereNotIn('role', ['admin', 'superadmin']);
         }
         if (Schema::hasColumn('users', 'is_active')) {
             $q->where('is_active', 1);
@@ -401,7 +401,7 @@ class RapatController extends Controller
                 'integer',
                 Rule::exists('users','id')->where(function ($q) {
                     if (Schema::hasColumn('users','role')) {
-                        $q->whereNotIn('role', ['admin','superadmin','operator']);
+                        $q->whereNotIn('role', ['admin','superadmin']);
                     }
                     if (Schema::hasColumn('users','is_active')) {
                         $q->where('is_active', 1);
@@ -435,7 +435,7 @@ class RapatController extends Controller
             $pesertaIds = array_unique(array_map('intval', $request->peserta ?: []));
             $allowedIds = DB::table('users')
                 ->when(Schema::hasColumn('users','role'), function($q){
-                    $q->whereNotIn('role',['admin','superadmin','operator']);
+                    $q->whereNotIn('role',['admin','superadmin']);
                 })
                 ->whereIn('id', $pesertaIds)
                 ->pluck('id')->all();
@@ -492,7 +492,7 @@ class RapatController extends Controller
                 'integer',
                 Rule::exists('users','id')->where(function ($q) {
                     if (Schema::hasColumn('users','role')) {
-                        $q->whereNotIn('role', ['admin','superadmin','operator']);
+                        $q->whereNotIn('role', ['admin','superadmin']);
                     }
                     if (Schema::hasColumn('users','is_active')) {
                         $q->where('is_active', 1);
@@ -529,7 +529,7 @@ class RapatController extends Controller
             $pesertaIds = array_unique(array_map('intval', $request->peserta ?: []));
             $allowedIds = DB::table('users')
                 ->when(Schema::hasColumn('users','role'), function($q){
-                    $q->whereNotIn('role',['admin','superadmin','operator']);
+                    $q->whereNotIn('role',['admin','superadmin']);
                 })
                 ->whereIn('id', $pesertaIds)
                 ->pluck('id')->all();
@@ -666,7 +666,7 @@ class RapatController extends Controller
         // === Semua user non-admin untuk daftar peserta GÃ‡Ã¶ termasuk jabatan, unit, dan bidang
         $q = DB::table('users');
         if (Schema::hasColumn('users','role')) {
-            $q->whereNotIn('role', ['admin','superadmin','operator']);
+            $q->whereNotIn('role', ['admin','superadmin']);
         }
         $select = ['id','name','hirarki'];
         if (Schema::hasColumn('users','jabatan')) $select[] = 'jabatan';
@@ -758,7 +758,7 @@ class RapatController extends Controller
                 'integer',
                 Rule::exists('users','id')->where(function ($q) {
                     if (Schema::hasColumn('users','role')) {
-                        $q->whereNotIn('role', ['admin','superadmin','operator']);
+                        $q->whereNotIn('role', ['admin','superadmin']);
                     }
                     if (Schema::hasColumn('users','is_active')) {
                         $q->where('is_active', 1);
@@ -793,7 +793,7 @@ class RapatController extends Controller
                 $pesertaIds = array_unique(array_map('intval', $request->peserta ?: []));
                 $allowedIds = DB::table('users')
                     ->when(Schema::hasColumn('users','role'), function($q){
-                        $q->whereNotIn('role',['admin','superadmin','operator']);
+                        $q->whereNotIn('role',['admin','superadmin']);
                     })
                     ->whereIn('id', $pesertaIds)
                     ->pluck('id')->all();
