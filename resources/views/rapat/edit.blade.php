@@ -33,6 +33,19 @@
                         @endforeach
                     </select>
                 </div>
+                <div class="form-group">
+                    <div class="form-check">
+                        <input class="form-check-input js-virtual-check" type="checkbox" name="is_virtual" id="virtual-check-edit" value="1"
+                               data-virtual-wrap="linkZoomWrap-edit" {{ old('is_virtual', $rapat->is_virtual ?? false) ? 'checked' : '' }}>
+                        <label class="form-check-label" for="virtual-check-edit">Virtual</label>
+                    </div>
+                </div>
+                <div class="form-group" id="linkZoomWrap-edit" style="display:none;">
+                    <label>Link Zoom Meeting</label>
+                    <input type="text" name="link_zoom" class="form-control"
+                           placeholder="https://zoom.us/j/..."
+                           value="{{ old('link_zoom', $rapat->link_zoom ?? '') }}">
+                </div>
                 <div class="form-group" id="jenisPakaianWrap-edit" style="display:none;">
                     <label>Jenis Pakaian</label>
                     <input type="text" name="jenis_pakaian" class="form-control"
@@ -110,6 +123,26 @@
       }
     }
     sel.addEventListener('change', sync);
+    sync();
+  });
+})();
+</script>
+<script>
+(function(){
+  document.querySelectorAll('.js-virtual-check').forEach(function(cb){
+    var wrapId = cb.getAttribute('data-virtual-wrap');
+    var wrap = wrapId ? document.getElementById(wrapId) : null;
+    if (!wrap) return;
+    var input = wrap.querySelector('input[name="link_zoom"]');
+    function sync(){
+      var show = cb.checked;
+      wrap.style.display = show ? '' : 'none';
+      if (input) {
+        if (show) input.setAttribute('required','required');
+        else input.removeAttribute('required');
+      }
+    }
+    cb.addEventListener('change', sync);
     sync();
   });
 })();

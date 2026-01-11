@@ -989,6 +989,8 @@ public function signSubmit(Request $request, $token)
         $tanggal = $rapat->tanggal ? \Carbon\Carbon::parse($rapat->tanggal)->translatedFormat('l, d F Y') : '-';
         $waktu   = $rapat->waktu_mulai ?? '-';
         $tempat  = $rapat->tempat ?? '-';
+        $isVirtual = !empty($rapat->is_virtual);
+        $linkZoom  = $isVirtual ? trim((string) ($rapat->link_zoom ?? '')) : '';
 
         // ===== Link PDF dan Preview Peserta =====
         $pdfLink = null;
@@ -1019,7 +1021,9 @@ public function signSubmit(Request $request, $token)
           . "• Judul: *{$judul}*\n"
           . "• Hari/Tanggal: *{$tanggal}*\n"
           . "• Waktu: *{$waktu} WIT*\n"
-          . "• Tempat: *{$tempat}*\n\n"
+          . "• Tempat: *{$tempat}*\n"
+          . ($linkZoom !== '' ? "- Link Zoom: {$linkZoom}\n" : "")
+          . "\n"
           . "Silakan meninjau detail rapat melalui tautan berikut:\n"
           . ($previewLink ? "🔗 *Preview Rapat:* {$previewLink}\n" : "")
           . ($pdfLink ? "📄 *Undangan (PDF):* {$pdfLink}\n" : "")

@@ -34,6 +34,8 @@
 
   $wrapperId = $pesertaWrapperId ?? 'peserta-wrapper';
   $pakaianWrapId = $isEdit ? ('jenisPakaianWrap-'.$rapat->id) : 'jenisPakaianWrap-new';
+  $virtualWrapId = $isEdit ? ('linkZoomWrap-'.$rapat->id) : 'linkZoomWrap-new';
+  $virtualCheckId = $isEdit ? ('virtual-check-'.$rapat->id) : 'virtual-check-new';
 @endphp
 
 @push('styles')
@@ -194,6 +196,23 @@
       </option>
     @endforeach
   </select>
+</div>
+
+@php $virtualChecked = old('is_virtual', $rapat->is_virtual ?? false); @endphp
+<div class="form-group">
+  <div class="form-check">
+    <input class="form-check-input js-virtual-check" type="checkbox" name="is_virtual" id="{{ $virtualCheckId }}" value="1"
+           data-virtual-wrap="{{ $virtualWrapId }}" {{ $virtualChecked ? 'checked' : '' }}>
+    <label class="form-check-label" for="{{ $virtualCheckId }}">Virtual</label>
+  </div>
+</div>
+<div class="form-group" id="{{ $virtualWrapId }}" style="display:none;">
+  <label>Link Zoom Meeting</label>
+  <input type="text"
+         name="link_zoom"
+         class="form-control"
+         placeholder="https://zoom.us/j/..."
+         value="{{ old('link_zoom', $rapat->link_zoom ?? '') }}">
 </div>
 
 <div class="form-group" id="{{ $pakaianWrapId }}" style="display:none;">
@@ -515,6 +534,26 @@
         }
       }
       sel.addEventListener('change', sync);
+      sync();
+    });
+  })();
+  </script>
+  <script>
+  (function(){
+    document.querySelectorAll('.js-virtual-check').forEach(function(cb){
+      var wrapId = cb.getAttribute('data-virtual-wrap');
+      var wrap = wrapId ? document.getElementById(wrapId) : null;
+      if (!wrap) return;
+      var input = wrap.querySelector('input[name="link_zoom"]');
+      function sync(){
+        var show = cb.checked;
+        wrap.style.display = show ? '' : 'none';
+        if (input) {
+          if (show) input.setAttribute('required','required');
+          else input.removeAttribute('required');
+        }
+      }
+      cb.addEventListener('change', sync);
       sync();
     });
   })();

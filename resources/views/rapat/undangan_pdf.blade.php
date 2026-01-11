@@ -9,6 +9,8 @@
     }
     $kategoriNama = strtolower(trim((string) ($rapat->nama_kategori ?? $rapat->kategori_nama ?? $rapat->kategori ?? '')));
     $isPakta = $kategoriNama === strtolower('Penandatanganan Pakta Integritas dan Komitmen Bersama');
+    $isVirtual = !empty($rapat->is_virtual);
+    $linkZoom = trim((string) ($rapat->link_zoom ?? ''));
 @endphp
 
 <!DOCTYPE html>
@@ -116,6 +118,13 @@
             <td>:</td>
             <td>{{ $rapat->tempat }}</td>
         </tr>
+        @if($isVirtual && $linkZoom !== '')
+        <tr>
+            <td>Link Zoom</td>
+            <td>:</td>
+            <td>{{ $linkZoom }}</td>
+        </tr>
+        @endif
         <tr>
             <td>Agenda</td>
             <td>:</td>

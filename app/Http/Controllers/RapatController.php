@@ -391,6 +391,7 @@ class RapatController extends Controller
             : null;
         $isPakta = strtolower(trim((string) $kategoriNama)) === strtolower('Penandatanganan Pakta Integritas dan Komitmen Bersama');
 
+        $isVirtual = $request->boolean('is_virtual');
         $request->validate([
             'nomor_undangan'    => 'required|unique:rapat,nomor_undangan',
             'judul'             => 'required',
@@ -399,6 +400,8 @@ class RapatController extends Controller
             'waktu_mulai'       => 'required',
             'tempat'            => 'required',
             'jenis_pakaian'     => [$isPakta ? 'required' : 'nullable', 'string', 'max:120'],
+            'is_virtual'        => 'nullable|boolean',
+            'link_zoom'         => [$isVirtual ? 'required' : 'nullable', 'string', 'max:255'],
             'approval1_user_id' => 'required|exists:users,id',
             'approval1_jabatan_manual' => 'nullable|string|max:150',
             'approval2_user_id' => 'nullable|exists:users,id',
@@ -425,6 +428,8 @@ class RapatController extends Controller
             'waktu_mulai'       => $request->waktu_mulai,
             'tempat'            => $request->tempat,
             'jenis_pakaian'     => Schema::hasColumn('rapat', 'jenis_pakaian') ? ($request->jenis_pakaian ?: null) : null,
+            'is_virtual'        => Schema::hasColumn('rapat', 'is_virtual') ? ($isVirtual ? 1 : 0) : null,
+            'link_zoom'         => Schema::hasColumn('rapat', 'link_zoom') ? ($isVirtual ? ($request->link_zoom ?: null) : null) : null,
             'dibuat_oleh'       => Auth::id(),
             'id_kategori'       => $request->id_kategori,
             'approval1_user_id' => $request->approval1_user_id,
@@ -487,6 +492,7 @@ class RapatController extends Controller
             : null;
         $isPakta = strtolower(trim((string) $kategoriNama)) === strtolower('Penandatanganan Pakta Integritas dan Komitmen Bersama');
 
+        $isVirtual = $request->boolean('is_virtual');
         $request->validate([
             'nomor_undangan'    => 'required|unique:rapat,nomor_undangan',
             'judul'             => 'required',
@@ -495,6 +501,8 @@ class RapatController extends Controller
             'waktu_mulai'       => 'required',
             'tempat'            => 'required',
             'jenis_pakaian'     => [$isPakta ? 'required' : 'nullable', 'string', 'max:120'],
+            'is_virtual'        => 'nullable|boolean',
+            'link_zoom'         => [$isVirtual ? 'required' : 'nullable', 'string', 'max:255'],
             'approval1_user_id' => 'required|exists:users,id',
             'approval1_jabatan_manual' => 'nullable|string|max:150',
             'approval2_user_id' => 'nullable|exists:users,id',
@@ -523,6 +531,8 @@ class RapatController extends Controller
             'waktu_mulai'       => $request->waktu_mulai,
             'tempat'            => $request->tempat,
             'jenis_pakaian'     => Schema::hasColumn('rapat', 'jenis_pakaian') ? ($request->jenis_pakaian ?: null) : null,
+            'is_virtual'        => Schema::hasColumn('rapat', 'is_virtual') ? ($isVirtual ? 1 : 0) : null,
+            'link_zoom'         => Schema::hasColumn('rapat', 'link_zoom') ? ($isVirtual ? ($request->link_zoom ?: null) : null) : null,
             'dibuat_oleh'       => Auth::id(),
             'id_kategori'       => $request->id_kategori,
             'approval1_user_id' => $request->approval1_user_id,
@@ -762,6 +772,7 @@ class RapatController extends Controller
             : null;
         $isPakta = strtolower(trim((string) $kategoriNama)) === strtolower('Penandatanganan Pakta Integritas dan Komitmen Bersama');
 
+        $isVirtual = $request->boolean('is_virtual');
         $request->validate([
             'nomor_undangan'    => 'required|unique:rapat,nomor_undangan,' . $id,
             'judul'             => 'required',
@@ -770,6 +781,8 @@ class RapatController extends Controller
             'waktu_mulai'       => 'required',
             'tempat'            => 'required',
             'jenis_pakaian'     => [$isPakta ? 'required' : 'nullable', 'string', 'max:120'],
+            'is_virtual'        => 'nullable|boolean',
+            'link_zoom'         => [$isVirtual ? 'required' : 'nullable', 'string', 'max:255'],
             'approval1_user_id' => 'required|exists:users,id',
             'approval1_jabatan_manual' => 'nullable|string|max:150',
             'approval2_user_id' => 'nullable|exists:users,id',
@@ -798,6 +811,8 @@ class RapatController extends Controller
                 'waktu_mulai'       => $request->waktu_mulai,
                 'tempat'            => $request->tempat,
                 'jenis_pakaian'     => Schema::hasColumn('rapat', 'jenis_pakaian') ? ($request->jenis_pakaian ?: null) : null,
+                'is_virtual'        => Schema::hasColumn('rapat', 'is_virtual') ? ($isVirtual ? 1 : 0) : null,
+                'link_zoom'         => Schema::hasColumn('rapat', 'link_zoom') ? ($isVirtual ? ($request->link_zoom ?: null) : null) : null,
                 'id_kategori'       => $request->id_kategori,
                 'approval1_user_id' => $request->approval1_user_id,
                 'approval1_jabatan_manual' => $request->approval1_jabatan_manual ?: null,
