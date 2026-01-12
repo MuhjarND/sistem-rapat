@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Route as RouteFacade;
 use App\Helpers\FonnteWa;
+use App\Helpers\TimeHelper;
 
 class ApprovalController extends Controller
 {
@@ -987,7 +988,7 @@ public function signSubmit(Request $request, $token)
         $judul   = $rapat->judul ?? '-';
         $nomor   = $rapat->nomor_undangan ?? '-';
         $tanggal = $rapat->tanggal ? \Carbon\Carbon::parse($rapat->tanggal)->translatedFormat('l, d F Y') : '-';
-        $waktu   = $rapat->waktu_mulai ?? '-';
+        $waktu   = TimeHelper::short($rapat->waktu_mulai ?? null);
         $tempat  = $rapat->tempat ?? '-';
         $isVirtual = !empty($rapat->is_virtual);
         $linkZoom  = $isVirtual ? trim((string) ($rapat->link_zoom ?? '')) : '';

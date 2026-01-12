@@ -1,4 +1,4 @@
-{{-- resources/views/approval/sign.blade.php --}}
+﻿{{-- resources/views/approval/sign.blade.php --}}
 @extends('layouts.app')
 @section('title','Approval Dokumen')
 
@@ -55,7 +55,7 @@
         <tbody>
           <tr><td class="info-key">Judul Rapat</td><td>{{ $req->judul }}</td></tr>
           <tr><td class="info-key">Jenis Kegiatan</td><td>{{ $req->nama_kategori ?? '-' }}</td></tr>
-          <tr><td class="info-key">Hari/Tanggal/Jam</td><td>{{ \Carbon\Carbon::parse($req->tanggal)->translatedFormat('l, d F Y') }} {{ $req->waktu_mulai }}</td></tr>
+          <tr><td class="info-key">Hari/Tanggal/Jam</td><td>{{ \Carbon\Carbon::parse($req->tanggal)->translatedFormat('l, d F Y') }} {{ \App\Helpers\TimeHelper::short($req->waktu_mulai) }}</td></tr>
           <tr><td class="info-key">Tempat</td><td>{{ $req->tempat }}</td></tr>
           <tr>
             <td class="info-key">Jenis Dokumen</td>
@@ -238,3 +238,5 @@ document.addEventListener('DOMContentLoaded', function(){
 });
 </script>
 @endsection
+
+

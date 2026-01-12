@@ -15,6 +15,7 @@ use Illuminate\Support\Str;
 
 // Helper Fonnte
 use App\Helpers\FonnteWa;
+use App\Helpers\TimeHelper;
 
 class NotulensiController extends Controller
 {
@@ -107,7 +108,7 @@ class NotulensiController extends Controller
 
         Carbon::setLocale('id');
         $hari_tanggal = Carbon::parse($rapat->tanggal)->isoFormat('dddd, D MMMM Y');
-        $jam = $rapat->waktu_mulai;
+        $jam = TimeHelper::short($rapat->waktu_mulai);
 
         // Select2 pakai AJAX (route('users.search'))
         return view('notulensi.create', compact('rapat','jumlah_peserta','hari_tanggal','jam'));

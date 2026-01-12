@@ -1,4 +1,4 @@
-{{-- resources/views/approval/pending.blade.php --}}
+﻿{{-- resources/views/approval/pending.blade.php --}}
 @extends('layouts.app')
 @section('title','Approval Pending')
 
@@ -92,7 +92,7 @@
         </div>
         <div class="form-group col-md-4">
           <label class="mb-1">Pencarian (Judul/Tempat/No)</label>
-          <input id="fSearch" type="text" class="form-control" placeholder="Ketik untuk mencari…">
+          <input id="fSearch" type="text" class="form-control" placeholder="Ketik untuk mencariâ€¦">
         </div>
         <div class="form-group col-md-3">
           <label class="mb-1">Status</label>
@@ -149,7 +149,7 @@
                   @if($isResub)
                     <span class="badge-chip fix"
                           data-toggle="tooltip"
-                          title="Perbaikan terakhir {{ \Carbon\Carbon::parse($r->last_fix_at)->diffForHumans() }} • {{ $revisedItems }} butir / {{ $revisedDocs }} berkas">
+                          title="Perbaikan terakhir {{ \Carbon\Carbon::parse($r->last_fix_at)->diffForHumans() }} â€¢ {{ $revisedItems }} butir / {{ $revisedDocs }} berkas">
                       Sudah diperbaiki
                     </span>
                   @endif
@@ -160,7 +160,7 @@
                     @if(!empty($r->last_fix_at))
                       <span>Perbaikan {{ \Carbon\Carbon::parse($r->last_fix_at)->diffForHumans() }}</span>
                     @endif
-                    <span class="sep">•</span>
+                    <span class="sep">â€¢</span>
                     <span>Perubahan: <b>{{ $revisedItems }}</b> butir / <b>{{ $revisedDocs }}</b> berkas</span>
                   </div>
                 @endif
@@ -169,7 +169,7 @@
               </td>
               <td class="text-center">
                 {{ \Carbon\Carbon::parse($r->tanggal)->translatedFormat('d F Y') }}<br>
-                <small class="text-muted">{{ $r->waktu_mulai }}</small>
+                <small class="text-muted">{{ \App\Helpers\TimeHelper::short($r->waktu_mulai) }}</small>
               </td>
               <td>{{ $r->tempat }}</td>
               <td class="text-center">Step {{ $r->order_index }}</td>
@@ -221,7 +221,7 @@
         </div>
         <div class="ap-sub mb-1">No: {{ $r->nomor_undangan ?? '-' }}</div>
         <div class="ap-meta mb-1">
-          <span class="chip info">{{ \Carbon\Carbon::parse($r->tanggal)->translatedFormat('d M Y') }} • {{ $r->waktu_mulai }}</span>
+          <span class="chip info">{{ \Carbon\Carbon::parse($r->tanggal)->translatedFormat('d M Y') }} â€¢ {{ \App\Helpers\TimeHelper::short($r->waktu_mulai) }}</span>
           <span class="chip">{{ $r->tempat }}</span>
           <span class="chip">Step {{ $r->order_index }}</span>
           @if($isResub)
@@ -251,7 +251,7 @@
   @if(method_exists($rows, 'links'))
     <div class="mt-3 d-flex justify-content-between align-items-center flex-wrap">
       <div class="text-muted mb-2">
-        Menampilkan <b>{{ $rows->firstItem() ?? 0 }}</b>–<b>{{ $rows->lastItem() ?? 0 }}</b>
+        Menampilkan <b>{{ $rows->firstItem() ?? 0 }}</b>â€“<b>{{ $rows->lastItem() ?? 0 }}</b>
         dari <b>{{ $rows->total() }}</b> approval pending
       </div>
       <div class="mb-2">
@@ -306,3 +306,5 @@
 })();
 </script>
 @endsection
+
+

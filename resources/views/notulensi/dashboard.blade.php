@@ -1,4 +1,4 @@
-@extends('layouts.app')
+﻿@extends('layouts.app')
 @section('title','Dashboard Notulensi')
 
 @push('style')
@@ -23,7 +23,7 @@
 
   @media (min-width: 992px){ .gutter-tight>[class^="col-"]{padding-left:10px;padding-right:10px} }
 
-  /* ====== MOBILE TABLE → CARD ====== */
+  /* ====== MOBILE TABLE â†’ CARD ====== */
   @media (max-width: 575.98px){
     .table-mini thead{ display:none; }
     .table-mini tbody tr{
@@ -138,12 +138,12 @@
                 <tr>
                   <td data-label="Judul">{{ $r->judul }}</td>
                   <td class="text-center" data-label="Tanggal">{{ \Carbon\Carbon::parse($r->tanggal)->isoFormat('D MMM Y') }}</td>
-                  <td class="text-center" data-label="Waktu">{{ $r->waktu_mulai }}</td>
+                  <td class="text-center" data-label="Waktu">{{ \App\Helpers\TimeHelper::short($r->waktu_mulai) }}</td>
                   <td data-label="Tempat">{{ $r->tempat }}</td>
                   <td class="text-center" data-label="Status"><span class="chip warn"><i class="fas fa-exclamation-circle"></i> Belum</span></td>
                 </tr>
               @empty
-                <tr><td colspan="5" class="text-center text-muted p-3">Semua rapat sudah memiliki notulensi. 🎉</td></tr>
+                <tr><td colspan="5" class="text-center text-muted p-3">Semua rapat sudah memiliki notulensi. ðŸŽ‰</td></tr>
               @endforelse
             </tbody>
           </table>
@@ -173,7 +173,7 @@
                 <tr>
                   <td data-label="Judul">{{ $r->judul }}</td>
                   <td class="text-center" data-label="Tanggal">{{ \Carbon\Carbon::parse($r->tanggal)->isoFormat('D MMM Y') }}</td>
-                  <td class="text-center" data-label="Waktu">{{ $r->waktu_mulai }}</td>
+                  <td class="text-center" data-label="Waktu">{{ \App\Helpers\TimeHelper::short($r->waktu_mulai) }}</td>
                   <td data-label="Tempat">{{ $r->tempat }}</td>
                   <td class="text-center" data-label="Status"><span class="chip good"><i class="fas fa-check"></i> Ada</span></td>
                 </tr>
@@ -213,3 +213,5 @@
 
 </div>
 @endsection
+
+

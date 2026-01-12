@@ -1,4 +1,4 @@
-@extends('layouts.app')
+﻿@extends('layouts.app')
 @section('title','Konfirmasi Kehadiran')
 
 @push('style')
@@ -46,7 +46,7 @@
     <h4 class="mb-1">{{ $rapat->judul }}</h4>
     <div class="text-muted mb-2">
       {{ \Carbon\Carbon::parse($rapat->tanggal)->isoFormat('dddd, D MMMM Y') }}
-      • {{ $rapat->waktu_mulai }} WIT • {{ $rapat->tempat }}
+      â€¢ {{ \App\Helpers\TimeHelper::short($rapat->waktu_mulai) }} WIT â€¢ {{ $rapat->tempat }}
     </div>
 
     {{-- Info jendela absensi --}}
@@ -66,7 +66,7 @@
           <span class="badge badge-info">Belum Dibuka</span>
           <div class="hint mt-1">
             Dibuka pada: <b>{{ $abs_start->isoFormat('D MMM Y HH:mm') }}</b> (WIT)
-            — <span id="cdOpen" class="countdown" 
+            â€” <span id="cdOpen" class="countdown" 
                     data-start="{{ $abs_start->toIso8601String() }}"></span>
           </div>
         @elseif($abs_after)
@@ -292,3 +292,5 @@
 })();
 </script>
 @endpush
+
+

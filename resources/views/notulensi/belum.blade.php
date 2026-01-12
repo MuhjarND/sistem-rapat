@@ -1,5 +1,5 @@
-@extends('layouts.app')
-@section('title','Notulensi • Belum Dibuat')
+﻿@extends('layouts.app')
+@section('title','Notulensi â€¢ Belum Dibuat')
 
 @section('style')
 <style>
@@ -130,7 +130,7 @@
 
               <td>
                 {{ \Carbon\Carbon::parse($r->tanggal)->format('d M Y') }}
-                <div class="text-muted" style="font-size:12px">{{ $r->waktu_mulai }}</div>
+                <div class="text-muted" style="font-size:12px">{{ \App\Helpers\TimeHelper::short($r->waktu_mulai) }}</div>
               </td>
 
               <td>{{ $r->tempat }}</td>
@@ -173,15 +173,15 @@
             <div class="flex-fill">
               <div class="nl-title">{{ $r->judul }}</div>
               <div class="nl-sub">
-                No: {{ $r->nomor_undangan ?? '—' }} • {{ $r->nama_kategori ?? '-' }}
+                No: {{ $r->nomor_undangan ?? 'â€”' }} â€¢ {{ $r->nama_kategori ?? '-' }}
               </div>
             </div>
           </div>
 
           <div class="nl-row">
             <span>{{ \Carbon\Carbon::parse($r->tanggal)->translatedFormat('d M Y') }}</span>
-            <span class="dot">•</span>
-            <span>{{ $r->waktu_mulai }}</span>
+            <span class="dot">â€¢</span>
+            <span>{{ \App\Helpers\TimeHelper::short($r->waktu_mulai) }}</span>
           </div>
           <div class="nl-loc">
             <i class="fas fa-map-marker-alt mr-1"></i>{{ $r->tempat }}
@@ -213,3 +213,5 @@
   @endif
 </div>
 @endsection
+
+

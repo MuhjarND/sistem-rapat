@@ -1,4 +1,4 @@
-{{-- resources/views/approval/tugas.blade.php --}}
+﻿{{-- resources/views/approval/tugas.blade.php --}}
 @extends('layouts.app')
 @section('title','Monitoring Tugas Peserta')
 
@@ -240,7 +240,7 @@ document.addEventListener('DOMContentLoaded', function(){
                   'done' => ['badge-status badge-done', 'Selesai'],
                 ];
                 $badge = $badgeMap[$task->status] ?? ['badge-status badge-pending', ucfirst($task->status)];
-                $deadline = $task->tgl_penyelesaian ? \Carbon\Carbon::parse($task->tgl_penyelesaian)->isoFormat('D MMM Y') : '—';
+                $deadline = $task->tgl_penyelesaian ? \Carbon\Carbon::parse($task->tgl_penyelesaian)->isoFormat('D MMM Y') : 'â€”';
               @endphp
               <tr>
                 <td>
@@ -251,7 +251,7 @@ document.addEventListener('DOMContentLoaded', function(){
                   <div class="font-weight-bold">{{ $task->rapat_judul }}</div>
                   <small class="text-muted">
                     {{ \Carbon\Carbon::parse($task->rapat_tanggal)->isoFormat('D MMM Y') }}
-                    · {{ $task->waktu_mulai }} WIT · {{ $task->tempat }}
+                    Â· {{ \App\Helpers\TimeHelper::short($task->waktu_mulai) }} WIT Â· {{ $task->tempat }}
                   </small>
                 </td>
                 <td>
@@ -285,7 +285,7 @@ document.addEventListener('DOMContentLoaded', function(){
                   </div>
                 </td>
                 <td class="text-center">
-                  {{ $task->updated_at ? \Carbon\Carbon::parse($task->updated_at)->diffForHumans() : '—' }}
+                  {{ $task->updated_at ? \Carbon\Carbon::parse($task->updated_at)->diffForHumans() : 'â€”' }}
                 </td>
                 <td class="text-center">
                   @if(in_array($task->status, ['done']))
@@ -316,3 +316,5 @@ document.addEventListener('DOMContentLoaded', function(){
   </div>
 </div>
 @endsection
+
+

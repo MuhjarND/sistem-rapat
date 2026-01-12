@@ -190,7 +190,7 @@
               $rowNo    = ($uploads->currentPage()-1) * $uploads->perPage() + $i + 1;
               $tglRapat = $u->tanggal_rapat ?? null;
               $tglTampil = $tglRapat ?: ($u->tanggal_laporan ?: $u->created_at);
-              $waktu    = $u->waktu_mulai ?? null;
+              $waktu    = \App\Helpers\TimeHelper::short($u->waktu_mulai ?? null);
               $tempat   = $u->tempat ?? null;
             @endphp
             <tr>

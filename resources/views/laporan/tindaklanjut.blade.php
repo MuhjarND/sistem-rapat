@@ -1,4 +1,4 @@
-@extends('layouts.app')
+﻿@extends('layouts.app')
 @section('title','Laporan Tindak Lanjut')
 
 @push('style')
@@ -101,7 +101,7 @@
                 <td>
                   <div class="font-weight-bold">{{ $row->rapat_judul }}</div>
                   <small class="text-faint">
-                    {{ \Carbon\Carbon::parse($row->rapat_tanggal)->isoFormat('D MMM Y') }} · {{ $row->waktu_mulai }} WIT · {{ $row->tempat }}
+                    {{ \Carbon\Carbon::parse($row->rapat_tanggal)->isoFormat('D MMM Y') }} Â· {{ \App\Helpers\TimeHelper::short($row->waktu_mulai) }} WIT Â· {{ $row->tempat }}
                   </small>
                 </td>
                 <td class="text-center">
@@ -162,3 +162,5 @@
   </div>
 </div>
 @endsection
+
+

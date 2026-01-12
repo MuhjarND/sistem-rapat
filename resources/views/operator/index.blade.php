@@ -1,4 +1,4 @@
-@extends('layouts.app')
+﻿@extends('layouts.app')
 
 @section('title','Dashboard')
 
@@ -160,7 +160,7 @@
                 <tr>
                   <td>{{ $r->judul }}</td>
                   <td>{{ \Carbon\Carbon::parse($r->tanggal)->format('d/m/Y') }}</td>
-                  <td>{{ $r->waktu_mulai }}</td>
+                  <td>{{ \App\Helpers\TimeHelper::short($r->waktu_mulai) }}</td>
                   <td>{{ $r->tempat }}</td>
                 </tr>
               @empty
@@ -321,3 +321,5 @@
   });
 </script>
 @endpush
+
+

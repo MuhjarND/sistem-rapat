@@ -1,4 +1,4 @@
-@php
+﻿@php
     if (!isset($tampilkan_lampiran)) {
         $tampilkan_lampiran = (isset($daftar_peserta) && method_exists($daftar_peserta, 'count'))
             ? ($daftar_peserta->count() > 5)
@@ -11,6 +11,7 @@
     $isPakta = $kategoriNama === strtolower('Penandatanganan Pakta Integritas dan Komitmen Bersama');
     $isVirtual = !empty($rapat->is_virtual);
     $linkZoom = trim((string) ($rapat->link_zoom ?? ''));
+    $approval1Nama = \App\Helpers\NameHelper::withoutTitles($approval1->name ?? '-');
 @endphp
 
 <!DOCTYPE html>
@@ -70,7 +71,7 @@
         </tr>
     </table>
 
-    {{-- Kepada Yth + daftar peserta (jika ≤ 5) --}}
+    {{-- Kepada Yth + daftar peserta (jika â‰¤ 5) --}}
     <p style="margin-bottom: 6px;">Kepada Yth. Para pejabat pada daftar terlampir</p>
 
     @if($tampilkan_daftar_di_surat)
@@ -97,7 +98,7 @@
         &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tempat
     </p>
 
-   <p><i>Assalamu’alaikum Wr.Wb.</i></p>
+   <p><i>Assalamuâ€™alaikum Wr.Wb.</i></p>
     <p style="text-indent:24px;">
         Memohon kehadiran Bapak/Ibu/Saudara dalam <b>{{ $rapat->judul }}</b>, yang akan dilaksanakan pada:
     </p>
@@ -111,7 +112,7 @@
         <tr>
             <td>Waktu</td>
             <td>:</td>
-            <td>{{ $rapat->waktu_mulai }} WIT s/d Selesai</td>
+            <td>{{ \App\Helpers\TimeHelper::short($rapat->waktu_mulai) }} WIT s/d Selesai</td>
         </tr>
         <tr>
             <td>Tempat</td>
@@ -169,7 +170,7 @@
                 <span class="waiting-note"><em>Menunggu approval</em></span><br>
             @endif
 
-            <b>{{ $approval1->name ?? '-' }}</b>
+            <b>{{ $approval1Nama }}</b>
         </div>
     </div>
 
@@ -187,3 +188,5 @@
     @endif
 </body>
 </html>
+
+

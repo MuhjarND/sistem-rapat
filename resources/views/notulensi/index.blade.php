@@ -1,4 +1,4 @@
-@extends('layouts.app')
+﻿@extends('layouts.app')
 
 @section('title','Notulen Rapat')
 
@@ -126,7 +126,7 @@
 
               <td class="text-center">
                 {{ \Carbon\Carbon::parse($r->tanggal)->format('d M y') }}
-                <div class="text-muted" style="font-size:11px">{{ $r->waktu_mulai }}</div>
+                <div class="text-muted" style="font-size:11px">{{ \App\Helpers\TimeHelper::short($r->waktu_mulai) }}</div>
               </td>
 
               <td>{{ $r->tempat }}</td>
@@ -189,7 +189,7 @@
 
               <td class="text-center">
                 {{ \Carbon\Carbon::parse($r->tanggal)->format('d M y') }}
-                <div class="text-muted" style="font-size:11px">{{ $r->waktu_mulai }}</div>
+                <div class="text-muted" style="font-size:11px">{{ \App\Helpers\TimeHelper::short($r->waktu_mulai) }}</div>
               </td>
 
               <td>{{ $r->tempat }}</td>
@@ -236,3 +236,5 @@
 
 </div>
 @endsection
+
+

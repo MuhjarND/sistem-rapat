@@ -1,4 +1,4 @@
-@php
+﻿@php
     use Carbon\Carbon;
 
     // Tanggal
@@ -17,8 +17,8 @@
     $approval1Text = $approval1
         ? trim(
             ($approval1->name ?? '-') .
-            ' — ' . $approval1Jabatan .
-            (($approval1->unit ?? '') ? ' · '.$approval1->unit : '')
+            ' â€” ' . $approval1Jabatan .
+            (($approval1->unit ?? '') ? ' Â· '.$approval1->unit : '')
           )
         : '-';
 @endphp
@@ -64,7 +64,7 @@
     </tr>
     <tr>
         <td class="hd">Hari/Tanggal/Jam</td>
-        <td>{{ ucfirst($tgl) }}, {{ $rapat->waktu_mulai }}</td>
+        <td>{{ ucfirst($tgl) }}, {{ \App\Helpers\TimeHelper::short($rapat->waktu_mulai) }}</td>
     </tr>
     <tr>
         <td class="hd">Tempat</td>
@@ -89,3 +89,5 @@
 
 </body>
 </html>
+
+

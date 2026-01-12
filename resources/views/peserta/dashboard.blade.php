@@ -1,4 +1,4 @@
-@extends('layouts.app')
+﻿@extends('layouts.app')
 
 @section('title','Dashboard Peserta')
 
@@ -146,7 +146,7 @@
                   <div class="flex-fill">
                     <div class="title">{{ $t->rapat_judul }}</div>
                     <small class="d-flex align-items-center" style="gap:.5rem">
-                      {{ $due ? $due->isoFormat('D MMM Y') : '—' }} •
+                      {{ $due ? $due->isoFormat('D MMM Y') : 'â€”' }} â€¢
                       <span class="badge badge-secondary">Pending</span>
                     </small>
                   </div>
@@ -180,7 +180,7 @@
                 <div class="title">{{ $rapat_terdekat->judul }}</div>
                 <small>
                   {{ \Carbon\Carbon::parse($rapat_terdekat->tanggal)->isoFormat('dddd, D MMM Y') }}
-                  • {{ $rapat_terdekat->waktu_mulai }} WIT • {{ $rapat_terdekat->tempat }}
+                  â€¢ {{ \App\Helpers\TimeHelper::short($rapat_terdekat->waktu_mulai) }} WIT â€¢ {{ $rapat_terdekat->tempat }}
                 </small>
               </div>
               <a href="{{ route('peserta.rapat.show', $rapat_terdekat->id) }}"
@@ -214,7 +214,7 @@
                 <div class="title">{{ $r->judul }}</div>
                 <small>
                   {{ \Carbon\Carbon::parse($r->tanggal)->isoFormat('ddd, D MMM Y') }}
-                  • {{ $r->waktu_mulai }} WIT • {{ $r->tempat }}
+                  â€¢ {{ \App\Helpers\TimeHelper::short($r->waktu_mulai) }} WIT â€¢ {{ $r->tempat }}
                 </small>
               </div>
               <a href="{{ $r->token_qr ? route('absensi.scan', $r->token_qr) : route('peserta.absensi', $r->id) }}"
@@ -249,7 +249,7 @@
               @forelse($rapat_akan_datang as $r)
                 <tr>
                   <td>{{ $r->judul }}</td>
-                  <td class="text-center">{{ \Carbon\Carbon::parse($r->tanggal)->format('d/m/Y') }} <br>{{ $r->waktu_mulai }}</td>
+                  <td class="text-center">{{ \Carbon\Carbon::parse($r->tanggal)->format('d/m/Y') }} <br>{{ \App\Helpers\TimeHelper::short($r->waktu_mulai) }}</td>
                   <td class="text-center">{{ $r->tempat }}</td>
                   <td class="text-center">
                     <a href="{{ route('peserta.rapat.show', $r->id) }}" class="btn btn-sm btn-primary">Detail</a>
@@ -268,7 +268,7 @@
             <div class="m-card">
               <div class="m-title">{{ $r->judul }}</div>
               <div class="m-meta mt-1">
-                <span class="mchip info">{{ \Carbon\Carbon::parse($r->tanggal)->format('d/m/Y') }} • {{ $r->waktu_mulai }}</span>
+                <span class="mchip info">{{ \Carbon\Carbon::parse($r->tanggal)->format('d/m/Y') }} â€¢ {{ \App\Helpers\TimeHelper::short($r->waktu_mulai) }}</span>
                 <span class="mchip">{{ $r->tempat }}</span>
               </div>
               <div class="mt-2">
@@ -386,3 +386,6 @@ document.addEventListener('DOMContentLoaded', function(){
 });
 </script>
 @endsection
+
+
+

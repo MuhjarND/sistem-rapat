@@ -1,5 +1,5 @@
-@extends('layouts.app')
-@section('title','Riwayat TTD • Approval')
+﻿@extends('layouts.app')
+@section('title','Riwayat TTD â€¢ Approval')
 
 @section('style')
 <style>
@@ -149,7 +149,7 @@
 
               <td>
                 {{ \Carbon\Carbon::parse($r->tanggal)->format('d M Y') }}
-                <div class="text-muted" style="font-size:12px">{{ $r->waktu_mulai }} • {{ $r->tempat }}</div>
+                <div class="text-muted" style="font-size:12px">{{ \App\Helpers\TimeHelper::short($r->waktu_mulai) }} â€¢ {{ $r->tempat }}</div>
               </td>
 
               <td class="text-center">
@@ -186,7 +186,7 @@
               <div class="modal-dialog modal-xl" role="document">
                 <div class="modal-content modal-solid">
                   <div class="modal-header">
-                    <h5 class="modal-title">Preview — {{ ucfirst($r->doc_type) }}</h5>
+                    <h5 class="modal-title">Preview â€” {{ ucfirst($r->doc_type) }}</h5>
                     <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
                   </div>
                   <div class="modal-body">
@@ -209,12 +209,12 @@
               <div class="modal-dialog" role="document">
                 <div class="modal-content modal-solid">
                   <div class="modal-header">
-                    <h5 class="modal-title">QR TTD — {{ ucfirst($r->doc_type) }}</h5>
+                    <h5 class="modal-title">QR TTD â€” {{ ucfirst($r->doc_type) }}</h5>
                     <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
                   </div>
                   <div class="modal-body text-center">
                     <img class="qr-thumb" src="{{ $r->qr_public_url }}" alt="QR TTD">
-                    <div class="mini-note mt-2">Order #{{ $r->order_index }} • {{ \Carbon\Carbon::parse($r->signed_at)->format('d M Y H:i') }}</div>
+                    <div class="mini-note mt-2">Order #{{ $r->order_index }} â€¢ {{ \Carbon\Carbon::parse($r->signed_at)->format('d M Y H:i') }}</div>
                   </div>
                   <div class="modal-footer">
                     <a href="{{ $r->qr_public_url }}" target="_blank" class="btn btn-primary btn-sm">
@@ -259,7 +259,7 @@
         </div>
 
         <div class="doc-sub">
-          {{ \Carbon\Carbon::parse($r->tanggal)->format('d M Y') }} • {{ $r->waktu_mulai }}<br>
+          {{ \Carbon\Carbon::parse($r->tanggal)->format('d M Y') }} â€¢ {{ \App\Helpers\TimeHelper::short($r->waktu_mulai) }}<br>
           <span class="mini-note">{{ $r->tempat }}</span>
         </div>
 
@@ -292,7 +292,7 @@
         <div class="modal-dialog modal-lg" role="document">
           <div class="modal-content modal-solid">
             <div class="modal-header">
-              <h5 class="modal-title">Preview — {{ ucfirst($r->doc_type) }}</h5>
+              <h5 class="modal-title">Preview â€” {{ ucfirst($r->doc_type) }}</h5>
               <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
             </div>
             <div class="modal-body">
@@ -315,12 +315,12 @@
         <div class="modal-dialog" role="document">
           <div class="modal-content modal-solid">
             <div class="modal-header">
-              <h5 class="modal-title">QR TTD — {{ ucfirst($r->doc_type) }}</h5>
+              <h5 class="modal-title">QR TTD â€” {{ ucfirst($r->doc_type) }}</h5>
               <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
             </div>
             <div class="modal-body text-center">
               <img class="qr-thumb" src="{{ $r->qr_public_url }}" alt="QR TTD">
-              <div class="mini-note mt-2">Order #{{ $r->order_index }} • {{ \Carbon\Carbon::parse($r->signed_at)->format('d M Y H:i') }}</div>
+              <div class="mini-note mt-2">Order #{{ $r->order_index }} â€¢ {{ \Carbon\Carbon::parse($r->signed_at)->format('d M Y H:i') }}</div>
             </div>
             <div class="modal-footer">
               <a href="{{ $r->qr_public_url }}" target="_blank" class="btn btn-primary btn-sm">
@@ -343,3 +343,5 @@
   </div>
 </div>
 @endsection
+
+

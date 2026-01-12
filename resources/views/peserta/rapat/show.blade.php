@@ -1,4 +1,4 @@
-@extends('layouts.app') 
+﻿@extends('layouts.app') 
 @section('title','Detail Rapat')
 
 @push('style')
@@ -55,12 +55,12 @@
     <h4 class="mb-1">{{ $rapat->judul }}</h4>
     <div class="text-muted mb-3">
       {{ \Carbon\Carbon::parse($rapat->tanggal)->isoFormat('dddd, D MMMM Y') }}
-      • {{ $rapat->waktu_mulai }} WIT • {{ $rapat->tempat }}
+      â€¢ {{ \App\Helpers\TimeHelper::short($rapat->waktu_mulai) }} WIT â€¢ {{ $rapat->tempat }}
     </div>
     <div class="row">
       <div class="col-md-6">
         <p class="mb-1"><b>Kategori:</b> {{ $rapat->nama_kategori ?? '-' }}</p>
-        <p class="mb-1"><b>Nomor Undangan:</b> {{ $rapat->nomor_undangan ?? '—' }}</p>
+        <p class="mb-1"><b>Nomor Undangan:</b> {{ $rapat->nomor_undangan ?? 'â€”' }}</p>
       </div>
       <div class="col-md-6">
         <p class="mb-1"><b>Pimpinan Rapat:</b> {{ $rapat->nama_pimpinan ?? '-' }}</p>
@@ -124,7 +124,7 @@
           <table>
             <tr>
               <td width="28%">Nomor</td><td width="2%">:</td>
-              <td>{{ $rapat->nomor_undangan ?? '—' }}</td>
+              <td>{{ $rapat->nomor_undangan ?? 'â€”' }}</td>
             </tr>
             <tr>
               <td>Perihal</td><td>:</td>
@@ -136,7 +136,7 @@
             </tr>
             <tr>
               <td>Waktu</td><td>:</td>
-              <td>{{ $rapat->waktu_mulai }} WIT s/d selesai</td>
+              <td>{{ \App\Helpers\TimeHelper::short($rapat->waktu_mulai) }} WIT s/d selesai</td>
             </tr>
             <tr>
               <td>Tempat</td><td>:</td>
@@ -166,7 +166,7 @@
             @foreach($penerima as $u)
               <li>
                 {{ $u->name }}
-                @if(!empty($u->jabatan)) — <span class="muted">{{ $u->jabatan }}</span>@endif
+                @if(!empty($u->jabatan)) â€” <span class="muted">{{ $u->jabatan }}</span>@endif
                 @if(!empty($u->unit)) , <span class="muted">{{ $u->unit }}</span>@endif
               </li>
             @endforeach
@@ -185,3 +185,5 @@
   </div>
 </div>
 @endsection
+
+

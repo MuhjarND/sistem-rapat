@@ -10,6 +10,7 @@ use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Carbon\Carbon;
+use App\Helpers\TimeHelper;
 
 class AbsensiController extends Controller
 {
@@ -801,6 +802,7 @@ public function exportPdf(Request $request, $id_rapat)
                 $body = rtrim($body) . "\n\n" . $suffix;
             }
         }
+        $body = preg_replace('/\bWIB\b/u', 'WIT', $body);
 
         $ch = curl_init();
         curl_setopt_array($ch, [
@@ -834,13 +836,14 @@ public function exportPdf(Request $request, $id_rapat)
         Carbon::setLocale('id');
         $tgl = Carbon::parse($rapat->tanggal)->isoFormat('dddd, D MMMM Y');
         $sender = env('FONNTE_SENDER', 'Sistem Rapat');
+        $waktu = TimeHelper::short($rapat->waktu_mulai);
 
         $msg = "*{$sender}*\n"
              . "Yth. Bapak/Ibu *{$user->name}*,\n"
              . "terima kasih telah melakukan absensi kehadiran pada rapat berikut:\n\n"
              . "*Rapat*   : {$rapat->judul}\n"
              . "*Tanggal* : {$tgl}\n"
-             . "*Waktu*   : {$rapat->waktu_mulai} WIT\n"
+             . "*Waktu*   : {$waktu} WIT\n"
              . "*Tempat*  : {$rapat->tempat}\n"
              . "*Status*  : *".strtoupper($status)."*\n\n"
              . "Hormat kami,\n"
@@ -862,13 +865,14 @@ public function exportPdf(Request $request, $id_rapat)
         Carbon::setLocale('id');
         $tgl = Carbon::parse($rapat->tanggal)->isoFormat('dddd, D MMMM Y');
         $sender = env('FONNTE_SENDER', 'Sistem Rapat');
+        $waktu = TimeHelper::short($rapat->waktu_mulai);
 
         $msg = "*{$sender}*\n"
              . "Yth. *{$nama}*,\n"
              . "terima kasih telah melakukan absensi kehadiran pada rapat berikut:\n\n"
              . "*Rapat*   : {$rapat->judul}\n"
              . "*Tanggal* : {$tgl}\n"
-             . "*Waktu*   : {$rapat->waktu_mulai} WIT\n"
+             . "*Waktu*   : {$waktu} WIT\n"
              . "*Tempat*  : {$rapat->tempat}\n"
              . "*Status*  : *".strtoupper($status)."*\n\n"
              . "Hormat kami,\n";
@@ -922,7 +926,7 @@ public function exportPdf(Request $request, $id_rapat)
         // Rakit pesan
         \Carbon\Carbon::setLocale('id');
         $tgl  = \Carbon\Carbon::parse($rapat->tanggal)->isoFormat('dddd, D MMMM Y');
-        $jam  = $rapat->waktu_mulai;
+        $jam  = TimeHelper::short($rapat->waktu_mulai);
         $tempat = $rapat->tempat;
         $sender = env('FONNTE_SENDER', 'Sistem Rapat');
 

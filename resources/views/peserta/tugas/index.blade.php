@@ -1,4 +1,4 @@
-@extends('layouts.app')
+﻿@extends('layouts.app')
 
 @section('title','Tugas Notulensi Saya')
 
@@ -177,7 +177,7 @@
                   <div class="font-weight-bold">{{ $t->rapat_judul }}</div>
                   <small class="text-muted">
                     {{ \Carbon\Carbon::parse($t->rapat_tanggal)->isoFormat('D MMM Y') }}
-                    • {{ $t->rapat_waktu_mulai }} WIT • {{ $t->rapat_tempat }}
+                    â€¢ {{ \App\Helpers\TimeHelper::short($t->rapat_waktu_mulai) }} WIT â€¢ {{ $t->rapat_tempat }}
                   </small>
                 </td>
                 <td>
@@ -192,7 +192,7 @@
                   </button>
                 </td>
                 <td class="text-center">
-                  {{ $tglSelesaiCarbon ? $tglSelesaiCarbon->isoFormat('D MMM Y') : '—' }}
+                  {{ $tglSelesaiCarbon ? $tglSelesaiCarbon->isoFormat('D MMM Y') : 'â€”' }}
                 </td>
                 <td class="text-center">
                   <form class="frm-update-status d-inline" method="POST" action="{{ route('peserta.tugas.update', $t->id) }}">
@@ -282,7 +282,7 @@
             <div class="m-title">{{ $t->rapat_judul }}</div>
             <div class="m-sub">
               {{ \Carbon\Carbon::parse($t->rapat_tanggal)->isoFormat('ddd, D MMM Y') }}
-              • {{ $t->rapat_waktu_mulai }} WIT • {{ $t->rapat_tempat }}
+              â€¢ {{ \App\Helpers\TimeHelper::short($t->rapat_waktu_mulai) }} WIT â€¢ {{ $t->rapat_tempat }}
             </div>
 
             <div class="mt-2">
@@ -298,7 +298,7 @@
 
             <div class="m-meta">
               <span class="mchip">Tenggat:
-                {{ $tglSelesaiCarbon ? $tglSelesaiCarbon->isoFormat('D MMM Y') : '—' }}
+                {{ $tglSelesaiCarbon ? $tglSelesaiCarbon->isoFormat('D MMM Y') : 'â€”' }}
               </span>
             </div>
 
@@ -596,3 +596,5 @@ document.addEventListener('DOMContentLoaded', function(){
 });
 </script>
 @endsection
+
+

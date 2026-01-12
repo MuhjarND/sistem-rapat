@@ -95,7 +95,7 @@
         <tr><td width="22%">Jenis Kegiatan</td><td width="2%">:</td><td>{{ $nama_kategori }}</td></tr>
         <tr><td>Nama Kegiatan</td><td>:</td><td>{{ $judul }}</td></tr>
         <tr><td>Hari/Tanggal</td><td>:</td><td>{{ $tanggalHuman }}</td></tr>
-        <tr><td>Waktu</td><td>:</td><td>{{ $waktu_mulai ? ($waktu_mulai.' WIT s/d selesai') : '-' }}</td></tr>
+        <tr><td>Waktu</td><td>:</td><td>{{ $waktu_mulai ? (\App\Helpers\TimeHelper::short($waktu_mulai).' WIT s/d selesai') : '-' }}</td></tr>
         <tr><td>Tempat</td><td>:</td><td>{{ $tempat }}</td></tr>
     </table>
     <br>

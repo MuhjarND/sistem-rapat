@@ -1,9 +1,9 @@
-@extends('layouts.app')
+﻿@extends('layouts.app')
 @section('title','Laporan Rapat (Bulan Berjalan)')
 
 @section('content')
 <div class="container">
-  <h3 class="mb-3">Laporan Rapat (Undangan • Absensi • Notulensi) – Bulan Berjalan</h3>
+  <h3 class="mb-3">Laporan Rapat (Undangan â€¢ Absensi â€¢ Notulensi) â€“ Bulan Berjalan</h3>
 
   <form class="card mb-3" method="GET" action="{{ route('laporan.baru') }}">
     <div class="card-body">
@@ -61,7 +61,7 @@
               <td class="text-center">{{ $i+1 }}</td>
               <td>{{ $r->judul }}</td>
               <td>{{ $r->nama_kategori ?? '-' }}</td>
-              <td>{{ \Carbon\Carbon::parse($r->tanggal)->format('d/m/Y') }} {{ $r->waktu_mulai }}</td>
+              <td>{{ \Carbon\Carbon::parse($r->tanggal)->format('d/m/Y') }} {{ \App\Helpers\TimeHelper::short($r->waktu_mulai) }}</td>
               <td>{{ $r->tempat }}</td>
               <td class="text-center">
                 <span class="badge {{ $r->ada_notulensi ? 'badge-success' : 'badge-secondary' }}">
@@ -81,3 +81,5 @@
   </div>
 </div>
 @endsection
+
+

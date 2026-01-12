@@ -26,7 +26,7 @@
     <table style="margin-bottom:12px; width:100%; border:0;">
         <tr><td style="border:0; width:160px;"><strong>Rapat</strong></td><td style="border:0;">: {{ $rapat->judul ?? '-' }}</td></tr>
         <tr><td style="border:0;"><strong>Tanggal</strong></td><td style="border:0;">: {{ $rapat->tanggal ?? '-' }}</td></tr>
-        <tr><td style="border:0;"><strong>Waktu</strong></td><td style="border:0;">: {{ $rapat->waktu_mulai ?? '-' }} WIT</td></tr>
+        <tr><td style="border:0;"><strong>Waktu</strong></td><td style="border:0;">: {{ \App\Helpers\TimeHelper::short($rapat->waktu_mulai ?? null) }} WIT</td></tr>
         <tr><td style="border:0;"><strong>Tempat</strong></td><td style="border:0;">: {{ $rapat->tempat ?? '-' }}</td></tr>
     </table>
     <table>

@@ -1,4 +1,4 @@
-@extends('layouts.app')
+﻿@extends('layouts.app')
 
 @section('content')
 <div class="container">
@@ -145,9 +145,9 @@
         };
         // Icon ringkas tiap step
         $stepIcon = function ($s) {
-            return $s === 'approved' ? '✔'
-                 : ($s === 'rejected' ? '✖'
-                 : ($s === 'blocked'  ? '🔒' : '⏳'));
+            return $s === 'approved' ? 'âœ”'
+                 : ($s === 'rejected' ? 'âœ–'
+                 : ($s === 'blocked'  ? 'ðŸ”’' : 'â³'));
         };
         // Class ringkas tiap step
         $stepClass = function ($s) {
@@ -257,7 +257,7 @@
                         <td>
                             <div>
                                 {{ \Carbon\Carbon::parse($rapat->tanggal)->translatedFormat('l, d F Y') }}
-                                <span class="text-muted">{{ $rapat->waktu_mulai }}</span>
+                                <span class="text-muted">{{ \App\Helpers\TimeHelper::short($rapat->waktu_mulai) }}</span>
                             </div>
                             <div class="text-muted" style="font-size:.85rem">
                                 {{ $rapat->tempat }}
@@ -325,7 +325,7 @@
                                         @if(count($rows))
                                           @foreach($rows as $st)
                                             <span class="{{ $stepClass($st['status']) }}"
-                                                  title="{{ $st['name'] }} • {{ ucfirst($st['status']) }}">
+                                                  title="{{ $st['name'] }} â€¢ {{ ucfirst($st['status']) }}">
                                               <b>{{ $stepIcon($st['status']) }}</b> {{ $st['name'] ?? 'Approver' }}
                                             </span>
                                           @endforeach
@@ -376,14 +376,14 @@
                                                     @elseif($st['status']==='rejected' && $st['rejected_at'])
                                                       {{ \Carbon\Carbon::parse($st['rejected_at'])->translatedFormat('d M Y H:i') }}
                                                     @else
-                                                      —
+                                                      â€”
                                                     @endif
                                                   </td>
                                                   <td>
                                                     @if($st['status']==='rejected' && $st['rejection_note'])
                                                       {{ $st['rejection_note'] }}
                                                     @else
-                                                      <span class="muted">—</span>
+                                                      <span class="muted">â€”</span>
                                                     @endif
                                                   </td>
                                                 </tr>
@@ -513,9 +513,9 @@
                 @endif
 
                 <div class="m-meta">
-                    <span class="mchip">No: {{ $rapat->nomor_undangan ?? '—' }}</span>
+                    <span class="mchip">No: {{ $rapat->nomor_undangan ?? 'â€”' }}</span>
                     <span class="mchip">
-                        {{ \Carbon\Carbon::parse($rapat->tanggal)->translatedFormat('d M Y') }} • {{ $rapat->waktu_mulai }}
+                        {{ \Carbon\Carbon::parse($rapat->tanggal)->translatedFormat('d M Y') }} â€¢ {{ \App\Helpers\TimeHelper::short($rapat->waktu_mulai) }}
                     </span>
                     <span class="mchip">{{ $rapat->tempat }}</span>
                     <span class="mchip {{ $overallChipClass }}">{{ $overallLabel($overall) }}</span>
@@ -606,7 +606,7 @@
                             @if(count($rows))
                               @foreach($rows as $st)
                                 <span class="{{ $stepClass($st['status']) }}"
-                                      title="{{ $st['name'] }} • {{ ucfirst($st['status']) }}">
+                                      title="{{ $st['name'] }} â€¢ {{ ucfirst($st['status']) }}">
                                   <b>{{ $stepIcon($st['status']) }}</b> {{ $st['name'] ?? 'Approver' }}
                                 </span>
                               @endforeach
@@ -659,14 +659,14 @@
                                         @elseif($st['status']==='rejected' && $st['rejected_at'])
                                           {{ \Carbon\Carbon::parse($st['rejected_at'])->translatedFormat('d M Y H:i') }}
                                         @else
-                                          —
+                                          â€”
                                         @endif
                                       </td>
                                       <td>
                                         @if($st['status']==='rejected' && $st['rejection_note'])
                                           {{ $st['rejection_note'] }}
                                         @else
-                                          <span class="muted">—</span>
+                                          <span class="muted">â€”</span>
                                         @endif
                                       </td>
                                     </tr>
@@ -800,3 +800,5 @@
 @endpush
 
 @endsection
+
+

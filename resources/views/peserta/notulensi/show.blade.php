@@ -1,4 +1,4 @@
-@extends('layouts.app')
+﻿@extends('layouts.app')
 @section('title','Notulensi Rapat')
 
 @push('style')
@@ -88,7 +88,7 @@
     <h4 class="mb-1" style="font-weight:800;color:#fff">{{ $rapat->judul }}</h4>
     <div class="mb-3" style="display:flex;gap:8px;flex-wrap:wrap">
       <span class="meta-chip"><i class="far fa-calendar"></i>{{ \Carbon\Carbon::parse($rapat->tanggal)->isoFormat('dddd, D MMMM Y') }}</span>
-      <span class="meta-chip"><i class="far fa-clock"></i>{{ $rapat->waktu_mulai }} WIT</span>
+      <span class="meta-chip"><i class="far fa-clock"></i>{{ \App\Helpers\TimeHelper::short($rapat->waktu_mulai) }} WIT</span>
       <span class="meta-chip"><i class="fas fa-map-marker-alt"></i>{{ $rapat->tempat }}</span>
       @if(!empty($rapat->nama_kategori))
         <span class="meta-chip"><i class="fas fa-layer-group"></i>{{ $rapat->nama_kategori }}</span>
@@ -136,3 +136,5 @@
   </div>
 </div>
 @endsection
+
+

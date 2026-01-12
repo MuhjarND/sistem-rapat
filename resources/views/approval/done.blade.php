@@ -1,4 +1,4 @@
-{{-- resources/views/approval/done.blade.php --}}
+﻿{{-- resources/views/approval/done.blade.php --}}
 @extends('layouts.app')
 @section('title','Approval Selesai')
 
@@ -114,7 +114,7 @@
         <tr><th style="width:30%">Judul Rapat</th><td>{{ $rapat->judul ?? '-' }}</td></tr>
         <tr><th>Jenis Dokumen</th><td>{{ ucfirst($req->doc_type) }}</td></tr>
         <tr><th>Nomor Undangan</th><td>{{ $rapat->nomor_undangan ?? '-' }}</td></tr>
-        <tr><th>Tanggal Rapat</th><td>{{ \Carbon\Carbon::parse($rapat->tanggal)->translatedFormat('l, d F Y') }} {{ $rapat->waktu_mulai }}</td></tr>
+        <tr><th>Tanggal Rapat</th><td>{{ \Carbon\Carbon::parse($rapat->tanggal)->translatedFormat('l, d F Y') }} {{ \App\Helpers\TimeHelper::short($rapat->waktu_mulai) }}</td></tr>
         <tr><th>Tempat</th><td>{{ $rapat->tempat }}</td></tr>
 
         @if($status === 'approved')
@@ -145,3 +145,5 @@
   </div>
 </div>
 @endsection
+
+

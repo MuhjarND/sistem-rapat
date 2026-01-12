@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
+use App\Helpers\TimeHelper;
 
 class PublicAbsensiController extends Controller
 {
@@ -305,7 +306,7 @@ class PublicAbsensiController extends Controller
                 $wa = preg_replace('/^0/', '62', $no_hp);
                 $judul  = $rapat->judul ?: 'Rapat';
                 $tgl    = $rapat->tanggal ? \Carbon\Carbon::parse($rapat->tanggal)->translatedFormat('l, d F Y') : '-';
-                $wkt    = $rapat->waktu_mulai ?: '-';
+                $wkt    = TimeHelper::short($rapat->waktu_mulai ?: null);
                 $tempat = $rapat->tempat ?: '-';
 
                 $msg =

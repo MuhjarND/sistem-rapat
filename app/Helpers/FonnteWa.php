@@ -24,6 +24,7 @@ class FonnteWa
                 $body = rtrim($body) . "\n\n" . $suffix;
             }
         }
+        $body = preg_replace('/\bWIB\b/u', 'WIT', $body);
 
         $response = Http::withHeaders([
             'Authorization' => $token,

@@ -1,5 +1,5 @@
-@extends('layouts.app')
-@section('title','Notulensi • Sudah Dibuat')
+﻿@extends('layouts.app')
+@section('title','Notulensi â€¢ Sudah Dibuat')
 
 @section('style')
 <style>
@@ -66,7 +66,7 @@
   $startNumber = $isPaginator ? ($daftar->currentPage()-1)*$daftar->perPage() + 1 : 1;
 
   $popBadgeClass = fn($s) => $s==='approved'?'badge-success':($s==='rejected'?'badge-danger':'badge-warning');
-  $stepIcon = fn($s)=>$s==='approved'?'✔':($s==='rejected'?'✖':($s==='blocked'?'🔒':'⏳'));
+  $stepIcon = fn($s)=>$s==='approved'?'âœ”':($s==='rejected'?'âœ–':($s==='blocked'?'ðŸ”’':'â³'));
   $stepClass = fn($s)=>$s==='approved'?'step-badge step-ok':($s==='rejected'?'step-badge step-reject':($s==='blocked'?'step-badge step-blocked':'step-badge step-pending'));
   $overallLabel = fn(string $s) => $s==='approved' ? 'Semua Disetujui' : ($s==='rejected' ? 'Ada Penolakan' : 'Menunggu / Proses');
 @endphp
@@ -156,7 +156,7 @@
 
             <tr>
               <td class="text-center">{{ $startNumber + $i }}</td>
-              <td>{{ $r->nomor_undangan ?? '—' }}</td>
+              <td>{{ $r->nomor_undangan ?? 'â€”' }}</td>
               <td>
                 <strong>{{ $r->judul }}</strong>
                 <div class="text-muted" style="font-size:12px;">
@@ -165,7 +165,7 @@
               </td>
               <td>
                 {{ \Carbon\Carbon::parse($r->tanggal)->translatedFormat('l, d F Y') }}
-                <div class="text-muted" style="font-size:12px;">{{ $r->waktu_mulai }}</div>
+                <div class="text-muted" style="font-size:12px;">{{ \App\Helpers\TimeHelper::short($r->waktu_mulai) }}</div>
                 <div class="text-muted" style="font-size:13px;"><i class="fas fa-map-marker-alt mr-1"></i>{{ $r->tempat }}</div>
               </td>
               <td class="text-center">
@@ -204,7 +204,7 @@
                           <div class="text-muted mb-1">Ringkasan</div>
                           @if($stepsBrief->count())
                             @foreach($stepsBrief as $st)
-                              <span class="{{ $stepClass($st->status) }}" title="{{ $st->name ?? 'Approver' }} • {{ ucfirst($st->status) }}">
+                              <span class="{{ $stepClass($st->status) }}" title="{{ $st->name ?? 'Approver' }} â€¢ {{ ucfirst($st->status) }}">
                                 <b>{{ $stepIcon($st->status) }}</b> {{ $st->name ?? 'Approver' }}
                               </span>
                             @endforeach
@@ -249,14 +249,14 @@
                                       @elseif($st->status==='rejected' && $st->rejected_at)
                                         {{ \Carbon\Carbon::parse($st->rejected_at)->translatedFormat('d M Y H:i') }}
                                       @else
-                                        —
+                                        â€”
                                       @endif
                                     </td>
                                     <td>
                                       @if($st->status==='rejected' && $st->rejection_note)
                                         {{ $st->rejection_note }}
                                       @else
-                                        <span class="muted">—</span>
+                                        <span class="muted">â€”</span>
                                       @endif
                                     </td>
                                   </tr>
@@ -337,13 +337,13 @@
         <div class="card-body">
           <div class="nl-title">{{ $r->judul }}</div>
           <div class="nl-sub">
-            No: {{ $r->nomor_undangan ?? '—' }} • {{ $r->nama_kategori ?? '-' }}
+            No: {{ $r->nomor_undangan ?? 'â€”' }} â€¢ {{ $r->nama_kategori ?? '-' }}
           </div>
 
           <div class="nl-row">
             <span>{{ \Carbon\Carbon::parse($r->tanggal)->translatedFormat('d M Y') }}</span>
-            <span class="dot">•</span>
-            <span>{{ $r->waktu_mulai }}</span>
+            <span class="dot">â€¢</span>
+            <span>{{ \App\Helpers\TimeHelper::short($r->waktu_mulai) }}</span>
           </div>
           <div class="nl-loc">
             <i class="fas fa-map-marker-alt mr-1"></i>{{ $r->tempat }}
@@ -393,7 +393,7 @@
                 <div class="text-muted mb-1">Ringkasan</div>
                 @if($stepsBrief->count())
                   @foreach($stepsBrief as $st)
-                    <span class="{{ $stepClass($st->status) }}" title="{{ $st->name ?? 'Approver' }} • {{ ucfirst($st->status) }}">
+                    <span class="{{ $stepClass($st->status) }}" title="{{ $st->name ?? 'Approver' }} â€¢ {{ ucfirst($st->status) }}">
                       <b>{{ $stepIcon($st->status) }}</b> {{ $st->name ?? 'Approver' }}
                     </span>
                   @endforeach
@@ -438,14 +438,14 @@
                             @elseif($st->status==='rejected' && $st->rejected_at)
                               {{ \Carbon\Carbon::parse($st->rejected_at)->translatedFormat('d M Y H:i') }}
                             @else
-                              —
+                              â€”
                             @endif
                           </td>
                           <td>
                             @if($st->status==='rejected' && $st->rejection_note)
                               {{ $st->rejection_note }}
                             @else
-                              <span class="muted">—</span>
+                              <span class="muted">â€”</span>
                             @endif
                           </td>
                         </tr>
@@ -481,3 +481,5 @@
   @endif
 </div>
 @endsection
+
+

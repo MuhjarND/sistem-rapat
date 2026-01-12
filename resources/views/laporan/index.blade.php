@@ -1,4 +1,4 @@
-@extends('layouts.app')
+﻿@extends('layouts.app')
 @section('title','Laporan')
 
 @section('style')
@@ -180,7 +180,7 @@
                   {{ \Carbon\Carbon::parse($r->tanggal)->translatedFormat('d M Y') }}
                 </div>
                 <div style="font-size:12px;">
-                  {{ $r->waktu_mulai }} WIT
+                  {{ \App\Helpers\TimeHelper::short($r->waktu_mulai) }} WIT
                 </div>
                 <div class="text-muted" style="font-size:11px;">
                   <i class="fas fa-map-marker-alt mr-1"></i>{{ $r->tempat }}
@@ -347,7 +347,7 @@
           <div class="form-group col-md-6">
             <label>Kategori Rapat</label>
             <select name="id_kategori" class="custom-select">
-              <option value="">— Pilih Kategori —</option>
+              <option value="">â€” Pilih Kategori â€”</option>
               @foreach($kategori as $k)
                 <option value="{{ $k->id }}">{{ $k->nama }}</option>
               @endforeach
@@ -392,7 +392,7 @@
           <div class="form-group col-md-6">
             <label>Kategori Rapat</label>
             <select name="id_kategori" id="e_id_kategori" class="custom-select">
-              <option value="">— Pilih Kategori —</option>
+              <option value="">â€” Pilih Kategori â€”</option>
               @foreach($kategori as $k)
                 <option value="{{ $k->id }}">{{ $k->nama }}</option>
               @endforeach
@@ -444,3 +444,5 @@
   });
 </script>
 @endpush
+
+

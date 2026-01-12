@@ -1,4 +1,4 @@
-@extends('layouts.app')
+﻿@extends('layouts.app')
 
 @section('title','Detail Rapat')
 
@@ -45,19 +45,19 @@
           <div class="border rounded p-3" style="border-color:rgba(226,232,240,.15)!important;">
             <dl class="row mb-0">
               <dt class="col-md-4">Nomor Undangan</dt>
-              <dd class="col-md-8">{{ $rapat->nomor_undangan ?: '—' }}</dd>
+              <dd class="col-md-8">{{ $rapat->nomor_undangan ?: 'â€”' }}</dd>
 
               <dt class="col-md-4">Judul</dt>
               <dd class="col-md-8 font-weight-bold">{{ $rapat->judul }}</dd>
 
               <dt class="col-md-4">Deskripsi</dt>
-              <dd class="col-md-8">{{ $rapat->deskripsi ?: '—' }}</dd>
+              <dd class="col-md-8">{{ $rapat->deskripsi ?: 'â€”' }}</dd>
 
               <dt class="col-md-4">Tanggal</dt>
               <dd class="col-md-8">{{ \Carbon\Carbon::parse($rapat->tanggal)->translatedFormat('l, d F Y') }}</dd>
 
               <dt class="col-md-4">Waktu Mulai</dt>
-              <dd class="col-md-8">{{ $rapat->waktu_mulai }}</dd>
+              <dd class="col-md-8">{{ \App\Helpers\TimeHelper::short($rapat->waktu_mulai) }}</dd>
 
               <dt class="col-md-4">Tempat</dt>
               <dd class="col-md-8">{{ $rapat->tempat }}</dd>
@@ -110,7 +110,7 @@
               <div class="mb-1">
                 <span class="font-weight-bold">{{ $peserta->name }}</span>
                 @if(!empty($peserta->jabatan))
-                  <span class="text-muted"> — {{ $peserta->jabatan }}</span>
+                  <span class="text-muted"> â€” {{ $peserta->jabatan }}</span>
                 @endif
               </div>
             @empty
@@ -253,3 +253,5 @@
 </style>
 @endpush
 @endsection
+
+

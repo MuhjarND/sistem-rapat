@@ -1,5 +1,5 @@
-@extends('layouts.app')
-@section('title','Rapat • Approval')
+﻿@extends('layouts.app')
+@section('title','Rapat â€¢ Approval')
 
 @section('style')
 <style>
@@ -128,7 +128,7 @@
               <td>
                 {{ \Carbon\Carbon::parse($r->tanggal)->format('d M Y') }}
                 <div class="text-muted" style="font-size:12px">
-                  {{ $r->waktu_mulai }} • {{ $r->tempat }}
+                  {{ \App\Helpers\TimeHelper::short($r->waktu_mulai) }} â€¢ {{ $r->tempat }}
                 </div>
               </td>
 
@@ -176,7 +176,7 @@
 
         <div class="doc-meta mb-1">
           <span class="chip info">
-            {{ \Carbon\Carbon::parse($r->tanggal)->format('d M Y') }} • {{ $r->waktu_mulai }}
+            {{ \Carbon\Carbon::parse($r->tanggal)->format('d M Y') }} â€¢ {{ \App\Helpers\TimeHelper::short($r->waktu_mulai) }}
           </span>
           <span class="chip">{{ $r->tempat }}</span>
           <span class="chip">Peserta: {{ $counts[$r->id] ?? 0 }}</span>
@@ -205,3 +205,5 @@
   </div>
 </div>
 @endsection
+
+

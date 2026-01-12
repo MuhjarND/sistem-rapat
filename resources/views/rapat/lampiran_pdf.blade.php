@@ -2,6 +2,7 @@
 
 @php
     $approval1Jabatan = $rapat->approval1_jabatan_manual ?: ($approval1->jabatan ?? 'Approval 1');
+    $approval1Nama = \App\Helpers\NameHelper::withoutTitles($approval1->name ?? '-');
 @endphp
 
 <div style="margin-bottom:8px;">
@@ -55,5 +56,5 @@
     @else
         <div class="qr-placeholder"></div><br>
     @endif
-    <b>{{ $approval1->name ?? '-' }}</b>
+    <b>{{ $approval1Nama }}</b>
 </div>

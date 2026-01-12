@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8">
@@ -46,7 +46,7 @@
       <td class="center">{{ $i+1 }}</td>
       <td>{{ $r->judul }}</td>
       <td>{{ $r->nama_kategori ?? '-' }}</td>
-      <td>{{ \Carbon\Carbon::parse($r->tanggal)->format('d/m/Y') }} {{ $r->waktu_mulai }}</td>
+      <td>{{ \Carbon\Carbon::parse($r->tanggal)->format('d/m/Y') }} {{ \App\Helpers\TimeHelper::short($r->waktu_mulai) }}</td>
       <td>{{ $r->tempat }}</td>
       <td class="center">{{ $r->jml_diundang }}</td>
       <td class="center">{{ $r->jml_hadir }}</td>
@@ -60,3 +60,5 @@
 
 </body>
 </html>
+
+

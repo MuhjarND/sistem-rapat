@@ -1,4 +1,4 @@
-@extends('layouts.app')
+﻿@extends('layouts.app')
 @section('title','Notulensi Rapat')
 
 @section('style')
@@ -105,7 +105,7 @@
       ->first();
   $approval1_jabatan = $rapat->approval1_jabatan_manual ?: ($approval1->jabatan ?? '-');
   $approval1_text = $approval1
-      ? trim(($approval1->name ?? '-') . ' — ' . $approval1_jabatan . (($approval1->unit ?? '') ? ' · '.$approval1->unit : ''))
+      ? trim(($approval1->name ?? '-') . ' â€” ' . $approval1_jabatan . (($approval1->unit ?? '') ? ' Â· '.$approval1->unit : ''))
       : '-';
 @endphp
 
@@ -145,7 +145,7 @@
         <div class="form-group col-md-6">
           <label>Hari/Tanggal/Jam</label>
           <input type="text" class="form-control"
-                 value="{{ \Carbon\Carbon::parse($rapat->tanggal)->translatedFormat('l, d F Y') }} {{ $rapat->waktu_mulai }}"
+                 value="{{ \Carbon\Carbon::parse($rapat->tanggal)->translatedFormat('l, d F Y') }} {{ \App\Helpers\TimeHelper::short($rapat->waktu_mulai) }}"
                  readonly>
         </div>
         <div class="form-group col-md-6">
@@ -299,7 +299,7 @@
         }
       },
       language:{
-        inputTooShort: ()=>'Ketik untuk mencari…',
+        inputTooShort: ()=>'Ketik untuk mencariâ€¦',
         errorLoading:   ()=>'Gagal memuat hasil.'
       }
     }).on('change', scheduleSave);
@@ -530,3 +530,5 @@
 })();
 </script>
 @endsection
+
+

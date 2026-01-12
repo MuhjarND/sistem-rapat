@@ -1,9 +1,9 @@
-{{-- resources/views/absensi/publik.blade.php --}}
+﻿{{-- resources/views/absensi/publik.blade.php --}}
 <!DOCTYPE html>
 <html lang="id">
 <head>
   <meta charset="utf-8">
-  <title>Absensi Kehadiran — Publik</title>
+  <title>Absensi Kehadiran â€” Publik</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
   {{-- ====== Fonts & Base Reset (ringan) ====== --}}
@@ -139,7 +139,7 @@
     <div class="card">
       <div class="card-head">
         <div class="title">Informasi Rapat</div>
-        <div class="stat" title="Total hadir yang sudah tercatat">🔔 <span>Hadir: {{ $hadirCount }}</span></div>
+        <div class="stat" title="Total hadir yang sudah tercatat">ðŸ”” <span>Hadir: {{ $hadirCount }}</span></div>
       </div>
       <div class="card-body">
         <div class="grid grid-2">
@@ -152,7 +152,7 @@
             <div class="k">Tanggal</div>
             <div>{{ \Carbon\Carbon::parse($rapat->tanggal)->translatedFormat('l, d F Y') }}</div>
             <div class="k">Waktu</div>
-            <div>{{ $rapat->waktu_mulai }} WIT</div>
+            <div>{{ \App\Helpers\TimeHelper::short($rapat->waktu_mulai) }} WIT</div>
             <div class="k">Kode Publik</div>
             <div class="muted">{{ $rapat->public_code }}</div>
           </div>
@@ -217,7 +217,7 @@
       </div>
     </div>
 
-    <div class="footer-note">© {{ date('Y') }} PTA Papua Barat • Sistem Absensi Online</div>
+    <div class="footer-note">Â© {{ date('Y') }} PTA Papua Barat â€¢ Sistem Absensi Online</div>
   </div>
 
   {{-- ====== Vendor Scripts ====== --}}
@@ -230,7 +230,7 @@
     $(function(){
       $('#peserta').select2({
         width: '100%',
-        placeholder: 'Ketik untuk mencari nama…',
+        placeholder: 'Ketik untuk mencari namaâ€¦',
         minimumInputLength: 0,
         ajax:{
           url: @json(route('absensi.publik.search', $rapat->public_code)),
@@ -247,8 +247,8 @@
           },
         },
         language:{
-          inputTooShort: () => 'Ketik untuk mencari…',
-          searching:      () => 'Mencari…',
+          inputTooShort: () => 'Ketik untuk mencariâ€¦',
+          searching:      () => 'Mencariâ€¦',
           noResults:      () => 'Tidak ditemukan. Hubungi panitia bila nama belum terdaftar.'
         }
       });
@@ -297,7 +297,7 @@
 
       // UX: disable submit
       const btn = document.getElementById('btnSubmit');
-      btn.disabled = true; btn.textContent = 'Mengirim…';
+      btn.disabled = true; btn.textContent = 'Mengirimâ€¦';
       return true;
     }
 
@@ -312,3 +312,5 @@
   </script>
 </body>
 </html>
+
+
