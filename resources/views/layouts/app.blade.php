@@ -505,6 +505,29 @@
                             <i class="fas fa-clipboard-list"></i> Absensi
                         </a>
 
+                        <a class="nav-link d-flex align-items-center" data-toggle="collapse" href="#menuNotulensiOp" role="button" aria-expanded="true" aria-controls="menuNotulensiOp">
+                            <i class="fas fa-book-open"></i> Notulensi
+                            <i class="ml-auto fas fa-angle-down"></i>
+                        </a>
+                        <div class="collapse show" id="menuNotulensiOp">
+                            <div class="nav flex-column submenu">
+                                <a class="nav-link d-flex justify-content-between align-items-center {{ request()->routeIs('notulensi.belum') ? 'active' : '' }}"
+                                   href="{{ route('notulensi.belum') }}">
+                                    <span class="d-inline-flex align-items-center">
+                                      <i class="fas fa-times-circle mr-2"></i> Belum Ada
+                                    </span>
+                                    @if($countBelum>0) <span class="badge-chip">{{ $countBelum }}</span> @endif
+                                </a>
+                                <a class="nav-link d-flex justify-content-between align-items-center {{ request()->routeIs('notulensi.sudah') ? 'active' : '' }}"
+                                   href="{{ route('notulensi.sudah') }}">
+                                    <span class="d-inline-flex align-items-center">
+                                      <i class="fas fa-check-circle mr-2"></i> Sudah Ada
+                                    </span>
+                                    @if($countSudah>0) <span class="badge-chip success">{{ $countSudah }}</span> @endif
+                                </a>
+                            </div>
+                        </div>
+
                         <a class="nav-link d-flex align-items-center" data-toggle="collapse" href="#menuLaporanOp" role="button" aria-expanded="true" aria-controls="menuLaporanOp">
                             <i class="fas fa-folder-open"></i> Laporan
                             <i class="ml-auto fas fa-angle-down"></i>
