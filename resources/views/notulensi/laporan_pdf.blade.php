@@ -1,4 +1,4 @@
-﻿{{-- resources/views/notulensi/laporan_pdf.blade.php --}}
+﻿﻿{{-- resources/views/notulensi/laporan_pdf.blade.php --}}
 <!DOCTYPE html>
 <html>
 <head>
@@ -112,7 +112,7 @@
             @if(!empty($qr_notulis_data))
                 <img class="qr" src="{{ $qr_notulis_data }}">
                 <div class="qr-note">
-                    Terverifikasi digital â€” QR ini <b>KHUSUS untuk dokumen NOTULENSI</b> sebagai TTD <b>Notulis</b>.<br>
+                    Terverifikasi digital - QR ini <b>KHUSUS untuk dokumen NOTULENSI</b> sebagai TTD <b>Notulis</b>.<br>
                     Scan akan membuka halaman verifikasi & validasi HMAC.
                 </div>
             @else
@@ -129,11 +129,11 @@
             @if(!empty($qr_pimpinan_data))
                 <img class="qr" src="{{ $qr_pimpinan_data }}">
                 <div class="qr-note">
-                    Terverifikasi digital â€” TTD <b>Pimpinan Rapat</b> untuk dokumen NOTULENSI.<br>
+                    Terverifikasi digital - TTD <b>Pimpinan Rapat</b> untuk dokumen NOTULENSI.<br>
                     Muncul setelah semua approval notulensi disetujui.
                 </div>
             @else
-                <div class="small muted mt-6"><i>MENUNGGU APPROVAL PIMPINAN â€” QR akan tampil otomatis setelah disetujui.</i></div>
+                <div class="small muted mt-6"><i>MENUNGGU APPROVAL PIMPINAN - QR akan tampil otomatis setelah disetujui.</i></div>
             @endif
 
             <div class="mt-12"><b>{{ $pimpinan_nama ?? '-' }}</b></div>

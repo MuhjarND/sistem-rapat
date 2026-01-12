@@ -1,4 +1,4 @@
-﻿@extends('layouts.app')
+﻿﻿@extends('layouts.app')
 
 @section('content')
 <div class="container">
@@ -72,11 +72,11 @@
                                 <div class="text-muted small">
                                     {{ $r->nama_kategori ?? 'Tanpa kategori' }}
                                 </div>
-                                <div class="text-muted small">Nomor: {{ $r->nomor_undangan ?? 'â€”' }}</div>
-                                <div class="text-muted small">Pembuat: {{ $r->nama_pembuat ?? 'â€”' }}</div>
+                                <div class="text-muted small">Nomor: {{ $r->nomor_undangan ?? '-' }}</div>
+                                <div class="text-muted small">Pembuat: {{ $r->nama_pembuat ?? '-' }}</div>
                             </td>
                             <td class="text-capitalize">{{ $r->schedule_type }}</td>
-                            <td>{{ $r->schedule_label ?? 'â€”' }}</td>
+                            <td>{{ $r->schedule_label ?? '-' }}</td>
                             <td>
                                 {{ \Carbon\Carbon::parse($r->tanggal)->translatedFormat('d M Y') }}
                                 {{ \App\Helpers\TimeHelper::short($r->waktu_mulai) }}

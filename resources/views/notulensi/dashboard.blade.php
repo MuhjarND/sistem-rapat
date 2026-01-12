@@ -1,4 +1,4 @@
-﻿@extends('layouts.app')
+﻿﻿﻿@extends('layouts.app')
 @section('title','Dashboard Notulensi')
 
 @push('style')
@@ -23,7 +23,7 @@
 
   @media (min-width: 992px){ .gutter-tight>[class^="col-"]{padding-left:10px;padding-right:10px} }
 
-  /* ====== MOBILE TABLE â†’ CARD ====== */
+  /* ====== MOBILE TABLE -> CARD ====== */
   @media (max-width: 575.98px){
     .table-mini thead{ display:none; }
     .table-mini tbody tr{
@@ -143,7 +143,7 @@
                   <td class="text-center" data-label="Status"><span class="chip warn"><i class="fas fa-exclamation-circle"></i> Belum</span></td>
                 </tr>
               @empty
-                <tr><td colspan="5" class="text-center text-muted p-3">Semua rapat sudah memiliki notulensi. ðŸŽ‰</td></tr>
+                <tr><td colspan="5" class="text-center text-muted p-3">Semua rapat sudah memiliki notulensi. OK</td></tr>
               @endforelse
             </tbody>
           </table>

@@ -636,10 +636,10 @@ class RapatController extends Controller
         if (!empty($rapat->guest_token)) {
             $qrTamuUrl = \Illuminate\Support\Facades\Route::has('absensi.guest.form')
                 ? route('absensi.guest.form', [$rapat->id, $rapat->guest_token])
-                : url('/absensi/guest/'.$rapat->id.'/'.$rapat->guest_token); // GÂ£Ã  perbaiki typo
+                : url('/absensi/guest/'.$rapat->id.'/'.$rapat->guest_token); // perbaiki typo
         }
 
-        // GÂ£Ã  QR Publik (absensi publik tanpa login; pakai public_code)
+        // QR Publik (absensi publik tanpa login; pakai public_code)
         $qrPublikUrl = null;
         if (!empty($rapat->public_code)) {
             if (\Illuminate\Support\Facades\Route::has('absensi.publik.show')) {

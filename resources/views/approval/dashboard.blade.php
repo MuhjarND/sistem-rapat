@@ -1,4 +1,4 @@
-﻿{{-- resources/views/approval/dashboard.blade.php --}}
+﻿﻿{{-- resources/views/approval/dashboard.blade.php --}}
 @extends('layouts.app')
 @section('title','Approval Dashboard')
 
@@ -186,7 +186,7 @@
                   <div class="small">
                     {{ \Carbon\Carbon::parse($r->tanggal)->translatedFormat('d F Y') }},
                     {{ \App\Helpers\TimeHelper::short($r->waktu_mulai) }}
-                    â€” <span class="text-muted">{{ $r->tempat }}</span>
+                    - <span class="text-muted">{{ $r->tempat }}</span>
                   </div>
                 </td>
                 <td class="text-right">
@@ -214,7 +214,7 @@
         </div>
         <div class="ap-sub">No: {{ $r->nomor_undangan ?? '-' }}</div>
         <div class="ap-meta mt-1">
-          <span class="mchip info">{{ \Carbon\Carbon::parse($r->tanggal)->translatedFormat('d M Y') }} â€¢ {{ \App\Helpers\TimeHelper::short($r->waktu_mulai) }}</span>
+          <span class="mchip info">{{ \Carbon\Carbon::parse($r->tanggal)->translatedFormat('d M Y') }} - {{ \App\Helpers\TimeHelper::short($r->waktu_mulai) }}</span>
           <span class="mchip">{{ $r->tempat }}</span>
         </div>
         <div class="mt-2">
@@ -253,7 +253,7 @@
                   <div class="small">
                     {{ \Carbon\Carbon::parse($r->tanggal)->translatedFormat('d F Y') }},
                     {{ \App\Helpers\TimeHelper::short($r->waktu_mulai) }}
-                    â€” <span class="text-muted">{{ $r->tempat }}</span>
+                    - <span class="text-muted">{{ $r->tempat }}</span>
                   </div>
                 </td>
                 <td><span class="chip yellow">Menunggu approver sebelumnya</span></td>
@@ -277,7 +277,7 @@
         </div>
         <div class="ap-sub">No: {{ $r->nomor_undangan ?? '-' }}</div>
         <div class="ap-meta mt-1">
-          <span class="mchip info">{{ \Carbon\Carbon::parse($r->tanggal)->translatedFormat('d M Y') }} â€¢ {{ \App\Helpers\TimeHelper::short($r->waktu_mulai) }}</span>
+          <span class="mchip info">{{ \Carbon\Carbon::parse($r->tanggal)->translatedFormat('d M Y') }} - {{ \App\Helpers\TimeHelper::short($r->waktu_mulai) }}</span>
           <span class="mchip">{{ $r->tempat }}</span>
           <span class="mchip warn">Menunggu approver sebelumnya</span>
         </div>
@@ -311,7 +311,7 @@
                   <div class="text-muted small mb-1">No: {{ $r->nomor_undangan ?? '-' }}</div>
                   <div class="small">
                     {{ \Carbon\Carbon::parse($r->tanggal)->translatedFormat('d F Y') }}
-                    â€” <span class="text-muted">{{ $r->tempat }}</span>
+                    - <span class="text-muted">{{ $r->tempat }}</span>
                   </div>
                 </td>
                 <td>{{ \Carbon\Carbon::parse($r->signed_at)->translatedFormat('d F Y H:i') }}</td>
@@ -335,7 +335,7 @@
         </div>
         <div class="ap-sub">No: {{ $r->nomor_undangan ?? '-' }}</div>
         <div class="ap-meta mt-1">
-          <span class="mchip">{{ \Carbon\Carbon::parse($r->tanggal)->translatedFormat('d M Y') }} â€” {{ $r->tempat }}</span>
+          <span class="mchip">{{ \Carbon\Carbon::parse($r->tanggal)->translatedFormat('d M Y') }} - {{ $r->tempat }}</span>
           <span class="mchip success">Approved: {{ \Carbon\Carbon::parse($r->signed_at)->translatedFormat('d M Y H:i') }}</span>
         </div>
       </div>

@@ -1,9 +1,9 @@
-﻿{{-- resources/views/absensi/publik.blade.php --}}
+﻿﻿﻿{{-- resources/views/absensi/publik.blade.php --}}
 <!DOCTYPE html>
 <html lang="id">
 <head>
   <meta charset="utf-8">
-  <title>Absensi Kehadiran â€” Publik</title>
+  <title>Absensi Kehadiran - Publik</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
   {{-- ====== Fonts & Base Reset (ringan) ====== --}}
@@ -139,7 +139,7 @@
     <div class="card">
       <div class="card-head">
         <div class="title">Informasi Rapat</div>
-        <div class="stat" title="Total hadir yang sudah tercatat">ðŸ”” <span>Hadir: {{ $hadirCount }}</span></div>
+        <div class="stat" title="Total hadir yang sudah tercatat">Hadir <span>Hadir: {{ $hadirCount }}</span></div>
       </div>
       <div class="card-body">
         <div class="grid grid-2">
@@ -217,7 +217,7 @@
       </div>
     </div>
 
-    <div class="footer-note">Â© {{ date('Y') }} PTA Papua Barat â€¢ Sistem Absensi Online</div>
+    <div class="footer-note">(c) {{ date('Y') }} PTA Papua Barat - Sistem Absensi Online</div>
   </div>
 
   {{-- ====== Vendor Scripts ====== --}}
@@ -230,7 +230,7 @@
     $(function(){
       $('#peserta').select2({
         width: '100%',
-        placeholder: 'Ketik untuk mencari namaâ€¦',
+        placeholder: 'Ketik untuk mencari nama...',
         minimumInputLength: 0,
         ajax:{
           url: @json(route('absensi.publik.search', $rapat->public_code)),
@@ -247,8 +247,8 @@
           },
         },
         language:{
-          inputTooShort: () => 'Ketik untuk mencariâ€¦',
-          searching:      () => 'Mencariâ€¦',
+          inputTooShort: () => 'Ketik untuk mencari...',
+          searching:      () => 'Mencari...',
           noResults:      () => 'Tidak ditemukan. Hubungi panitia bila nama belum terdaftar.'
         }
       });
@@ -297,7 +297,7 @@
 
       // UX: disable submit
       const btn = document.getElementById('btnSubmit');
-      btn.disabled = true; btn.textContent = 'Mengirimâ€¦';
+      btn.disabled = true; btn.textContent = 'Mengirim...';
       return true;
     }
 

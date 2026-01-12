@@ -1,4 +1,4 @@
-﻿@extends('layouts.app')
+﻿﻿@extends('layouts.app')
 @section('title','Notulensi Rapat')
 
 @section('style')
@@ -105,7 +105,7 @@
       ->first();
   $approval1_jabatan = $rapat->approval1_jabatan_manual ?: ($approval1->jabatan ?? '-');
   $approval1_text = $approval1
-      ? trim(($approval1->name ?? '-') . ' â€” ' . $approval1_jabatan . (($approval1->unit ?? '') ? ' Â· '.$approval1->unit : ''))
+      ? trim(($approval1->name ?? '-') . ' - ' . $approval1_jabatan . (($approval1->unit ?? '') ? ' - '.$approval1->unit : ''))
       : '-';
 @endphp
 
@@ -299,7 +299,7 @@
         }
       },
       language:{
-        inputTooShort: ()=>'Ketik untuk mencariâ€¦',
+        inputTooShort: ()=>'Ketik untuk mencari...',
         errorLoading:   ()=>'Gagal memuat hasil.'
       }
     }).on('change', scheduleSave);

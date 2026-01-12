@@ -1,4 +1,4 @@
-﻿{{-- resources/views/notulensi/show.blade.php --}}
+﻿﻿{{-- resources/views/notulensi/show.blade.php --}}
 @extends('layouts.app')
 
 @section('title','Detail Notulensi')
@@ -170,7 +170,7 @@
               @if($approval1)
                 <strong>{{ $approval1->name }}</strong>
                 <span class="muted">
-                  â€” {{ $approval1_jabatan ?: 'â€”' }}{{ $approval1->unit ? ' Â· '.$approval1->unit : '' }}
+                  - {{ $approval1_jabatan ?: '-' }}{{ $approval1->unit ? ' - '.$approval1->unit : '' }}
                 </span>
               @else
                 <span class="muted">-</span>
@@ -227,8 +227,8 @@
                     @foreach($assignees as $a)
                       <span class="assignee-chip">
                         {{ $a->name }}
-                        @if($a->jabatan) <span class="muted">â€” {{ $a->jabatan }}</span>@endif
-                        @if($a->unit) <span class="muted">Â· {{ $a->unit }}</span>@endif
+                        @if($a->jabatan) <span class="muted">- {{ $a->jabatan }}</span>@endif
+                        @if($a->unit) <span class="muted">- {{ $a->unit }}</span>@endif
                       </span><br>
                     @endforeach
                   @else

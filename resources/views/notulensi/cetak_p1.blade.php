@@ -1,4 +1,4 @@
-﻿@php
+﻿﻿@php
     use Carbon\Carbon;
 
     // Tanggal
@@ -17,8 +17,8 @@
     $approval1Text = $approval1
         ? trim(
             ($approval1->name ?? '-') .
-            ' â€” ' . $approval1Jabatan .
-            (($approval1->unit ?? '') ? ' Â· '.$approval1->unit : '')
+            ' - ' . $approval1Jabatan .
+            (($approval1->unit ?? '') ? ' - '.$approval1->unit : '')
           )
         : '-';
 @endphp

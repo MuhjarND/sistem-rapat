@@ -1,4 +1,4 @@
-﻿{{-- Modal status approval (dipakai desktop & mobile) --}}
+﻿﻿{{-- Modal status approval (dipakai desktop & mobile) --}}
 @php
   // Guard: variabel yang dibutuhkan dari parent
   // $modalId, $overall, $approvalMap, $stepIcon, $stepClass, $popBadgeClass, $rapat
@@ -52,7 +52,7 @@
             @if(count($rows))
               @foreach($rows as $st)
                 <span class="{{ $stepClass($st['status'] ?? 'pending') }}"
-                      title="{{ ($st['name'] ?? 'Approver') }} â€¢ Step {{ $st['order'] ?? '?' }} â€¢ {{ ucfirst($st['status'] ?? 'pending') }}">
+                      title="{{ ($st['name'] ?? 'Approver') }} - Step {{ $st['order'] ?? '?' }} - {{ ucfirst($st['status'] ?? 'pending') }}">
                   <b>{{ $stepIcon($st['status'] ?? 'pending') }}</b>
                   Step {{ $st['order'] ?? '?' }}
                 </span>
@@ -105,14 +105,14 @@
                         @if($when)
                           {{ \Carbon\Carbon::parse($when)->translatedFormat('d M Y H:i') }}
                         @else
-                          â€”
+                          -
                         @endif
                       </td>
                       <td>
                         @if($status==='rejected' && !empty($st['rejection_note']))
                           {{ $st['rejection_note'] }}
                         @else
-                          <span class="muted">â€”</span>
+                          <span class="muted">-</span>
                         @endif
                       </td>
                     </tr>

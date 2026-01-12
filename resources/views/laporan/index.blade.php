@@ -1,4 +1,4 @@
-﻿@extends('layouts.app')
+﻿﻿@extends('layouts.app')
 @section('title','Laporan')
 
 @section('style')
@@ -347,7 +347,7 @@
           <div class="form-group col-md-6">
             <label>Kategori Rapat</label>
             <select name="id_kategori" class="custom-select">
-              <option value="">â€” Pilih Kategori â€”</option>
+              <option value="">- Pilih Kategori -</option>
               @foreach($kategori as $k)
                 <option value="{{ $k->id }}">{{ $k->nama }}</option>
               @endforeach
@@ -392,7 +392,7 @@
           <div class="form-group col-md-6">
             <label>Kategori Rapat</label>
             <select name="id_kategori" id="e_id_kategori" class="custom-select">
-              <option value="">â€” Pilih Kategori â€”</option>
+              <option value="">- Pilih Kategori -</option>
               @foreach($kategori as $k)
                 <option value="{{ $k->id }}">{{ $k->nama }}</option>
               @endforeach

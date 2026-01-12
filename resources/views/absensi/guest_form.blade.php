@@ -1,9 +1,9 @@
-﻿{{-- resources/views/absensi/guest_form.blade.php --}}
+﻿﻿{{-- resources/views/absensi/guest_form.blade.php --}}
 <!DOCTYPE html>
 <html lang="id">
 <head>
   <meta charset="utf-8">
-  <title>Absensi Tamu â€” {{ $rapat->judul }}</title>
+  <title>Absensi Tamu - {{ $rapat->judul }}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
   {{-- Bootstrap 4 --}}
@@ -72,12 +72,12 @@
       <div>
         <h5 class="title">Absensi Tamu</h5>
         <p class="subtitle mb-0">
-          {{ $rapat->judul }} @if(!empty($rapat->nama_kategori)) â€¢ <span class="badge-kat">{{ $rapap->nama_kategori }}</span>@endif
+          {{ $rapat->judul }} @if(!empty($rapat->nama_kategori)) - <span class="badge-kat">{{ $rapap->nama_kategori }}</span>@endif
         </p>
       </div>
       <div class="text-right">
         <div class="subtitle">
-          {{ \Carbon\Carbon::parse($rapat->tanggal)->isoFormat('dddd, D MMMM Y') }} â€¢ {{ \App\Helpers\TimeHelper::short($rapat->waktu_mulai) }} WIT
+          {{ \Carbon\Carbon::parse($rapat->tanggal)->isoFormat('dddd, D MMMM Y') }} - {{ \App\Helpers\TimeHelper::short($rapat->waktu_mulai) }} WIT
         </div>
         <div class="subtitle">{{ $rapat->tempat }}</div>
       </div>
@@ -144,7 +144,7 @@
 
           <div class="sig-wrap mb-2">
             <canvas id="signature"></canvas>
-            <div id="sigPh" class="sig-placeholder">Tanda tangani di area iniâ€¦</div>
+            <div id="sigPh" class="sig-placeholder">Tanda tangani di area ini...</div>
           </div>
           <div class="d-flex">
             <button type="button" class="btn btn-ghost btn-sm mr-2" onclick="clearSignature()">Bersihkan</button>

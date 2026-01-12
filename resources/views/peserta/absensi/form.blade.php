@@ -1,4 +1,4 @@
-﻿@extends('layouts.app')
+﻿﻿@extends('layouts.app')
 @section('title','Konfirmasi Kehadiran')
 
 @section('content')
@@ -8,7 +8,7 @@
     <p class="mb-2"><b>Rapat:</b> {{ $rapat->judul }}</p>
     <p class="text-muted">
       {{ \Carbon\Carbon::parse($rapat->tanggal)->isoFormat('dddd, D MMMM Y') }}
-      â€¢ {{ \App\Helpers\TimeHelper::short($rapat->waktu_mulai) }} WIT â€¢ {{ $rapat->tempat }}
+      - {{ \App\Helpers\TimeHelper::short($rapat->waktu_mulai) }} WIT - {{ $rapat->tempat }}
     </p>
 
     @if($absensi)

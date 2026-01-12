@@ -1,4 +1,4 @@
-﻿@extends('layouts.app')
+﻿﻿@extends('layouts.app')
 
 @section('title','Rapat Saya')
 
@@ -97,7 +97,7 @@
                               <div class="text-muted small">{{ $r->nama_kategori }}</div>
                           @endif
                       </td>
-                      <td>{{ $r->nomor_undangan ?? 'â€”' }}</td>
+                      <td>{{ $r->nomor_undangan ?? '-' }}</td>
 
                       {{-- Gabung tanggal & waktu --}}
                       <td class="text-center">
@@ -165,7 +165,7 @@
 
             <div class="m-meta mt-1">
               <span class="mchip info">
-                {{ \Carbon\Carbon::parse($r->tanggal)->isoFormat('D/MM/Y') }} â€¢ {{ \App\Helpers\TimeHelper::short($r->waktu_mulai) }} WIT
+                {{ \Carbon\Carbon::parse($r->tanggal)->isoFormat('D/MM/Y') }} - {{ \App\Helpers\TimeHelper::short($r->waktu_mulai) }} WIT
               </span>
               <span class="mchip">
                 {{ $r->tempat }}

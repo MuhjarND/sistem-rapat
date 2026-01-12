@@ -1,4 +1,4 @@
-﻿@extends('layouts.app')
+﻿﻿@extends('layouts.app')
 
 @section('title','Absensi Rapat')
 
@@ -141,7 +141,7 @@
                 {{ ($daftar_rapat->currentPage()-1) * $daftar_rapat->perPage() + $index + 1 }}
               </td>
 
-              <td>{{ $rapat->nomor_undangan ?? 'â€”' }}</td>
+              <td>{{ $rapat->nomor_undangan ?? '-' }}</td>
 
               <td>
                 <strong>{{ $rapat->judul }}</strong>
@@ -234,13 +234,13 @@
             <div class="abs-title">{{ $rapat->judul }}</div>
           </div>
           <div class="abs-kat">
-            No: {{ $rapat->nomor_undangan ?? 'â€”' }} â€¢ {{ $rapat->nama_kategori ?? '-' }}
+            No: {{ $rapat->nomor_undangan ?? '-' }} - {{ $rapat->nama_kategori ?? '-' }}
           </div>
 
           {{-- Meta waktu & lokasi --}}
           <div class="abs-meta mt-1">
             <span>{{ \Carbon\Carbon::parse($rapat->tanggal)->translatedFormat('d M Y') }}</span>
-            <span class="dot">â€¢</span>
+            <span class="dot">-</span>
             <span>{{ \App\Helpers\TimeHelper::short($rapat->waktu_mulai) }}</span>
           </div>
           <div class="abs-loc mt-1">

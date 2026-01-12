@@ -1,9 +1,9 @@
-﻿@extends('layouts.app')
+﻿﻿@extends('layouts.app')
 @section('title','Laporan Rapat (Bulan Berjalan)')
 
 @section('content')
 <div class="container">
-  <h3 class="mb-3">Laporan Rapat (Undangan â€¢ Absensi â€¢ Notulensi) â€“ Bulan Berjalan</h3>
+  <h3 class="mb-3">Laporan Rapat (Undangan - Absensi - Notulensi) - Bulan Berjalan</h3>
 
   <form class="card mb-3" method="GET" action="{{ route('laporan.baru') }}">
     <div class="card-body">

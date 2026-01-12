@@ -1,5 +1,5 @@
-﻿@extends('layouts.app')
-@section('title','Notulensi â€¢ Belum Dibuat')
+﻿﻿@extends('layouts.app')
+@section('title','Notulensi - Belum Dibuat')
 
 @section('style')
 <style>
@@ -173,14 +173,14 @@
             <div class="flex-fill">
               <div class="nl-title">{{ $r->judul }}</div>
               <div class="nl-sub">
-                No: {{ $r->nomor_undangan ?? 'â€”' }} â€¢ {{ $r->nama_kategori ?? '-' }}
+                No: {{ $r->nomor_undangan ?? '-' }} - {{ $r->nama_kategori ?? '-' }}
               </div>
             </div>
           </div>
 
           <div class="nl-row">
             <span>{{ \Carbon\Carbon::parse($r->tanggal)->translatedFormat('d M Y') }}</span>
-            <span class="dot">â€¢</span>
+            <span class="dot">-</span>
             <span>{{ \App\Helpers\TimeHelper::short($r->waktu_mulai) }}</span>
           </div>
           <div class="nl-loc">

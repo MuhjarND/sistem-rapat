@@ -1,4 +1,4 @@
-﻿@php
+﻿﻿@php
     if (!isset($tampilkan_lampiran)) {
         $tampilkan_lampiran = (isset($daftar_peserta) && method_exists($daftar_peserta, 'count'))
             ? ($daftar_peserta->count() > 5)
@@ -71,7 +71,7 @@
         </tr>
     </table>
 
-    {{-- Kepada Yth + daftar peserta (jika â‰¤ 5) --}}
+    {{-- Kepada Yth + daftar peserta (jika <= 5) --}}
     <p style="margin-bottom: 6px;">Kepada Yth. Para pejabat pada daftar terlampir</p>
 
     @if($tampilkan_daftar_di_surat)
@@ -98,7 +98,7 @@
         &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tempat
     </p>
 
-   <p><i>Assalamuâ€™alaikum Wr.Wb.</i></p>
+   <p><i>Assalamu'alaikum Wr.Wb.</i></p>
     <p style="text-indent:24px;">
         Memohon kehadiran Bapak/Ibu/Saudara dalam <b>{{ $rapat->judul }}</b>, yang akan dilaksanakan pada:
     </p>
