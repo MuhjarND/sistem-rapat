@@ -92,7 +92,7 @@ Route::middleware(['auth', 'cekrole:admin,operator'])->group(function () {
 });
 
 //NOTULENSI
-Route::middleware(['auth', 'cekrole:admin,notulis'])->group(function () {
+Route::middleware(['auth', 'cekrole:admin,notulis,operator'])->group(function () {
     //CETAK ABSENSI
     // Route::get('absensi/laporan/{id_rapat}', 'AbsensiController@exportPdf')->name('absensi.export.pdf');
     //NOTULENSI
