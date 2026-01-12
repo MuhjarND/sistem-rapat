@@ -12,6 +12,8 @@
     $isVirtual = !empty($rapat->is_virtual);
     $linkZoom = trim((string) ($rapat->link_zoom ?? ''));
     $approval1Nama = \App\Helpers\NameHelper::withoutTitles($approval1->name ?? '-');
+    $approval1Jabatan = data_get($rapat, 'approval1_jabatan_manual') ?: ($approval1->jabatan ?? 'Approval 1');
+    $isKetua = stripos((string) $approval1Jabatan, 'ketua') !== false;
 @endphp
 
 <!DOCTYPE html>
@@ -72,7 +74,7 @@
     </table>
 
     {{-- Kepada Yth + daftar peserta (jika <= 5) --}}
-    <p style="margin-bottom: 6px;">Kepada Yth. Para pejabat pada daftar terlampir</p>
+    <p style="margin-bottom: 6px;">Kepada Yth. Para Pejabat dan Pegawai (terlampir)</p>
 
     @if($tampilkan_daftar_di_surat)
         @php
@@ -95,7 +97,7 @@
 
     <p style="margin-top: 0;">
         di<br>
-        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tempat
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Tempat
     </p>
 
    <p><i>Assalamu'alaikum Wr.Wb.</i></p>
@@ -148,9 +150,6 @@
 
     <div class="clearfix">
         {{-- Tanda tangan Approval 1 (wajib) --}}
-        @php
-            $approval1Jabatan = data_get($rapat, 'approval1_jabatan_manual') ?: ($approval1->jabatan ?? 'Approval 1');
-        @endphp
         <div class="ttd">
             <b>{{ $approval1Jabatan }},</b><br>
             @if(!empty($approval1->unit))
@@ -173,6 +172,12 @@
             <b>{{ $approval1Nama }}</b>
         </div>
     </div>
+
+    @if(!$isKetua)
+        <div style="margin-top:16px;">
+            <b>Tembusan:</b> Yth. Ketua Pengadilan Tinggi Agama Papua Barat (sebagai laporan)
+        </div>
+    @endif
 
     {{-- Lampiran HANYA bila peserta > 5 --}}
     @if($tampilkan_lampiran)
