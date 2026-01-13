@@ -207,12 +207,21 @@
   </div>
 </div>
 <div class="form-group" id="{{ $virtualWrapId }}" style="display:none;">
-  <label>Link Zoom Meeting</label>
+  <label>Meeting ID</label>
   <input type="text"
-         name="link_zoom"
+         name="meeting_id"
          class="form-control"
-         placeholder="https://zoom.us/j/..."
-         value="{{ old('link_zoom', $rapat->link_zoom ?? '') }}">
+         placeholder="Contoh: 123 456 7890"
+         value="{{ old('meeting_id', $rapat->meeting_id ?? '') }}">
+  <small class="form-text text-muted">Isi Meeting ID dan Passcode untuk rapat virtual.</small>
+  <div class="mt-2">
+    <label>Passcode</label>
+    <input type="text"
+           name="meeting_passcode"
+           class="form-control"
+           placeholder="Contoh: 123456"
+           value="{{ old('meeting_passcode', $rapat->meeting_passcode ?? '') }}">
+  </div>
 </div>
 
 <div class="form-group" id="{{ $pakaianWrapId }}" style="display:none;">
@@ -544,14 +553,19 @@
       var wrapId = cb.getAttribute('data-virtual-wrap');
       var wrap = wrapId ? document.getElementById(wrapId) : null;
       if (!wrap) return;
-      var input = wrap.querySelector('input[name="link_zoom"]');
+      var inputId = wrap.querySelector('input[name="meeting_id"]');
+      var inputPass = wrap.querySelector('input[name="meeting_passcode"]');
       function sync(){
         var show = cb.checked;
         wrap.style.display = show ? '' : 'none';
-        if (input) {
-          if (show) input.setAttribute('required','required');
-          else input.removeAttribute('required');
-        }
+      if (inputId) {
+        if (show) inputId.setAttribute('required','required');
+        else inputId.removeAttribute('required');
+      }
+      if (inputPass) {
+        if (show) inputPass.setAttribute('required','required');
+        else inputPass.removeAttribute('required');
+      }
       }
       cb.addEventListener('change', sync);
       sync();

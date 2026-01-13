@@ -10,7 +10,8 @@
     $kategoriNama = strtolower(trim((string) ($rapat->nama_kategori ?? $rapat->kategori_nama ?? $rapat->kategori ?? '')));
     $isPakta = $kategoriNama === strtolower('Penandatanganan Pakta Integritas dan Komitmen Bersama');
     $isVirtual = !empty($rapat->is_virtual);
-    $linkZoom = trim((string) ($rapat->link_zoom ?? ''));
+    $meetingId = trim((string) ($rapat->meeting_id ?? ''));
+    $meetingPasscode = trim((string) ($rapat->meeting_passcode ?? ''));
     $approval1Nama = \App\Helpers\NameHelper::withoutTitles($approval1->name ?? '-');
     $approval1Jabatan = data_get($rapat, 'approval1_jabatan_manual') ?: ($approval1->jabatan ?? 'Approval 1');
     $isKetua = stripos((string) $approval1Jabatan, 'ketua') !== false;
@@ -121,11 +122,16 @@
             <td>:</td>
             <td>{{ $rapat->tempat }}</td>
         </tr>
-        @if($isVirtual && $linkZoom !== '')
+        @if($isVirtual && ($meetingId !== '' || $meetingPasscode !== ''))
         <tr>
-            <td>Link Zoom</td>
+            <td>Meeting ID</td>
             <td>:</td>
-            <td>{{ $linkZoom }}</td>
+            <td>{{ $meetingId !== '' ? $meetingId : '-' }}</td>
+        </tr>
+        <tr>
+            <td>Passcode</td>
+            <td>:</td>
+            <td>{{ $meetingPasscode !== '' ? $meetingPasscode : '-' }}</td>
         </tr>
         @endif
         <tr>

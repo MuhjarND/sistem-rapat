@@ -991,7 +991,8 @@ public function signSubmit(Request $request, $token)
         $waktu   = TimeHelper::short($rapat->waktu_mulai ?? null);
         $tempat  = $rapat->tempat ?? '-';
         $isVirtual = !empty($rapat->is_virtual);
-        $linkZoom  = $isVirtual ? trim((string) ($rapat->link_zoom ?? '')) : '';
+        $meetingId = $isVirtual ? trim((string) ($rapat->meeting_id ?? '')) : '';
+        $meetingPasscode = $isVirtual ? trim((string) ($rapat->meeting_passcode ?? '')) : '';
 
         // ===== Link PDF dan Preview Peserta =====
         $pdfLink = null;
@@ -1023,7 +1024,8 @@ public function signSubmit(Request $request, $token)
           . "• Hari/Tanggal: *{$tanggal}*\n"
           . "• Waktu: *{$waktu} WIT*\n"
           . "• Tempat: *{$tempat}*\n"
-          . ($linkZoom !== '' ? "- Link Zoom: {$linkZoom}\n" : "")
+          . ($meetingId !== '' ? "- Meeting ID: {$meetingId}\n" : "")
+          . ($meetingPasscode !== '' ? "- Passcode: {$meetingPasscode}\n" : "")
           . "\n"
           . "Silakan meninjau detail rapat melalui tautan berikut:\n"
           . ($previewLink ? "🔗 *Preview Rapat:* {$previewLink}\n" : "")
