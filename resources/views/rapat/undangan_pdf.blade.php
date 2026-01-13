@@ -181,7 +181,7 @@
 
     @if(!$isKetua)
         <div style="margin-top:16px;">
-            <b>Tembusan:</b> Yth. Ketua Pengadilan Tinggi Agama Papua Barat (sebagai laporan)
+            <b>Tembusan:</b><br> Yth. Ketua Pengadilan Tinggi Agama Papua Barat (sebagai laporan)
         </div>
     @endif
 

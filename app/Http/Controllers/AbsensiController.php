@@ -317,9 +317,6 @@ class AbsensiController extends Controller
             ]));
         }
 
-        // === NOTIFIKASI WA (user internal) ===
-        $this->notifyAbsensiWa(Auth::id(), $rapat, 'hadir');
-
         return redirect()->route('absensi.scan', $token)->with('success', 'Absensi (TTD) berhasil direkam. Terima kasih!');
     }
 
@@ -387,9 +384,6 @@ class AbsensiController extends Controller
             'created_at'   => now(),
             'updated_at'   => now(),
         ]);
-
-        // WA ke tamu (jika isi No HP)
-        $this->notifyAbsensiWaGuest($request->no_hp, $rapat, $request->input('status','hadir'), $request->nama);
 
         return redirect()->route('absensi.guest.form', [$rapatId, $token])
             ->with('ok','Terima kasih, absensi tamu berhasil terekam.');
@@ -824,65 +818,6 @@ public function exportPdf(Request $request, $id_rapat)
         return $ok;
     }
 
-    // ——— Rakit & kirim pesan absensi (user internal)
-    private function notifyAbsensiWa(int $userId, \stdClass $rapat, string $status): void
-    {
-        $user = DB::table('users')->where('id', $userId)->select('name','no_hp')->first();
-        if (!$user) return;
-
-        $msisdn = $this->normalizeMsisdn($user->no_hp ?? null);
-        if (!$msisdn) return;
-
-        Carbon::setLocale('id');
-        $tgl = Carbon::parse($rapat->tanggal)->isoFormat('dddd, D MMMM Y');
-        $sender = env('FONNTE_SENDER', 'Sistem Rapat');
-        $waktu = TimeHelper::short($rapat->waktu_mulai);
-
-        $msg = "*{$sender}*\n"
-             . "Yth. Bapak/Ibu *{$user->name}*,\n"
-             . "terima kasih telah melakukan absensi kehadiran pada rapat berikut:\n\n"
-             . "*Rapat*   : {$rapat->judul}\n"
-             . "*Tanggal* : {$tgl}\n"
-             . "*Waktu*   : {$waktu} WIT\n"
-             . "*Tempat*  : {$rapat->tempat}\n"
-             . "*Status*  : *".strtoupper($status)."*\n\n"
-             . "Hormat kami,\n"
-             . "_Sistem Rapat_";
-
-        try {
-            $this->sendWaFonnte($msisdn, $msg);
-        } catch (\Throwable $e) {
-            // Log::warning('Fonnte error: '.$e->getMessage());
-        }
-    }
-
-    // ——— Rakit & kirim pesan absensi (tamu)
-    private function notifyAbsensiWaGuest(?string $noHp, \stdClass $rapat, string $status, string $nama): void
-    {
-        $msisdn = $this->normalizeMsisdn($noHp ?? null);
-        if (!$msisdn) return;
-
-        Carbon::setLocale('id');
-        $tgl = Carbon::parse($rapat->tanggal)->isoFormat('dddd, D MMMM Y');
-        $sender = env('FONNTE_SENDER', 'Sistem Rapat');
-        $waktu = TimeHelper::short($rapat->waktu_mulai);
-
-        $msg = "*{$sender}*\n"
-             . "Yth. *{$nama}*,\n"
-             . "terima kasih telah melakukan absensi kehadiran pada rapat berikut:\n\n"
-             . "*Rapat*   : {$rapat->judul}\n"
-             . "*Tanggal* : {$tgl}\n"
-             . "*Waktu*   : {$waktu} WIT\n"
-             . "*Tempat*  : {$rapat->tempat}\n"
-             . "*Status*  : *".strtoupper($status)."*\n\n"
-             . "Hormat kami,\n";
-        try {
-            $this->sendWaFonnte($msisdn, $msg);
-        } catch (\Throwable $e) {
-            // Log::warning('Fonnte guest error: '.$e->getMessage());
-        }
-    }
-
     public function notifyStart(Request $request, int $rapatId)
     {
         $rapat = DB::table('rapat')->where('id', $rapatId)->first();
@@ -964,4 +899,5 @@ public function exportPdf(Request $request, $id_rapat)
     }
 
 }
+
 
