@@ -3,7 +3,7 @@
 <html lang="id">
 <head>
   <meta charset="utf-8">
-  <title>Absensi Tamu - {{ $rapat->judul }}</title>
+  <title>Sistem Absensi Online PTA Papua Barat - {{ $rapat->judul }}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
   {{-- Bootstrap 4 --}}
@@ -47,15 +47,15 @@
       background: rgba(255,255,255,.06); color:#fff; border:1px solid var(--border);
     }
     .sig-wrap{
-      border:1px dashed rgba(226,232,240,.35); background: rgba(255,255,255,.02);
+      border:1px dashed rgba(226,232,240,.35); background: #fff;
       border-radius:12px; position: relative;
     }
     canvas#signature{
-      width:100%; height:260px; display:block; cursor: crosshair;
+      width:100%; height:260px; display:block; cursor: crosshair; background: #fff;
     }
     .sig-placeholder{
       position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
-      color: var(--muted); pointer-events:none; font-size:13px;
+      color: #6b7280; pointer-events:none; font-size:13px;
     }
     .alert-custom{
       background: rgba(254,231,21,.1); border:1px solid rgba(254,231,21,.35); color:#fff;
@@ -70,9 +70,9 @@
   <div class="cardx">
     <div class="cardx-header">
       <div>
-        <h5 class="title">Absensi Tamu</h5>
+        <h5 class="title">Sistem Absensi Online PTA Papua Barat</h5>
         <p class="subtitle mb-0">
-          {{ $rapat->judul }} @if(!empty($rapat->nama_kategori)) - <span class="badge-kat">{{ $rapap->nama_kategori }}</span>@endif
+          {{ $rapat->judul }} @if(!empty($rapat->nama_kategori)) - <span class="badge-kat">{{ $rapat->nama_kategori }}</span>@endif
         </p>
       </div>
       <div class="text-right">
@@ -101,13 +101,13 @@
 
         <div class="form-row">
           <div class="form-group col-md-6">
-            <label class="form-label">Nama Tamu <span class="text-warning">*</span></label>
+            <label class="form-label">Nama<span class="text-warning">*</span></label>
             <input type="text" name="nama" class="form-control" required maxlength="120" value="{{ old('nama') }}">
           </div>
           <div class="form-group col-md-6">
             <label class="form-label">Instansi</label>
             <input type="text" name="instansi" class="form-control" maxlength="150" value="{{ old('instansi') }}">
-            <div class="help">Opsional. Contoh: PT Example, K/L/D</div>
+            <div class="help">Opsional. Contoh: PA Manokwari, K/L/D</div>
           </div>
         </div>
 
@@ -138,7 +138,7 @@
 
         <div class="form-group">
           <label class="form-label d-flex align-items-center justify-content-between">
-            <span>Tanda Tangan Tamu</span>
+            <span>Tanda Tangan</span>
             <small class="text-muted">Gunakan jari/stylus pada ponsel</small>
           </label>
 
@@ -158,7 +158,7 @@
         <div class="d-flex justify-content-between align-items-center mt-4">
           <div class="qr-tamu">
             <span class="badge-kat">Tamu</span>
-            <span>Form ini khusus tamu undangan.</span>
+            <span>Form ini khusus Intansi eksternal.</span>
           </div>
           <button type="submit" class="btn btn-accent px-4">
             Kirim Absensi
@@ -188,8 +188,8 @@
   function initPad() {
     fitCanvas();
     sigPad = new SignaturePad(canvas, {
-      backgroundColor: 'rgba(0,0,0,0)',
-      penColor: '#FEE715'
+      backgroundColor: '#ffffff',
+      penColor: '#000000'
     });
     sigPad.addEventListener("beginStroke", () => ph.style.display = 'none');
   }
@@ -224,5 +224,3 @@
 </script>
 </body>
 </html>
-
-
