@@ -399,6 +399,8 @@ class RapatController extends Controller
             'tanggal'           => 'required|date',
             'waktu_mulai'       => 'required',
             'tempat'            => 'required',
+            'lampiran_tambahan' => 'nullable|in:0,1',
+            'lampiran_tambahan_file' => 'required_if:lampiran_tambahan,1|file|mimes:pdf,doc,docx,xls,xlsx,ppt,pptx|max:20480',
             'jenis_pakaian'     => [$isPakta ? 'required' : 'nullable', 'string', 'max:120'],
             'is_virtual'        => 'nullable|boolean',
             'meeting_id'        => [$isVirtual ? 'required' : 'nullable', 'string', 'max:120'],
@@ -421,7 +423,40 @@ class RapatController extends Controller
             'id_kategori'       => 'required|exists:kategori_rapat,id'
         ]);
 
-        $id_rapat = DB::table('rapat')->insertGetId([
+        $lampiranMeta = [];
+        if ($request->input('lampiran_tambahan') === '1' && $request->hasFile('lampiran_tambahan_file')) {
+            $file = $request->file('lampiran_tambahan_file');
+            if ($file && $file->isValid()) {
+                $originalName = $file->getClientOriginalName();
+                $mimeType = $file->getClientMimeType();
+                $fileSize = $file->getSize();
+
+                $dest = public_path('uploads/rapat_lampiran');
+                if (!is_dir($dest)) {
+                    @mkdir($dest, 0775, true);
+                }
+
+                $ext = strtolower($file->getClientOriginalExtension());
+                $name = 'lampiran-rapat-'.Str::random(12).'.'.$ext;
+                $file->move($dest, $name);
+                $relPath = 'uploads/rapat_lampiran/'.$name;
+
+                if (Schema::hasColumn('rapat', 'lampiran_tambahan_path')) {
+                    $lampiranMeta['lampiran_tambahan_path'] = $relPath;
+                }
+                if (Schema::hasColumn('rapat', 'lampiran_tambahan_nama')) {
+                    $lampiranMeta['lampiran_tambahan_nama'] = $originalName;
+                }
+                if (Schema::hasColumn('rapat', 'lampiran_tambahan_mime')) {
+                    $lampiranMeta['lampiran_tambahan_mime'] = $mimeType;
+                }
+                if (Schema::hasColumn('rapat', 'lampiran_tambahan_size')) {
+                    $lampiranMeta['lampiran_tambahan_size'] = $fileSize;
+                }
+            }
+        }
+
+        $id_rapat = DB::table('rapat')->insertGetId(array_merge([
             'nomor_undangan'    => $request->nomor_undangan,
             'judul'             => $request->judul,
             'deskripsi'         => $request->deskripsi,
@@ -441,7 +476,7 @@ class RapatController extends Controller
             'public_code'       => Str::random(12),     // token publik (absensi publik, tanpa login)
             'created_at'        => now(),
             'updated_at'        => now(),
-        ]);
+        ], $lampiranMeta));
 
         if ($request->boolean('pilih_semua')) {
             $allowedIds = $this->getSelectableParticipants()->pluck('id')->all();
@@ -502,6 +537,8 @@ class RapatController extends Controller
             'tanggal'           => 'required|date',
             'waktu_mulai'       => 'required',
             'tempat'            => 'required',
+            'lampiran_tambahan' => 'nullable|in:0,1',
+            'lampiran_tambahan_file' => 'required_if:lampiran_tambahan,1|file|mimes:pdf,doc,docx,xls,xlsx,ppt,pptx|max:20480',
             'jenis_pakaian'     => [$isPakta ? 'required' : 'nullable', 'string', 'max:120'],
             'is_virtual'        => 'nullable|boolean',
             'meeting_id'        => [$isVirtual ? 'required' : 'nullable', 'string', 'max:120'],
@@ -526,7 +563,40 @@ class RapatController extends Controller
             'id_kategori'       => 'required|exists:kategori_rapat,id'
         ]);
 
-        $id_rapat = DB::table('rapat')->insertGetId([
+        $lampiranMeta = [];
+        if ($request->input('lampiran_tambahan') === '1' && $request->hasFile('lampiran_tambahan_file')) {
+            $file = $request->file('lampiran_tambahan_file');
+            if ($file && $file->isValid()) {
+                $originalName = $file->getClientOriginalName();
+                $mimeType = $file->getClientMimeType();
+                $fileSize = $file->getSize();
+
+                $dest = public_path('uploads/rapat_lampiran');
+                if (!is_dir($dest)) {
+                    @mkdir($dest, 0775, true);
+                }
+
+                $ext = strtolower($file->getClientOriginalExtension());
+                $name = 'lampiran-rapat-'.Str::random(12).'.'.$ext;
+                $file->move($dest, $name);
+                $relPath = 'uploads/rapat_lampiran/'.$name;
+
+                if (Schema::hasColumn('rapat', 'lampiran_tambahan_path')) {
+                    $lampiranMeta['lampiran_tambahan_path'] = $relPath;
+                }
+                if (Schema::hasColumn('rapat', 'lampiran_tambahan_nama')) {
+                    $lampiranMeta['lampiran_tambahan_nama'] = $originalName;
+                }
+                if (Schema::hasColumn('rapat', 'lampiran_tambahan_mime')) {
+                    $lampiranMeta['lampiran_tambahan_mime'] = $mimeType;
+                }
+                if (Schema::hasColumn('rapat', 'lampiran_tambahan_size')) {
+                    $lampiranMeta['lampiran_tambahan_size'] = $fileSize;
+                }
+            }
+        }
+
+        $id_rapat = DB::table('rapat')->insertGetId(array_merge([
             'nomor_undangan'    => $request->nomor_undangan,
             'judul'             => $request->judul,
             'deskripsi'         => $request->deskripsi,
@@ -549,7 +619,7 @@ class RapatController extends Controller
             'approval_enqueued_at' => null,
             'created_at'        => now(),
             'updated_at'        => now(),
-        ]);
+        ], $lampiranMeta));
 
         if ($request->boolean('pilih_semua')) {
             $allowedIds = $this->getSelectableParticipants()->pluck('id')->all();

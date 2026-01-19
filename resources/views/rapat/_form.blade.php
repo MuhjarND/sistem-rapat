@@ -36,6 +36,10 @@
   $pakaianWrapId = $isEdit ? ('jenisPakaianWrap-'.$rapat->id) : 'jenisPakaianWrap-new';
   $virtualWrapId = $isEdit ? ('linkZoomWrap-'.$rapat->id) : 'linkZoomWrap-new';
   $virtualCheckId = $isEdit ? ('virtual-check-'.$rapat->id) : 'virtual-check-new';
+  $lampiranWrapId = $isEdit ? ('lampiranTambahanWrap-'.$rapat->id) : 'lampiranTambahanWrap-new';
+  $lampiranYesId  = $isEdit ? ('lampiran-ya-'.$rapat->id) : 'lampiran-ya-new';
+  $lampiranNoId   = $isEdit ? ('lampiran-tidak-'.$rapat->id) : 'lampiran-tidak-new';
+  $lampiranValue  = old('lampiran_tambahan', $isEdit && !empty($rapat->lampiran_tambahan_path) ? '1' : '0');
 @endphp
 
 @push('styles')
@@ -155,6 +159,32 @@
     </div>
   </div>
 </div>
+
+@if(!$isEdit)
+<div class="form-group">
+  <label>Lampiran Tambahan</label>
+  <div class="d-flex flex-wrap">
+    <div class="form-check mr-3">
+      <input class="form-check-input js-lampiran-check" type="radio" name="lampiran_tambahan"
+             id="{{ $lampiranNoId }}" value="0" data-lampiran-wrap="{{ $lampiranWrapId }}"
+             {{ $lampiranValue === '0' ? 'checked' : '' }}>
+      <label class="form-check-label" for="{{ $lampiranNoId }}">Tidak</label>
+    </div>
+    <div class="form-check">
+      <input class="form-check-input js-lampiran-check" type="radio" name="lampiran_tambahan"
+             id="{{ $lampiranYesId }}" value="1" data-lampiran-wrap="{{ $lampiranWrapId }}"
+             {{ $lampiranValue === '1' ? 'checked' : '' }}>
+      <label class="form-check-label" for="{{ $lampiranYesId }}">Ya</label>
+    </div>
+  </div>
+</div>
+<div class="form-group" id="{{ $lampiranWrapId }}" style="display:none;">
+  <label>Upload Dokumen Tambahan</label>
+  <input type="file" name="lampiran_tambahan_file" class="form-control" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx">
+  <small class="form-text text-muted">Maks 20MB. Format: PDF/DOC/DOCX/XLS/XLSX/PPT/PPTX.</small>
+  @error('lampiran_tambahan_file') <div class="text-danger mt-1">{{ $message }}</div> @enderror
+</div>
+@endif
 
 @if(!empty($show_schedule))
 <div class="form-group">
@@ -568,6 +598,28 @@
       }
       }
       cb.addEventListener('change', sync);
+      sync();
+    });
+  })();
+  </script>
+  <script>
+  (function(){
+    document.querySelectorAll('.js-lampiran-check').forEach(function(input){
+      var wrapId = input.getAttribute('data-lampiran-wrap');
+      var wrap = wrapId ? document.getElementById(wrapId) : null;
+      if (!wrap) return;
+      var form = input.closest('form');
+      var fileInput = wrap.querySelector('input[name="lampiran_tambahan_file"]');
+      function sync(){
+        var checked = form ? form.querySelector('input[name="lampiran_tambahan"]:checked') : null;
+        var show = checked && checked.value === '1';
+        wrap.style.display = show ? '' : 'none';
+        if (fileInput) {
+          if (show) fileInput.setAttribute('required','required');
+          else fileInput.removeAttribute('required');
+        }
+      }
+      input.addEventListener('change', sync);
       sync();
     });
   })();

@@ -5,7 +5,7 @@
     <h3>Tambah Rapat Baru</h3>
     <div class="card">
         <div class="card-body">
-            <form action="{{ route('rapat.store') }}" method="POST">
+            <form action="{{ route('rapat.store') }}" method="POST" enctype="multipart/form-data">
                 @csrf
                 <div class="form-group">
                     <label>Nomor Undangan</label>
@@ -72,6 +72,27 @@
                 <div class="form-group">
                     <label>Tempat</label>
                     <input type="text" name="tempat" class="form-control" required value="{{ old('tempat') }}">
+                </div>
+                <div class="form-group">
+                    <label>Lampiran Tambahan</label>
+                    <div class="d-flex flex-wrap">
+                        <div class="form-check mr-3">
+                            <input class="form-check-input js-lampiran-check" type="radio" name="lampiran_tambahan" id="lampiran-tidak" value="0"
+                                   data-lampiran-wrap="lampiranTambahanWrap-create" {{ old('lampiran_tambahan', '0') === '0' ? 'checked' : '' }}>
+                            <label class="form-check-label" for="lampiran-tidak">Tidak</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input js-lampiran-check" type="radio" name="lampiran_tambahan" id="lampiran-ya" value="1"
+                                   data-lampiran-wrap="lampiranTambahanWrap-create" {{ old('lampiran_tambahan') === '1' ? 'checked' : '' }}>
+                            <label class="form-check-label" for="lampiran-ya">Ya</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group" id="lampiranTambahanWrap-create" style="display:none;">
+                    <label>Upload Dokumen Tambahan</label>
+                    <input type="file" name="lampiran_tambahan_file" class="form-control" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx">
+                    <small class="form-text text-muted">Maks 20MB. Format: PDF/DOC/DOCX/XLS/XLSX/PPT/PPTX.</small>
+                    @error('lampiran_tambahan_file') <div class="text-danger mt-1">{{ $message }}</div> @enderror
                 </div>
                 <div class="form-group">
                     <label>Pimpinan Rapat</label>
@@ -152,6 +173,27 @@
       }
     }
     cb.addEventListener('change', sync);
+    sync();
+  });
+})();
+</script>
+<script>
+(function(){
+  document.querySelectorAll('.js-lampiran-check').forEach(function(input){
+    var wrapId = input.getAttribute('data-lampiran-wrap');
+    var wrap = wrapId ? document.getElementById(wrapId) : null;
+    if (!wrap) return;
+    var fileInput = wrap.querySelector('input[name="lampiran_tambahan_file"]');
+    function sync(){
+      var checked = document.querySelector('.js-lampiran-check:checked');
+      var show = checked && checked.value === '1';
+      wrap.style.display = show ? '' : 'none';
+      if (fileInput) {
+        if (show) fileInput.setAttribute('required','required');
+        else fileInput.removeAttribute('required');
+      }
+    }
+    input.addEventListener('change', sync);
     sync();
   });
 })();

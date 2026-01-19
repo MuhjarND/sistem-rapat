@@ -22,7 +22,7 @@
                 </div>
             @endif
 
-            <form action="{{ route('rapat.schedule.store') }}" method="POST" autocomplete="off">
+            <form action="{{ route('rapat.schedule.store') }}" method="POST" autocomplete="off" enctype="multipart/form-data">
                 @csrf
                 @include('rapat._form', [
                     'rapat' => null,

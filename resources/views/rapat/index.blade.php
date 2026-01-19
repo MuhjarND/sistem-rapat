@@ -719,7 +719,7 @@
         <h5 class="modal-title" id="tambahRapatLabel">Tambah Rapat Baru</h5>
         <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
       </div>
-      <form action="{{ route('rapat.store') }}" method="POST" autocomplete="off">
+      <form action="{{ route('rapat.store') }}" method="POST" autocomplete="off" enctype="multipart/form-data">
         @csrf
         <div class="modal-body">
           @if ($errors->any() && session('from_modal') == 'tambah_rapat')
