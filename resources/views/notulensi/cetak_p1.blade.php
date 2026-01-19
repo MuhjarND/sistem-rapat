@@ -83,7 +83,7 @@
         <td class="agenda" colspan="2">Agenda Rapat</td>
     </tr>
     <tr>
-        <td colspan="2" class="agenda-content">- {{ $rapat->deskripsi ?: $rapat->judul }}</td>
+        <td colspan="2" class="agenda-content">- {{ $notulensi->agenda ?: ($rapat->deskripsi ?: $rapat->judul) }}</td>
     </tr>
 </table>
 

@@ -102,6 +102,8 @@ Route::middleware(['auth', 'cekrole:admin,notulis,operator'])->group(function ()
     Route::get('/notulensi/sudah',          'NotulensiController@sudah')->name('notulensi.sudah');
     Route::get('notulensi/buat/{id_rapat}', 'NotulensiController@create')->name('notulensi.create');
     Route::post('notulensi',                'NotulensiController@store')->name('notulensi.store');
+    Route::post('notulensi/upload',         'NotulensiController@uploadFromBelum')->name('notulensi.upload');
+    Route::post('notulensi/skip',           'NotulensiController@skip')->name('notulensi.skip');
     Route::get('notulensi/{id}',            'NotulensiController@show')->name('notulensi.show');
     Route::get('notulensi/{id}/edit',       'NotulensiController@edit')->name('notulensi.edit');
     Route::put('notulensi/{id}',            'NotulensiController@update')->name('notulensi.update');

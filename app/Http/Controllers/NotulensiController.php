@@ -116,38 +116,97 @@ class NotulensiController extends Controller
 
  public function store(Request $request)
 {
-    $request->validate([
+    $hasFile = $request->hasFile('notulensi_file');
+    $template = strtolower((string) $request->input('template', 'a'));
+
+    $rules = [
         'id_rapat'                 => 'required|exists:rapat,id',
-        'baris'                    => 'required|array|min:1',
-        'baris.*.hasil_pembahasan' => 'required|string',
+        'template'                 => 'required|in:a,b',
+        'agenda'                   => $hasFile ? 'nullable|string' : (($template === 'b') ? 'required|string' : 'nullable|string'),
+        'susunan_agenda'           => $hasFile ? 'nullable|string' : (($template === 'b') ? 'required|string' : 'nullable|string'),
+        'hasil_rapat'              => $hasFile ? 'nullable|string' : (($template === 'b') ? 'required|string' : 'nullable|string'),
+        'notulensi_file'           => 'nullable|file|mimes:pdf|max:20480',
+        'baris'                    => $hasFile ? 'nullable|array' : 'required|array|min:1',
+        'baris.*.hasil_pembahasan' => $hasFile ? 'nullable|string' : 'required|string',
         'baris.*.rekomendasi'      => 'nullable|string',
         'baris.*.penanggung_jawab' => 'nullable|string|max:150',
         'baris.*.pj_ids'           => 'nullable|array',
         'baris.*.pj_ids.*'         => 'integer|exists:users,id',
         'baris.*.tgl_penyelesaian' => 'nullable|date',
-        'dokumentasi'              => 'required',
-        'dokumentasi.*'            => 'image|max:10240',
-    ], [
-        'dokumentasi.required' => 'Minimal unggah 3 foto dokumentasi.',
-    ]);
+        'dokumentasi'              => $hasFile ? 'nullable' : 'required',
+        'dokumentasi.*'            => $hasFile ? 'nullable|image|max:10240' : 'image|max:10240',
+    ];
+
+    $messages = [
+        'agenda.required'          => 'Agenda rapat wajib diisi untuk Template B.',
+        'susunan_agenda.required'  => 'Susunan agenda wajib diisi untuk Template B.',
+        'hasil_rapat.required'     => 'Hasil rapat wajib diisi untuk Template B.',
+        'dokumentasi.required'     => 'Minimal unggah 3 foto dokumentasi.',
+    ];
+
+    $request->validate($rules, $messages);
+
+    $rows = collect($request->input('baris', []))
+        ->filter(function ($r) {
+            $text = trim(strip_tags((string) ($r['hasil_pembahasan'] ?? '')));
+            return $text !== '';
+        })
+        ->values()
+        ->all();
+
+    if (!$hasFile && count($rows) === 0) {
+        return back()->withErrors('Mohon isi kolom "Hasil Monitoring & Evaluasi / Rangkaian Acara".')->withInput();
+    }
 
     if (DB::table('notulensi')->where('id_rapat', $request->id_rapat)->exists()) {
         return redirect()->route('notulensi.sudah')->with('success', 'Notulensi untuk rapat ini sudah ada.');
     }
 
+    $uploadedPath = null;
+
     DB::beginTransaction();
     try {
+        $fileMeta = [];
+        if ($hasFile) {
+            $file = $request->file('notulensi_file');
+            if ($file && $file->isValid()) {
+                $originalName = $file->getClientOriginalName();
+                $mimeType = $file->getClientMimeType();
+                $fileSize = $file->getSize();
+                $dest = public_path('uploads/notulensi_file');
+                if (!is_dir($dest)) {
+                    @mkdir($dest, 0775, true);
+                }
+
+                $ext  = strtolower($file->getClientOriginalExtension());
+                $name = 'notulensi-'.$request->id_rapat.'-'.Str::random(10).'.'.$ext;
+                $file->move($dest, $name);
+                $uploadedPath = 'uploads/notulensi_file/'.$name;
+
+                $fileMeta = [
+                    'file_path' => $uploadedPath,
+                    'file_name' => $originalName,
+                    'file_mime' => $mimeType,
+                    'file_size' => $fileSize,
+                ];
+            }
+        }
+
         // Header
-        $id_notulensi = DB::table('notulensi')->insertGetId([
+        $id_notulensi = DB::table('notulensi')->insertGetId(array_merge([
             'id_rapat'   => $request->id_rapat,
             'id_user'    => Auth::id(),
+            'template'   => $template,
+            'agenda'     => $request->input('agenda'),
+            'susunan_agenda' => $request->input('susunan_agenda'),
+            'hasil_rapat'    => $request->input('hasil_rapat'),
             'created_at' => now(),
             'updated_at' => now(),
-        ]);
+        ], $fileMeta));
 
         // Detail + tugas
         $urut = 1;
-        foreach ($request->baris as $r) {
+        foreach ($rows as $r) {
             $idDetail = DB::table('notulensi_detail')->insertGetId([
                 'id_notulensi'     => $id_notulensi,
                 'urut'             => $urut++,
@@ -270,11 +329,155 @@ class NotulensiController extends Controller
             ->with('success', 'Notulensi berhasil dibuat. TTD Notulis dibuat otomatis & approval pimpinan disiapkan. Notifikasi WA sudah dikirim ke approver.');
     } catch (\Throwable $e) {
         DB::rollBack();
+        if (!empty($uploadedPath)) {
+            @unlink(public_path($uploadedPath));
+        }
         report($e);
         return back()->withErrors('Gagal menyimpan notulensi.')->withInput();
     }
 }
 
+    public function uploadFromBelum(Request $request)
+    {
+        $request->validate([
+            'id_rapat'       => 'required|exists:rapat,id',
+            'notulensi_file' => 'required|file|mimes:pdf|max:20480',
+        ]);
+
+        $rapatId = (int) $request->input('id_rapat');
+
+        if (DB::table('notulensi')->where('id_rapat', $rapatId)->exists()) {
+            return back()->with('error', 'Notulensi untuk rapat ini sudah dibuat.');
+        }
+
+        $uploadedPath = null;
+
+        DB::beginTransaction();
+        try {
+            $file = $request->file('notulensi_file');
+            $originalName = $file->getClientOriginalName();
+            $mimeType = $file->getClientMimeType();
+            $fileSize = $file->getSize();
+            $dest = public_path('uploads/notulensi_file');
+            if (!is_dir($dest)) {
+                @mkdir($dest, 0775, true);
+            }
+
+            $ext  = strtolower($file->getClientOriginalExtension());
+            $name = 'notulensi-'.$rapatId.'-'.Str::random(10).'.'.$ext;
+            $file->move($dest, $name);
+            $uploadedPath = 'uploads/notulensi_file/'.$name;
+
+            $id_notulensi = DB::table('notulensi')->insertGetId([
+                'id_rapat'   => $rapatId,
+                'id_user'    => Auth::id(),
+                'template'   => 'a',
+                'agenda'     => null,
+                'susunan_agenda' => null,
+                'hasil_rapat'    => null,
+                'file_path'  => $uploadedPath,
+                'file_name'  => $originalName,
+                'file_mime'  => $mimeType,
+                'file_size'  => $fileSize,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            // QR Notulis + chain approval NOTULENSI
+            $this->ensureNotulensiNotulisQr($rapatId, (int)$id_notulensi);
+
+            // Tambahkan approver untuk NOTULENSI
+            $rapat = DB::table('rapat')->where('id', $rapatId)->first();
+            if ($rapat) {
+                $order = 2;
+
+                if (!empty($rapat->approval2_user_id)) {
+                    $exists2 = DB::table('approval_requests')
+                        ->where('rapat_id', $rapat->id)
+                        ->where('doc_type', 'notulensi')
+                        ->where('approver_user_id', $rapat->approval2_user_id)
+                        ->exists();
+
+                    if (!$exists2) {
+                        DB::table('approval_requests')->insert([
+                            'rapat_id'         => $rapat->id,
+                            'doc_type'         => 'notulensi',
+                            'approver_user_id' => $rapat->approval2_user_id,
+                            'order_index'      => $order++,
+                            'status'           => 'pending',
+                            'sign_token'       => Str::random(32),
+                            'created_at'       => now(),
+                            'updated_at'       => now(),
+                        ]);
+                    } else {
+                        $order++;
+                    }
+                }
+
+                if (!empty($rapat->approval1_user_id)) {
+                    $exists1 = DB::table('approval_requests')
+                        ->where('rapat_id', $rapat->id)
+                        ->where('doc_type', 'notulensi')
+                        ->where('approver_user_id', $rapat->approval1_user_id)
+                        ->exists();
+
+                    if (!$exists1) {
+                        DB::table('approval_requests')->insert([
+                            'rapat_id'         => $rapat->id,
+                            'doc_type'         => 'notulensi',
+                            'approver_user_id' => $rapat->approval1_user_id,
+                            'order_index'      => $order,
+                            'status'           => 'pending',
+                            'sign_token'       => Str::random(32),
+                            'created_at'       => now(),
+                            'updated_at'       => now(),
+                        ]);
+                    }
+                }
+            }
+
+            DB::commit();
+
+            app(\App\Http\Controllers\ApprovalController::class)
+                ->notifyFirstPendingApprover($rapatId, 'notulensi');
+
+            return redirect()->route('notulensi.show', $id_notulensi)
+                ->with('success', 'Notulensi berhasil diunggah dan dikirim ke approval.');
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            if (!empty($uploadedPath)) {
+                @unlink(public_path($uploadedPath));
+            }
+            report($e);
+            return back()->withErrors('Gagal mengunggah notulensi.')->withInput();
+        }
+    }
+
+    public function skip(Request $request)
+    {
+        $request->validate([
+            'id_rapat' => 'required|exists:rapat,id',
+        ]);
+
+        $rapatId = (int) $request->input('id_rapat');
+
+        if (DB::table('notulensi')->where('id_rapat', $rapatId)->exists()) {
+            return back()->with('error', 'Notulensi untuk rapat ini sudah dibuat.');
+        }
+
+        DB::table('notulensi')->insert([
+            'id_rapat'   => $rapatId,
+            'id_user'    => Auth::id(),
+            'isi'        => null,
+            'template'   => 'a',
+            'is_skipped' => 1,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return redirect()->route('notulensi.belum')
+            ->with('success', 'Rapat ditandai selesai tanpa notulensi.');
+    }
 
 
     public function show($id)
@@ -360,7 +563,17 @@ class NotulensiController extends Controller
 
 public function update(Request $request, $id)
 {
+    $notulensi = DB::table('notulensi')->where('id', $id)->first();
+    if (!$notulensi) abort(404);
+
+    $template = strtolower((string) $request->input('template', $notulensi->template ?? 'a'));
+    $hasFile = $request->hasFile('notulensi_file');
+
     $request->validate([
+        'template'                 => 'required|in:a,b',
+        'agenda'                   => $hasFile ? 'nullable|string' : ($template === 'b' ? 'required|string' : 'nullable|string'),
+        'susunan_agenda'           => $hasFile ? 'nullable|string' : ($template === 'b' ? 'required|string' : 'nullable|string'),
+        'hasil_rapat'              => $hasFile ? 'nullable|string' : ($template === 'b' ? 'required|string' : 'nullable|string'),
         'baris'                    => 'nullable|array',
         'baris.*.hasil_pembahasan' => 'required_with:baris|string',
         'baris.*.rekomendasi'      => 'nullable|string',
@@ -371,12 +584,51 @@ public function update(Request $request, $id)
         'hapus_dok'                => 'nullable|array',
         'hapus_dok.*'              => 'integer',
         'dokumentasi_baru.*'       => 'nullable|image|max:10240',
+        'notulensi_file'           => 'nullable|file|mimes:pdf|max:20480',
     ]);
 
     DB::beginTransaction();
     try {
-        // Sentuh updated_at notulensi (untuk penanda revisi)
-        DB::table('notulensi')->where('id', $id)->update(['updated_at' => now()]);
+        $uploadedPath = null;
+        $oldFileToDelete = null;
+        $updateNotulensi = [
+            'updated_at'     => now(),
+            'template'       => $template,
+            'agenda'         => $request->input('agenda'),
+            'susunan_agenda' => $request->input('susunan_agenda'),
+            'hasil_rapat'    => $request->input('hasil_rapat'),
+        ];
+
+        if ($request->hasFile('notulensi_file')) {
+            $file = $request->file('notulensi_file');
+            if ($file && $file->isValid()) {
+                $originalName = $file->getClientOriginalName();
+                $mimeType = $file->getClientMimeType();
+                $fileSize = $file->getSize();
+                $dest = public_path('uploads/notulensi_file');
+                if (!is_dir($dest)) {
+                    @mkdir($dest, 0775, true);
+                }
+
+                $ext  = strtolower($file->getClientOriginalExtension());
+                $name = 'notulensi-'.$notulensi->id_rapat.'-'.Str::random(10).'.'.$ext;
+                $file->move($dest, $name);
+                $uploadedPath = 'uploads/notulensi_file/'.$name;
+
+                $updateNotulensi = array_merge($updateNotulensi, [
+                    'file_path' => $uploadedPath,
+                    'file_name' => $originalName,
+                    'file_mime' => $mimeType,
+                    'file_size' => $fileSize,
+                ]);
+
+                if (!empty($notulensi->file_path)) {
+                    $oldFileToDelete = public_path($notulensi->file_path);
+                }
+            }
+        }
+
+        DB::table('notulensi')->where('id', $id)->update($updateNotulensi);
 
         // ====== DETAIL & TUGAS (replace penuh jika ada input baris) ======
         if ($request->filled('baris')) {
@@ -457,6 +709,10 @@ public function update(Request $request, $id)
         }
 
         DB::commit();
+
+        if (!empty($oldFileToDelete) && is_file($oldFileToDelete)) {
+            @unlink($oldFileToDelete);
+        }
 
         // ================== RE-QUEUE APPROVAL (jika sebelumnya REJECT) ==================
         try {
@@ -575,6 +831,9 @@ public function update(Request $request, $id)
 
     } catch (\Throwable $e) {
         DB::rollBack();
+        if (!empty($uploadedPath)) {
+            @unlink(public_path($uploadedPath));
+        }
         report($e);
         return back()->withErrors('Gagal memperbarui notulensi.')->withInput();
     }
@@ -586,6 +845,16 @@ public function update(Request $request, $id)
     public function cetakGabung($id)
     {
         $notulensi = DB::table('notulensi')->where('id', $id)->first() ?? abort(404);
+
+        if (!empty($notulensi->file_path)) {
+            $fs = public_path($notulensi->file_path);
+            if (is_file($fs)) {
+                return response()->file($fs, [
+                    'Content-Type'        => 'application/pdf',
+                    'Content-Disposition' => 'inline; filename="'.($notulensi->file_name ?: 'notulensi.pdf').'"',
+                ]);
+            }
+        }
 
         $rapat = DB::table('rapat')
             ->leftJoin('pimpinan_rapat','rapat.id_pimpinan','=','pimpinan_rapat.id')
@@ -609,6 +878,14 @@ public function update(Request $request, $id)
 
         $creator = DB::table('users')->where('id',$notulensi->id_user)->first();
         $jumlah_peserta = DB::table('undangan')->where('id_rapat', $notulensi->id_rapat)->count();
+
+        $daftar_peserta = DB::table('undangan')
+            ->join('users','users.id','=','undangan.id_user')
+            ->where('undangan.id_rapat',$rapat->id)
+            ->select('users.id','users.name', DB::raw('COALESCE(users.jabatan,"") as jabatan'), 'users.hirarki')
+            ->orderByRaw('COALESCE(users.hirarki, 9999) ASC')
+            ->orderBy('users.name','asc')
+            ->get();
 
         // refresh QR Notulis
         $this->ensureNotulensiNotulisQr((int)$notulensi->id_rapat, (int)$notulensi->id, true);
@@ -649,38 +926,58 @@ public function update(Request $request, $id)
 
         $notulis  = $creator;
         $pimpUser = DB::table('users')->where('id', $rapat->approval1_user_id)->first();
+        $pimpinanJabatan = $pimpUser->jabatan ?? ($rapat->jabatan_pimpinan ?? 'Pimpinan Rapat');
+        $pimpinanNama    = $pimpUser->name ?? ($rapat->nama_pimpinan ?? '-');
 
         $dataP2 = array_merge($data, [
             'qr_notulis_data'  => $qr_notulis_data,
             'qr_pimpinan_data' => $qr_pimpinan_data,
             'notulis_nama'     => $notulis->name ?? '-',
             'notulis_jabatan'  => $notulis->jabatan ?? 'Notulis',
-            'pimpinan_nama'    => $pimpUser->name ?? ($rapat->nama_pimpinan ?? '-'),
-            'pimpinan_jabatan' => $pimpUser->jabatan ?? ($rapat->jabatan_pimpinan ?? 'Pimpinan Rapat'),
+            'pimpinan_nama'    => $pimpinanNama,
+            'pimpinan_jabatan' => $pimpinanJabatan,
             'kop'              => public_path('kop_notulen.jpg'),
         ]);
 
         $tmpDir = storage_path('app');
-        $f1 = $tmpDir.'/header-'.Str::random(8).'.pdf';
-        $f2 = $tmpDir.'/pembahasan-'.Str::random(8).'.pdf';
-        $f3 = $tmpDir.'/dokumentasi-'.Str::random(8).'.pdf';
+        $template = strtolower($notulensi->template ?? 'a');
+        $files = [];
 
-        Pdf::loadView('notulensi.cetak_p1', $data)
-            ->setPaper('a4','portrait')->save($f1);
+        if ($template === 'b') {
+            $dataB = array_merge($dataP2, [
+                'daftar_peserta' => $daftar_peserta,
+            ]);
+            $fMain = $tmpDir.'/notulensi-b-'.Str::random(8).'.pdf';
+            Pdf::loadView('notulensi.cetak_template_b', $dataB)
+                ->setPaper('a4','portrait')->save($fMain);
+            $files[] = $fMain;
 
-        Pdf::loadView('notulensi.cetak_p2', $dataP2)
-            ->setPaper('a4','landscape')->save($f2);
+            $fDoc = $tmpDir.'/dokumentasi-'.Str::random(8).'.pdf';
+            Pdf::loadView('notulensi.cetak_p3', $data)
+                ->setPaper('a4','portrait')->save($fDoc);
+            $files[] = $fDoc;
+        } else {
+            $f1 = $tmpDir.'/header-'.Str::random(8).'.pdf';
+            $f2 = $tmpDir.'/pembahasan-'.Str::random(8).'.pdf';
+            $f3 = $tmpDir.'/dokumentasi-'.Str::random(8).'.pdf';
 
-        Pdf::loadView('notulensi.cetak_p3', $data)
-            ->setPaper('a4','portrait')->save($f3);
+            Pdf::loadView('notulensi.cetak_p1', $data)
+                ->setPaper('a4','portrait')->save($f1);
+            Pdf::loadView('notulensi.cetak_p2', $dataP2)
+                ->setPaper('a4','landscape')->save($f2);
+            Pdf::loadView('notulensi.cetak_p3', $data)
+                ->setPaper('a4','portrait')->save($f3);
+
+            $files[] = $f1;
+            $files[] = $f2;
+            $files[] = $f3;
+        }
 
         $merger = new Merger();
-        $merger->addFile($f1);
-        $merger->addFile($f2);
-        $merger->addFile($f3);
+        foreach ($files as $f) $merger->addFile($f);
         $mergedPdf = $merger->merge();
 
-        @unlink($f1); @unlink($f2); @unlink($f3);
+        foreach ($files as $f) @unlink($f);
 
         $filename = 'Notulensi-'.Str::slug($rapat->judul).'-'.date('d-m-Y', strtotime($notulensi->created_at)).'.pdf';
         return response($mergedPdf)

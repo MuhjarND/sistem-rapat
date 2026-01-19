@@ -229,7 +229,7 @@
         .select2-container .select2-dropdown{ z-index:2000!important }
 
         /* ======= MODAL ======= */
-        .modal-content{background:linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));border:1px solid var(--border);border-radius:calc(var(--radius) - 6px);color:var(--text)}
+        .modal-content{background:#0f1533;border:1px solid var(--border);border-radius:calc(var(--radius) - 6px);color:var(--text)}
         .modal-header{border-bottom:1px solid var(--border)}
         .modal-footer{border-top:1px solid var(--border)}
         .modal-content.modal-solid{background:#0f1533!important;border:1px solid var(--border);border-radius:calc(var(--radius) - 6px);color:var(--text)}

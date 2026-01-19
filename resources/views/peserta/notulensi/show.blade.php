@@ -98,6 +98,34 @@
       @endif
     </div>
 
+    @if(!empty($notulensi->file_path))
+      <div class="mb-3">
+        <a href="{{ asset($notulensi->file_path) }}" target="_blank" class="btn btn-sm btn-outline-light">
+          <i class="fas fa-file-pdf mr-1"></i> Buka File Notulensi
+        </a>
+        <div class="text-muted mt-1">{{ $notulensi->file_name ?: basename($notulensi->file_path) }}</div>
+      </div>
+    @endif
+
+    @if(($notulensi->template ?? 'a') === 'b')
+      <div class="mb-3">
+        <div class="meta-chip mb-2"><i class="fas fa-list"></i>Agenda Rapat</div>
+        <div class="content-box mb-2">{!! nl2br(e($notulensi->agenda ?: ($rapat->deskripsi ?: $rapat->judul))) !!}</div>
+
+        <div class="meta-chip mb-2"><i class="fas fa-stream"></i>Susunan Agenda</div>
+        <div class="content-box mb-2">{!! nl2br(e($notulensi->susunan_agenda ?: '-')) !!}</div>
+
+        <div class="meta-chip mb-2"><i class="fas fa-clipboard-check"></i>Hasil Rapat</div>
+        <div class="content-box">
+          @if(!empty($notulensi->hasil_rapat))
+            {!! $notulensi->hasil_rapat !!}
+          @else
+            -
+          @endif
+        </div>
+      </div>
+    @endif
+
     {{-- Daftar poin notulensi --}}
     @forelse($detail as $i => $row)
       <div class="step">

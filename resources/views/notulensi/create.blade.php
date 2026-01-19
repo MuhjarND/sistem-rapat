@@ -175,8 +175,42 @@
     @csrf
     <input type="hidden" name="id_rapat" value="{{ $rapat->id }}">
 
+    {{-- TEMPLATE --}}
+    <div class="card mb-3">
+      <div class="card-header"><b>Template Notulensi</b></div>
+      <div class="card-body">
+        <select id="templateSelect" name="template" class="form-control">
+          <option value="a" {{ old('template','a') === 'a' ? 'selected' : '' }}>Template A (Default)</option>
+          <option value="b" {{ old('template') === 'b' ? 'selected' : '' }}>Template B (Uraian Agenda)</option>
+        </select>
+        <small class="text-muted">Pilih format notulensi yang akan digunakan.</small>
+      </div>
+    </div>
+
+    {{-- TEMPLATE B FIELDS --}}
+    <div class="card mb-3 template-b-fields" style="display:none;">
+      <div class="card-header"><b>Template B - Isi Utama</b></div>
+      <div class="card-body">
+        <div class="form-group">
+          <label>Agenda Rapat</label>
+          <textarea name="agenda" class="form-control" rows="3">{{ old('agenda', $rapat->deskripsi ?: $rapat->judul) }}</textarea>
+          @error('agenda') <div class="text-danger mt-1">{{ $message }}</div> @enderror
+        </div>
+        <div class="form-group">
+          <label>Susunan Agenda Rapat</label>
+          <textarea name="susunan_agenda" class="form-control" rows="4" placeholder="Tuliskan tahapan agenda (bisa gunakan penomoran).">{{ old('susunan_agenda') }}</textarea>
+          @error('susunan_agenda') <div class="text-danger mt-1">{{ $message }}</div> @enderror
+        </div>
+        <div class="form-group">
+          <label>Hasil Rapat</label>
+          <textarea name="hasil_rapat" class="form-control rich">{{ old('hasil_rapat') }}</textarea>
+          @error('hasil_rapat') <div class="text-danger mt-1">{{ $message }}</div> @enderror
+        </div>
+      </div>
+    </div>
+
     <div class="card">
-      <div class="card-header"><b>Pembahasan & Rangkaian Acara</b></div>
+      <div class="card-header"><b id="detailTitle">Pembahasan & Rangkaian Acara</b></div>
       @if ($errors->any())
         <div class="px-3 pt-3">
           <div class="alert alert-danger mb-0">
@@ -193,8 +227,8 @@
             <thead>
               <tr>
                 <th style="width:60px">NO</th>
-                <th>HASIL MONITORING & EVALUASI / RANGKAIAN ACARA</th>
-                <th style="width:25%;">REKOMENDASI TINDAK LANJUT</th>
+                <th id="thHasil">HASIL MONITORING & EVALUASI / RANGKAIAN ACARA</th>
+                <th id="thRekom" style="width:25%;">REKOMENDASI TINDAK LANJUT</th>
                 <th style="width:22%;">PENANGGUNG JAWAB (Tag User)</th>
                 <th style="width:16%;">TGL. PENYELESAIAN</th>
                 <th style="width:90px;">AKSI</th>
@@ -204,11 +238,11 @@
               <tr>
                 <td class="no" data-label="No">1</td>
 
-                <td data-label="Hasil / Rangkaian">
+                <td data-label="Hasil / Rangkaian" data-label-hasil="1">
                   <textarea name="baris[0][hasil_pembahasan]" class="form-control rich required-rich"></textarea>
                 </td>
 
-                <td data-label="Rekomendasi">
+                <td data-label="Rekomendasi" data-label-rekom="1">
                   <textarea name="baris[0][rekomendasi]" class="form-control rich"></textarea>
                 </td>
 
@@ -242,8 +276,8 @@
     <div class="card mt-3">
       <div class="card-header"><b>Dokumentasi Kegiatan <span class="text-danger">(minimal 3 foto)</span></b></div>
       <div class="card-body">
-        <input id="dokFiles" type="file" name="dokumentasi[]" class="form-control mb-2" accept="image/*" multiple required>
-        <small class="text-muted">Upload minimal 3 foto, maksimal 10MB per file.</small>
+        <input id="dokFiles" type="file" name="dokumentasi[]" class="form-control mb-2" accept="image/*" multiple>
+        <small class="text-muted">Upload minimal 3 foto. Maks 10MB per file.</small>
         @error('dokumentasi') <div class="text-danger mt-1">{{ $message }}</div> @enderror
       </div>
     </div>
@@ -262,6 +296,11 @@
   let idxBaris = 1;
   const editors = new Map();
   const DRAFT_KEY = 'notulensi_draft_rapat_{{ $rapat->id }}';
+  const templateSelect = document.getElementById('templateSelect');
+  const templateBFields = document.querySelectorAll('.template-b-fields');
+  const detailTitle = document.getElementById('detailTitle');
+  const thHasil = document.getElementById('thHasil');
+  const thRekom = document.getElementById('thRekom');
 
   const draftBar  = document.getElementById('draftBar');
   const draftMsg  = document.getElementById('draftMsg');
@@ -272,6 +311,21 @@
   function fmt(ts){ const d=new Date(ts); return d.toLocaleString('id-ID',{hour12:false}); }
   function escapeHtml(s=''){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
   function debounce(fn,wait){let t;return (...a)=>{clearTimeout(t);t=setTimeout(()=>fn(...a),wait)}}
+
+  function applyTemplateUI(val){
+    const isB = val === 'b';
+    templateBFields.forEach(el => el.style.display = isB ? 'block' : 'none');
+    if (detailTitle) detailTitle.textContent = isB ? 'E. Rekomendasi' : 'Pembahasan & Rangkaian Acara';
+    if (thHasil) thHasil.textContent = isB ? 'REKOMENDASI / TINDAKAN' : 'HASIL MONITORING & EVALUASI / RANGKAIAN ACARA';
+    if (thRekom) thRekom.textContent = isB ? 'KETERANGAN' : 'REKOMENDASI TINDAK LANJUT';
+
+    document.querySelectorAll('[data-label-hasil]').forEach(el => {
+      el.setAttribute('data-label', isB ? 'Rekomendasi' : 'Hasil / Rangkaian');
+    });
+    document.querySelectorAll('[data-label-rekom]').forEach(el => {
+      el.setAttribute('data-label', isB ? 'Keterangan' : 'Rekomendasi');
+    });
+  }
 
   // ====== Select2 tag user (AJAX) ======
   const USER_SEARCH_URL = @json(route('users.search'));
@@ -373,8 +427,8 @@
       const tr=document.createElement('tr');
       tr.innerHTML=`
         <td class="no" data-label="No"></td>
-        <td data-label="Hasil / Rangkaian"><textarea name="baris[${i}][hasil_pembahasan]" class="form-control rich required-rich"></textarea></td>
-        <td data-label="Rekomendasi"><textarea name="baris[${i}][rekomendasi]" class="form-control rich"></textarea></td>
+        <td data-label="Hasil / Rangkaian" data-label-hasil="1"><textarea name="baris[${i}][hasil_pembahasan]" class="form-control rich required-rich"></textarea></td>
+        <td data-label="Rekomendasi" data-label-rekom="1"><textarea name="baris[${i}][rekomendasi]" class="form-control rich"></textarea></td>
         <td data-label="Penanggung Jawab">
           <select name="baris[${i}][pj_ids][]" class="form-control js-user-tags" multiple data-placeholder="Pilih penanggung jawab"></select>
           <input type="text" name="baris[${i}][penanggung_jawab]" class="form-control mt-1" value="${escapeHtml(r.pjTxt||'')}" placeholder="Catatan PJ (opsional)">
@@ -387,8 +441,8 @@
       const tr=document.createElement('tr');
       tr.innerHTML=`
         <td class="no" data-label="No">1</td>
-        <td data-label="Hasil / Rangkaian"><textarea name="baris[0][hasil_pembahasan]" class="form-control rich required-rich"></textarea></td>
-        <td data-label="Rekomendasi"><textarea name="baris[0][rekomendasi]" class="form-control rich"></textarea></td>
+        <td data-label="Hasil / Rangkaian" data-label-hasil="1"><textarea name="baris[0][hasil_pembahasan]" class="form-control rich required-rich"></textarea></td>
+        <td data-label="Rekomendasi" data-label-rekom="1"><textarea name="baris[0][rekomendasi]" class="form-control rich"></textarea></td>
         <td data-label="Penanggung Jawab">
           <select name="baris[0][pj_ids][]" class="form-control js-user-tags" multiple data-placeholder="Pilih penanggung jawab"></select>
           <input type="text" name="baris[0][penanggung_jawab]" class="form-control mt-1" placeholder="Catatan PJ (opsional)">
@@ -418,6 +472,7 @@
         if(rekom && editors.get(rekom)) editors.get(rekom).setData(r.rekom||'');
       });
       renumber();
+      if (templateSelect) applyTemplateUI(templateSelect.value);
       draftMsg.textContent='Draf dipulihkan.';
     });
   }
@@ -440,8 +495,8 @@
     const tr=document.createElement('tr');
     tr.innerHTML=`
       <td class="no" data-label="No"></td>
-      <td data-label="Hasil / Rangkaian"><textarea name="baris[${idxBaris}][hasil_pembahasan]" class="form-control rich required-rich"></textarea></td>
-      <td data-label="Rekomendasi"><textarea name="baris[${idxBaris}][rekomendasi]" class="form-control rich"></textarea></td>
+      <td data-label="Hasil / Rangkaian" data-label-hasil="1"><textarea name="baris[${idxBaris}][hasil_pembahasan]" class="form-control rich required-rich"></textarea></td>
+      <td data-label="Rekomendasi" data-label-rekom="1"><textarea name="baris[${idxBaris}][rekomendasi]" class="form-control rich"></textarea></td>
       <td data-label="Penanggung Jawab">
         <select name="baris[${idxBaris}][pj_ids][]" class="form-control js-user-tags" multiple data-placeholder="Pilih penanggung jawab"></select>
         <input type="text" name="baris[${idxBaris}][penanggung_jawab]" class="form-control mt-1" placeholder="Catatan PJ (opsional)">
@@ -450,6 +505,7 @@
       <td class="text-center" data-label="Aksi"><button type="button" class="btn btn-danger btn-sm" onclick="hapusBaris(this)">Hapus</button></td>`;
     tbody.appendChild(tr);
     Promise.all([initEditors(tr)]).then(()=>{ initUserTags(tr); });
+    if (templateSelect) applyTemplateUI(templateSelect.value);
     // autosave input biasa
     tr.querySelectorAll('input, textarea:not(.rich), select').forEach(el=>{
       el.addEventListener('input', scheduleSave);
@@ -506,6 +562,10 @@
   document.addEventListener('DOMContentLoaded',()=>{
     Promise.all([initEditors()]).then(()=>{
       initUserTags(document);
+      if (templateSelect) {
+        applyTemplateUI(templateSelect.value);
+        templateSelect.addEventListener('change', () => applyTemplateUI(templateSelect.value));
+      }
       // autosave input biasa
       document.querySelectorAll('#tabel-detail input, #tabel-detail textarea:not(.rich), #tabel-detail select').forEach(el=>{
         el.addEventListener('input', scheduleSave);

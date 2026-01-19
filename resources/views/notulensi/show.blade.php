@@ -190,6 +190,44 @@
     </div>
   </div>
 
+  @if(!empty($notulensi->file_path))
+    <div class="sheet mb-3">
+      <div class="sheet-head">File Notulensi</div>
+      <div class="p-3">
+        <a href="{{ asset($notulensi->file_path) }}" target="_blank" class="btn btn-teal btn-sm">
+          <i class="fas fa-file-pdf mr-1"></i> Buka File Notulensi
+        </a>
+        <div class="text-muted mt-2">
+          {{ $notulensi->file_name ?: basename($notulensi->file_path) }}
+        </div>
+      </div>
+    </div>
+  @endif
+
+  @if(($notulensi->template ?? 'a') === 'b')
+    <div class="sheet mb-3">
+      <div class="sheet-head">Template B - Ringkasan</div>
+      <div class="p-3">
+        <div class="mb-2">
+          <strong>Agenda Rapat</strong><br>
+          {!! nl2br(e($notulensi->agenda ?: ($rapat->deskripsi ?: $rapat->judul))) !!}
+        </div>
+        <div class="mb-2">
+          <strong>Susunan Agenda</strong><br>
+          {!! nl2br(e($notulensi->susunan_agenda ?: '-')) !!}
+        </div>
+        <div>
+          <strong>Hasil Rapat</strong><br>
+          @if(!empty($notulensi->hasil_rapat))
+            {!! $notulensi->hasil_rapat !!}
+          @else
+            -
+          @endif
+        </div>
+      </div>
+    </div>
+  @endif
+
   {{-- TABEL PEMBAHASAN --}}
   <div class="sheet mb-3">
     <div class="sheet-head">Pembahasan &amp; Rangkaian Acara</div>

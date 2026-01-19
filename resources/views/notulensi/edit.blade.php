@@ -169,9 +169,43 @@
       </div>
     @endif
 
+    {{-- TEMPLATE --}}
+    <div class="card mb-3">
+      <div class="card-header"><b>Template Notulensi</b></div>
+      <div class="card-body">
+        <select id="templateSelect" name="template" class="form-control">
+          <option value="a" {{ old('template', $notulensi->template ?? 'a') === 'a' ? 'selected' : '' }}>Template A (Default)</option>
+          <option value="b" {{ old('template', $notulensi->template ?? 'a') === 'b' ? 'selected' : '' }}>Template B (Uraian Agenda)</option>
+        </select>
+        <small class="text-muted">Pilih format notulensi yang akan digunakan.</small>
+      </div>
+    </div>
+
+    {{-- TEMPLATE B FIELDS --}}
+    <div class="card mb-3 template-b-fields" style="display:none;">
+      <div class="card-header"><b>Template B - Isi Utama</b></div>
+      <div class="card-body">
+        <div class="form-group">
+          <label>Agenda Rapat</label>
+          <textarea name="agenda" class="form-control" rows="3">{{ old('agenda', $notulensi->agenda ?? ($rapat->deskripsi ?: $rapat->judul)) }}</textarea>
+          @error('agenda') <div class="text-danger mt-1">{{ $message }}</div> @enderror
+        </div>
+        <div class="form-group">
+          <label>Susunan Agenda Rapat</label>
+          <textarea name="susunan_agenda" class="form-control" rows="4" placeholder="Tuliskan tahapan agenda (bisa gunakan penomoran).">{{ old('susunan_agenda', $notulensi->susunan_agenda ?? '') }}</textarea>
+          @error('susunan_agenda') <div class="text-danger mt-1">{{ $message }}</div> @enderror
+        </div>
+        <div class="form-group">
+          <label>Hasil Rapat</label>
+          <textarea name="hasil_rapat" class="form-control rich">{{ old('hasil_rapat', $notulensi->hasil_rapat ?? '') }}</textarea>
+          @error('hasil_rapat') <div class="text-danger mt-1">{{ $message }}</div> @enderror
+        </div>
+      </div>
+    </div>
+
     {{-- TABEL PEMBAHASAN --}}
     <div class="card">
-      <div class="card-header"><b>Pembahasan & Rangkaian Acara</b></div>
+      <div class="card-header"><b id="detailTitle">Pembahasan & Rangkaian Acara</b></div>
 
       <div class="card-body p-0">
         <div class="table-responsive">
@@ -179,8 +213,8 @@
             <thead>
               <tr>
                 <th style="width:60px">NO</th>
-                <th>HASIL MONITORING & EVALUASI / RANGKAIAN ACARA</th>
-                <th style="width:25%;">REKOMENDASI TINDAK LANJUT</th>
+                <th id="thHasil">HASIL MONITORING & EVALUASI / RANGKAIAN ACARA</th>
+                <th id="thRekom" style="width:25%;">REKOMENDASI TINDAK LANJUT</th>
                 <th style="width:22%;">PENANGGUNG JAWAB (Tag User)</th>
                 <th style="width:16%;">TGL. PENYELESAIAN</th>
                 <th style="width:90px;">AKSI</th>
@@ -197,12 +231,12 @@
                 <td class="no-badge d-sm-none"><span>{{ $loop->iteration }}</span></td>
 
                 {{-- HASIL --}}
-                <td data-label="Hasil / Rangkaian">
+                <td data-label="Hasil / Rangkaian" data-label-hasil="1">
                   <textarea name="baris[{{ $i }}][hasil_pembahasan]" class="form-control rich required-rich">{!! $row->hasil_pembahasan !!}</textarea>
                 </td>
 
                 {{-- REKOMENDASI --}}
-                <td data-label="Rekomendasi">
+                <td data-label="Rekomendasi" data-label-rekom="1">
                   <textarea name="baris[{{ $i }}][rekomendasi]" class="form-control rich">{!! $row->rekomendasi !!}</textarea>
                 </td>
 
@@ -233,8 +267,8 @@
                 <td class="no d-none d-sm-table-cell">1</td>
                 <td class="no-badge d-sm-none"><span>1</span></td>
 
-                <td data-label="Hasil / Rangkaian"><textarea name="baris[0][hasil_pembahasan]" class="form-control rich required-rich"></textarea></td>
-                <td data-label="Rekomendasi"><textarea name="baris[0][rekomendasi]" class="form-control rich"></textarea></td>
+                <td data-label="Hasil / Rangkaian" data-label-hasil="1"><textarea name="baris[0][hasil_pembahasan]" class="form-control rich required-rich"></textarea></td>
+                <td data-label="Rekomendasi" data-label-rekom="1"><textarea name="baris[0][rekomendasi]" class="form-control rich"></textarea></td>
                 <td data-label="Penanggung Jawab">
                   <select name="baris[0][pj_ids][]" class="form-control js-user-tags" multiple data-placeholder="Pilih penanggung jawab"></select>
                   <input type="text" name="baris[0][penanggung_jawab]" class="form-control mt-1" placeholder="Catatan PJ (opsional)">
@@ -296,6 +330,26 @@
 (function(){
   let idxBaris = {{ max(1, $countDetail) }};
   const editors = new Map();
+  const templateSelect = document.getElementById('templateSelect');
+  const templateBFields = document.querySelectorAll('.template-b-fields');
+  const detailTitle = document.getElementById('detailTitle');
+  const thHasil = document.getElementById('thHasil');
+  const thRekom = document.getElementById('thRekom');
+
+  function applyTemplateUI(val){
+    const isB = val === 'b';
+    templateBFields.forEach(el => el.style.display = isB ? 'block' : 'none');
+    if (detailTitle) detailTitle.textContent = isB ? 'E. Rekomendasi' : 'Pembahasan & Rangkaian Acara';
+    if (thHasil) thHasil.textContent = isB ? 'REKOMENDASI / TINDAKAN' : 'HASIL MONITORING & EVALUASI / RANGKAIAN ACARA';
+    if (thRekom) thRekom.textContent = isB ? 'KETERANGAN' : 'REKOMENDASI TINDAK LANJUT';
+
+    document.querySelectorAll('[data-label-hasil]').forEach(el => {
+      el.setAttribute('data-label', isB ? 'Rekomendasi' : 'Hasil / Rangkaian');
+    });
+    document.querySelectorAll('[data-label-rekom]').forEach(el => {
+      el.setAttribute('data-label', isB ? 'Keterangan' : 'Rekomendasi');
+    });
+  }
 
   /* ========== CKEditor init ========== */
   function initEditors(scope=document){
@@ -378,8 +432,8 @@
     tr.innerHTML=`
       <td class="no d-none d-sm-table-cell"></td>
       <td class="no-badge d-sm-none"><span></span></td>
-      <td data-label="Hasil / Rangkaian"><textarea name="baris[${idxBaris}][hasil_pembahasan]" class="form-control rich required-rich"></textarea></td>
-      <td data-label="Rekomendasi"><textarea name="baris[${idxBaris}][rekomendasi]" class="form-control rich"></textarea></td>
+      <td data-label="Hasil / Rangkaian" data-label-hasil="1"><textarea name="baris[${idxBaris}][hasil_pembahasan]" class="form-control rich required-rich"></textarea></td>
+      <td data-label="Rekomendasi" data-label-rekom="1"><textarea name="baris[${idxBaris}][rekomendasi]" class="form-control rich"></textarea></td>
       <td data-label="Penanggung Jawab">
         <select name="baris[${idxBaris}][pj_ids][]" class="form-control js-user-tags" multiple data-placeholder="Pilih penanggung jawab"></select>
         <input type="text" name="baris[${idxBaris}][penanggung_jawab]" class="form-control mt-1" placeholder="Catatan PJ (opsional)">
@@ -389,6 +443,7 @@
     tbody.appendChild(tr);
     initEditors(tr);
     initUserTags(tr);
+    if (templateSelect) applyTemplateUI(templateSelect.value);
     renumber();
   });
 
@@ -420,6 +475,10 @@
   document.addEventListener('DOMContentLoaded',()=>{
     initEditors();
     initUserTags(document);
+    if (templateSelect) {
+      applyTemplateUI(templateSelect.value);
+      templateSelect.addEventListener('change', () => applyTemplateUI(templateSelect.value));
+    }
   });
 })();
 </script>

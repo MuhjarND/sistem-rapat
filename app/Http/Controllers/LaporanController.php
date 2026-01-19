@@ -29,7 +29,13 @@ class LaporanController extends Controller
         // ===== Rekap Rapat (EXCLUDE yang sudah diarsip) =====
         $q = DB::table('rapat')
             ->leftJoin('kategori_rapat', 'kategori_rapat.id', '=', 'rapat.id_kategori')
-            ->leftJoin('notulensi', 'notulensi.id_rapat', '=', 'rapat.id')
+            ->leftJoin('notulensi', function ($j) {
+                $j->on('notulensi.id_rapat', '=', 'rapat.id')
+                  ->where(function ($w) {
+                      $w->whereNull('notulensi.is_skipped')
+                        ->orWhere('notulensi.is_skipped', 0);
+                  });
+            })
             ->leftJoin('undangan',  'undangan.id_rapat',  '=', 'rapat.id')
             ->leftJoin('absensi',   'absensi.id_rapat',   '=', 'rapat.id')
             ->leftJoin('laporan_archived_meetings as lam', 'lam.rapat_id', '=', 'rapat.id')
@@ -237,7 +243,13 @@ class LaporanController extends Controller
 
         $q = DB::table('rapat')
             ->leftJoin('kategori_rapat', 'kategori_rapat.id', '=', 'rapat.id_kategori')
-            ->leftJoin('notulensi', 'notulensi.id_rapat', '=', 'rapat.id')
+            ->leftJoin('notulensi', function ($j) {
+                $j->on('notulensi.id_rapat', '=', 'rapat.id')
+                  ->where(function ($w) {
+                      $w->whereNull('notulensi.is_skipped')
+                        ->orWhere('notulensi.is_skipped', 0);
+                  });
+            })
             ->leftJoin('undangan', fn($j) => $j->on('undangan.id_rapat', '=', 'rapat.id'))
             ->leftJoin('absensi',  fn($j) => $j->on('absensi.id_rapat',  '=', 'rapat.id'))
             ->leftJoin('laporan_archived_meetings as lam', fn($j) => $j->on('lam.rapat_id', '=', 'rapat.id'))
@@ -521,7 +533,12 @@ class LaporanController extends Controller
                     'id_kategori'     => $rapat->id_kategori ?: null,
                     'judul'           => $judulFile,
                     'tanggal_laporan' => $rapat->tanggal,
-                    'keterangan'      => '(Undangan + Absensi'.(DB::table('notulensi')->where('id_rapat',$rapat->id)->exists() ? ' + Notulensi' : '').')',
+                    'keterangan'      => '(Undangan + Absensi'.(DB::table('notulensi')
+                        ->where('id_rapat', $rapat->id)
+                        ->where(function ($w) {
+                            $w->whereNull('is_skipped')->orWhere('is_skipped', 0);
+                        })
+                        ->exists() ? ' + Notulensi' : '').')',
                     'file_name'       => $fileName,
                     'file_path'       => $path,
                     'mime'            => 'application/pdf',
@@ -691,7 +708,12 @@ class LaporanController extends Controller
             'izin'        => DB::table('absensi')->where('id_rapat',$rapat->id)->where('status','izin')->count(),
         ];
 
-        $notulensi = DB::table('notulensi')->where('id_rapat',$rapat->id)->first();
+        $notulensi = DB::table('notulensi')
+            ->where('id_rapat', $rapat->id)
+            ->where(function ($w) {
+                $w->whereNull('is_skipped')->orWhere('is_skipped', 0);
+            })
+            ->first();
         $detail = collect(); $dokumentasi = collect(); $creator = null;
         $jumlah_peserta = $daftar_peserta->count();
 
@@ -852,8 +874,23 @@ class LaporanController extends Controller
         $files[] = $fAbs;
 
         // =============== 3) Notulensi (opsional) ===============
-        $notulensi = DB::table('notulensi')->where('id_rapat',$rapat->id)->first();
-        if ($notulensi) {
+        $notulensi = DB::table('notulensi')
+            ->where('id_rapat', $rapat->id)
+            ->where(function ($w) {
+                $w->whereNull('is_skipped')->orWhere('is_skipped', 0);
+            })
+            ->first();
+        $notulensiFile = null;
+        if ($notulensi && !empty($notulensi->file_path)) {
+            $candidate = public_path($notulensi->file_path);
+            if (is_file($candidate) && strtolower(pathinfo($candidate, PATHINFO_EXTENSION)) === 'pdf') {
+                $notulensiFile = $candidate;
+            }
+        }
+
+        if ($notulensi && $notulensiFile) {
+            $files[] = $notulensiFile;
+        } elseif ($notulensi) {
             $detail = DB::table('notulensi_detail')->where('id_notulensi',$notulensi->id)->orderBy('urut')->get();
             $dokumentasi = DB::table('notulensi_dokumentasi')->where('id_notulensi',$notulensi->id)->get();
             $creator = DB::table('users')->where('id',$notulensi->id_user)->first();
@@ -903,11 +940,27 @@ class LaporanController extends Controller
             $notulis_jabatan = $creator->jabatan ?? 'Notulis';
 
             $qr_notulis_data = null;
-            if (!empty($notulensi->signature_qr_path) && is_file(public_path($notulensi->signature_qr_path))) {
-                $qr_notulis_data = 'data:image/png;base64,'.base64_encode(@file_get_contents(public_path($notulensi->signature_qr_path)));
+            foreach (['signature_qr_path','qr_notulis_path','notulis_qr_path'] as $col) {
+                if (!empty($notulensi->{$col}) && is_file(public_path($notulensi->{$col}))) {
+                    $qr_notulis_data = 'data:image/png;base64,'.base64_encode(@file_get_contents(public_path($notulensi->{$col})));
+                    break;
+                }
+            }
+            if (!$qr_notulis_data && !empty($notulensi->id_user)) {
+                $notulisReq = DB::table('approval_requests')
+                    ->where('rapat_id', $rapat->id)
+                    ->where('doc_type', 'notulensi')
+                    ->where('approver_user_id', $notulensi->id_user)
+                    ->where('status', 'approved')
+                    ->orderByDesc('signed_at')
+                    ->first();
+                if ($notulisReq && $notulisReq->signature_qr_path && is_file(public_path($notulisReq->signature_qr_path))) {
+                    $qr_notulis_data = 'data:image/png;base64,'.base64_encode(@file_get_contents(public_path($notulisReq->signature_qr_path)));
+                }
             }
 
             $pimpinan_nama  = ($approval1->name ?? 'Approval 1');
+            $pimpinan_jabatan = $approval1->jabatan ?? ($rapat->jabatan_pimpinan ?? 'Pimpinan Rapat');
             $qr_pimpinan_data = null;
             $pimpinanReq = DB::table('approval_requests')
                 ->where('rapat_id', $rapat->id)
@@ -927,6 +980,7 @@ class LaporanController extends Controller
                 'dokumentasi'          => $dokumentasi,
                 'creator'              => $creator,
                 'jumlah_peserta'       => $jumlah_peserta,
+                'daftar_peserta'       => $daftar_peserta,
 
                 'notulensi_approvals'  => $notulensi_approvals,
                 'notulensi_qr_paths'   => $notulensi_qr_paths,
@@ -936,19 +990,31 @@ class LaporanController extends Controller
                 'notulis_jabatan'      => $notulis_jabatan,
                 'qr_pimpinan_data'     => $qr_pimpinan_data,
                 'pimpinan_nama'        => $pimpinan_nama,
+                'pimpinan_jabatan'     => $pimpinan_jabatan,
             ];
 
-            $fP1 = $tmpDir.'/p1-'.Str::random(8).'.pdf';
-            Pdf::loadView('notulensi.cetak_p1',$dataNot)->setPaper('a4','portrait')->save($fP1);
-            $files[] = $fP1;
+            $template = strtolower($notulensi->template ?? 'a');
+            if ($template === 'b') {
+                $fMain = $tmpDir.'/notulensi-b-'.Str::random(8).'.pdf';
+                Pdf::loadView('notulensi.cetak_template_b',$dataNot)->setPaper('a4','portrait')->save($fMain);
+                $files[] = $fMain;
 
-            $fP2 = $tmpDir.'/p2-'.Str::random(8).'.pdf';
-            Pdf::loadView('notulensi.cetak_p2',$dataNot)->setPaper('a4','landscape')->save($fP2);
-            $files[] = $fP2;
+                $fP3 = $tmpDir.'/p3-'.Str::random(8).'.pdf';
+                Pdf::loadView('notulensi.cetak_p3',$dataNot)->setPaper('a4','portrait')->save($fP3);
+                $files[] = $fP3;
+            } else {
+                $fP1 = $tmpDir.'/p1-'.Str::random(8).'.pdf';
+                Pdf::loadView('notulensi.cetak_p1',$dataNot)->setPaper('a4','portrait')->save($fP1);
+                $files[] = $fP1;
 
-            $fP3 = $tmpDir.'/p3-'.Str::random(8).'.pdf';
-            Pdf::loadView('notulensi.cetak_p3',$dataNot)->setPaper('a4','portrait')->save($fP3);
-            $files[] = $fP3;
+                $fP2 = $tmpDir.'/p2-'.Str::random(8).'.pdf';
+                Pdf::loadView('notulensi.cetak_p2',$dataNot)->setPaper('a4','landscape')->save($fP2);
+                $files[] = $fP2;
+
+                $fP3 = $tmpDir.'/p3-'.Str::random(8).'.pdf';
+                Pdf::loadView('notulensi.cetak_p3',$dataNot)->setPaper('a4','portrait')->save($fP3);
+                $files[] = $fP3;
+            }
         }
 
         // Merge & cleanup

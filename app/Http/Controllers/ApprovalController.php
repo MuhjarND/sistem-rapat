@@ -8,6 +8,8 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Route as RouteFacade;
+use Barryvdh\DomPDF\Facade\Pdf;
+use iio\libmergepdf\Merger;
 use App\Helpers\FonnteWa;
 use App\Helpers\TimeHelper;
 
@@ -486,8 +488,9 @@ public function signSubmit(Request $request, $token)
             $this->notifyParticipantsOnInvitationApproved($rapat);
         }
 
-        // NOTULENSI final-approved => kirim WA tugas ke assignee notulen
+        // NOTULENSI final-approved => tempel TTD ke file upload + kirim WA tugas ke assignee notulen
         if ($req->doc_type === 'notulensi') {
+            $this->appendNotulensiSignaturesToUploadedPdf((int)$req->rapat_id, (int)$req->approver_user_id);
             app(\App\Http\Controllers\NotulensiController::class)
                 ->notifyAssigneesOnNotulensiApproved((int)$req->rapat_id);
         }
@@ -504,6 +507,107 @@ public function signSubmit(Request $request, $token)
     return redirect()->route('approval.done', ['token' => $token])
         ->with('success', 'Approval berhasil & QR dibuat (dengan logo).');
 }
+
+    private function appendNotulensiSignaturesToUploadedPdf(int $rapatId, int $approverId): void
+    {
+        try {
+            $notulensi = DB::table('notulensi')
+                ->where('id_rapat', $rapatId)
+                ->orderByDesc('id')
+                ->first();
+
+            if (!$notulensi || empty($notulensi->file_path)) return;
+
+            $srcPath = public_path($notulensi->file_path);
+            if (!is_file($srcPath)) return;
+
+            $notulisReq = DB::table('approval_requests')
+                ->where('rapat_id', $rapatId)
+                ->where('doc_type', 'notulensi')
+                ->where('approver_user_id', $notulensi->id_user)
+                ->where('status', 'approved')
+                ->first();
+
+            $approverReq = DB::table('approval_requests')
+                ->where('rapat_id', $rapatId)
+                ->where('doc_type', 'notulensi')
+                ->where('approver_user_id', $approverId)
+                ->where('status', 'approved')
+                ->first();
+
+            if (!$notulisReq || !$approverReq) return;
+
+            $qrNotulis = $this->qrPathToDataUri($notulisReq->signature_qr_path ?? null);
+            $qrApprover = $this->qrPathToDataUri($approverReq->signature_qr_path ?? null);
+
+            if (!$qrNotulis || !$qrApprover) return;
+
+            $notulisUser = DB::table('users')->where('id', $notulensi->id_user)->first();
+            $approverUser = DB::table('users')->where('id', $approverId)->first();
+            $rapat = DB::table('rapat')->where('id', $rapatId)->first();
+
+            $tmpFile = storage_path('app/notulensi-ttd-'.Str::random(8).'.pdf');
+            Pdf::loadView('notulensi.ttd_page', [
+                'rapat'            => $rapat,
+                'notulis_nama'     => $notulisUser->name ?? '-',
+                'notulis_jabatan'  => $notulisUser->jabatan ?? 'Notulis',
+                'approver_nama'    => $approverUser->name ?? '-',
+                'approver_jabatan' => $approverUser->jabatan ?? 'Pimpinan Rapat',
+                'qr_notulis_data'  => $qrNotulis,
+                'qr_approver_data' => $qrApprover,
+            ])->setPaper('a4', 'portrait')->save($tmpFile);
+
+            $merger = new Merger();
+            $merger->addFile($srcPath);
+            $merger->addFile($tmpFile);
+            $mergedPdf = $merger->merge();
+
+            @unlink($tmpFile);
+
+            $destDir = public_path('uploads/notulensi_file');
+            if (!is_dir($destDir)) {
+                @mkdir($destDir, 0775, true);
+            }
+
+            $newName = 'notulensi-'.$rapatId.'-signed-'.Str::random(8).'.pdf';
+            $newRel = 'uploads/notulensi_file/'.$newName;
+            $newAbs = public_path($newRel);
+            file_put_contents($newAbs, $mergedPdf);
+
+            $origName = $notulensi->file_name ?: basename($notulensi->file_path);
+            $baseName = pathinfo($origName, PATHINFO_FILENAME) ?: 'notulensi';
+            $extName  = pathinfo($origName, PATHINFO_EXTENSION);
+            $newFileName = $baseName.'-signed'.($extName ? '.'.$extName : '.pdf');
+
+            DB::table('notulensi')->where('id', $notulensi->id)->update([
+                'file_path'  => $newRel,
+                'file_name'  => $newFileName,
+                'file_mime'  => 'application/pdf',
+                'file_size'  => @filesize($newAbs) ?: $notulensi->file_size,
+                'updated_at' => now(),
+            ]);
+
+            if ($srcPath !== $newAbs) {
+                @unlink($srcPath);
+            }
+        } catch (\Throwable $e) {
+            Log::error('[notulensi-sign] gagal menempel TTD', [
+                'rapat_id' => $rapatId,
+                'approver_id' => $approverId,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    private function qrPathToDataUri(?string $relativePath): ?string
+    {
+        if (!$relativePath) return null;
+        $fs = public_path($relativePath);
+        if (!is_file($fs)) return null;
+        $data = @file_get_contents($fs);
+        if ($data === false) return null;
+        return 'data:image/png;base64,'.base64_encode($data);
+    }
 
 
     /**

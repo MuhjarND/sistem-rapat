@@ -13,6 +13,7 @@
   .btn-teal   { background: linear-gradient(180deg,#14b8a6,#0d9488); }
   .btn-amber  { background: linear-gradient(180deg,#f59e0b,#d97706); }
   .btn-indigo { background: linear-gradient(180deg,#6366f1,#4f46e5); }
+  .btn-rose   { background: linear-gradient(180deg,#ef4444,#dc2626); }
   .btn-icon:hover{ filter:brightness(1.06); }
 
   /* Header tabel rapi */
@@ -60,6 +61,13 @@
   @endif
   @if(session('error'))
     <div class="alert alert-danger">{{ session('error') }}</div>
+  @endif
+  @if($errors->any())
+    <div class="alert alert-danger">
+      <ul class="mb-0">
+        @foreach ($errors->all() as $error) <li>{{ $error }}</li> @endforeach
+      </ul>
+    </div>
   @endif
 
   {{-- FILTER --}}
@@ -146,6 +154,23 @@
                    data-toggle="tooltip" title="Buat Notulen">
                   <i class="fas fa-plus"></i>
                 </a>
+                <button type="button"
+                        class="btn-icon btn-indigo ml-1"
+                        data-toggle="modal"
+                        data-target="#uploadNotulensiModal"
+                        data-rapat-id="{{ $r->id }}"
+                        data-judul="{{ $r->judul }}"
+                        title="Upload Notulensi (PDF)">
+                  <i class="fas fa-file-upload"></i>
+                </button>
+                <form action="{{ route('notulensi.skip') }}" method="POST" class="d-inline"
+                      onsubmit="return confirm('Tandai rapat ini selesai tanpa notulensi? Data ini tidak akan masuk laporan.');">
+                  @csrf
+                  <input type="hidden" name="id_rapat" value="{{ $r->id }}">
+                  <button type="submit" class="btn-icon btn-rose ml-1" title="Tidak Membuat Notulen">
+                    <i class="fas fa-ban"></i>
+                  </button>
+                </form>
               </td>
             </tr>
           @empty
@@ -197,6 +222,23 @@
             <a href="{{ route('notulensi.create', $r->id) }}" class="btn-icon btn-amber" title="Buat Notulen">
               <i class="fas fa-plus"></i>
             </a>
+            <button type="button"
+                    class="btn-icon btn-indigo ml-1"
+                    data-toggle="modal"
+                    data-target="#uploadNotulensiModal"
+                    data-rapat-id="{{ $r->id }}"
+                    data-judul="{{ $r->judul }}"
+                    title="Upload Notulensi (PDF)">
+              <i class="fas fa-file-upload"></i>
+            </button>
+            <form action="{{ route('notulensi.skip') }}" method="POST" class="d-inline"
+                  onsubmit="return confirm('Tandai rapat ini selesai tanpa notulensi? Data ini tidak akan masuk laporan.');">
+              @csrf
+              <input type="hidden" name="id_rapat" value="{{ $r->id }}">
+              <button type="submit" class="btn-icon btn-rose ml-1" title="Tidak Membuat Notulen">
+                <i class="fas fa-ban"></i>
+              </button>
+            </form>
           </div>
         </div>
       </div>
@@ -212,6 +254,53 @@
     </div>
   @endif
 </div>
+
+{{-- MODAL UPLOAD NOTULENSI --}}
+<div class="modal fade" id="uploadNotulensiModal" tabindex="-1" aria-labelledby="uploadNotulensiLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <form method="POST" action="{{ route('notulensi.upload') }}" enctype="multipart/form-data" class="modal-content">
+      @csrf
+      <div class="modal-header">
+        <h5 class="modal-title" id="uploadNotulensiLabel">Upload File Notulensi (PDF)</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" name="id_rapat" id="uploadRapatId" value="{{ old('id_rapat') }}">
+        <input type="hidden" name="judul_rapat" id="uploadRapatJudulHidden" value="{{ old('judul_rapat') }}">
+
+        <div class="form-group">
+          <label>Rapat</label>
+          <input type="text" class="form-control" id="uploadRapatJudul" value="{{ old('judul_rapat') }}" readonly>
+        </div>
+        <div class="form-group mb-0">
+          <label>File Notulensi (PDF)</label>
+          <input type="file" name="notulensi_file" class="form-control" accept="application/pdf" required>
+          <small class="text-muted">Maks 20MB.</small>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Batal</button>
+        <button type="submit" class="btn btn-primary">Upload</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+  $('#uploadNotulensiModal').on('show.bs.modal', function (event) {
+    const button = $(event.relatedTarget);
+    const rapatId = button.data('rapat-id');
+    const judul = button.data('judul');
+    const modal = $(this);
+    modal.find('#uploadRapatId').val(rapatId || '');
+    modal.find('#uploadRapatJudul').val(judul || '');
+    modal.find('#uploadRapatJudulHidden').val(judul || '');
+  });
+});
+</script>
 @endsection
 
 

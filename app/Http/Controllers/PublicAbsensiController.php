@@ -300,39 +300,8 @@ class PublicAbsensiController extends Controller
 
         DB::table('absensi')->insert($payload);
 
-        // WA konfirmasi jika diisi
-        if ($no_hp) {
-            try {
-                $wa = preg_replace('/^0/', '62', $no_hp);
-                $judul  = $rapat->judul ?: 'Rapat';
-                $tgl    = $rapat->tanggal ? \Carbon\Carbon::parse($rapat->tanggal)->translatedFormat('l, d F Y') : '-';
-                $wkt    = TimeHelper::short($rapat->waktu_mulai ?: null);
-                $tempat = $rapat->tempat ?: '-';
-
-                $msg =
-                    "*Assalamu’alaikum Wr. Wb.*\n\n" .
-                    "Dengan hormat, kami informasikan bahwa kehadiran Anda telah *berhasil tercatat* pada kegiatan berikut:\n\n" .
-                    "📌 *{$judul}*\n" .
-                    "📅 {$tgl}\n" .
-                    "⏰ {$wkt} WIT\n" .
-                    "🏢 {$tempat}\n\n" .
-                    "Terima kasih atas partisipasi dan kehadiran Bapak/Ibu.\n" .
-                    "Semoga Allah SWT senantiasa memberikan keberkahan dan kelancaran dalam setiap aktivitas kita.\n\n" .
-                    "Wassalamu’alaikum Wr. Wb.\n\n" .
-                    "— *Sistem Absensi Online PTA Papua Barat*";
-
-                if (class_exists(\App\Helpers\FonnteWa::class)) {
-                    \App\Helpers\FonnteWa::send($wa, $msg);
-                }
-            } catch (\Throwable $e) {
-                Log::warning('Gagal kirim WA konfirmasi absensi publik', [
-                    'hp'  => $no_hp,
-                    'err' => $e->getMessage(),
-                ]);
-            }
-        }
-
         return redirect()->route('absensi.publik.show', $token)
             ->with('success', 'Terima kasih! Kehadiran Anda sudah tercatat.');
     }
 }
+
