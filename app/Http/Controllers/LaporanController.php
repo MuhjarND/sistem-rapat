@@ -597,6 +597,12 @@ class LaporanController extends Controller
 
         $tampilkan_lampiran        = $daftar_peserta->count() > 5;
         $tampilkan_daftar_di_surat = !$tampilkan_lampiran;
+        $hasLampiranTambahan = property_exists($rapat, 'lampiran_tambahan_path')
+            && !empty($rapat->lampiran_tambahan_path);
+        if ($hasLampiranTambahan) {
+            $tampilkan_lampiran = false;
+            $tampilkan_daftar_di_surat = false;
+        }
 
         // ===== Approval & QR: UNDANGAN =====
         $approval1 = DB::table('users')->where('id', $rapat->approval1_user_id)->first();
