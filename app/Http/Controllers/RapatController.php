@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
+use iio\libmergepdf\Merger;
 
 class RapatController extends Controller
 {
@@ -1143,7 +1144,37 @@ class RapatController extends Controller
         ])->setPaper('A4', 'portrait');
 
         $filename = 'Undangan-Rapat-' . str_replace(' ', '-', $rapat->judul) . '.pdf';
-        $output   = $pdf->output();
+        $output   = null;
+
+        $tmpBase = storage_path('app/undangan-'.$rapat->id.'-'.Str::random(8).'.pdf');
+        $pdf->save($tmpBase);
+
+        $files = [$tmpBase];
+
+        $lampiranPdf = null;
+        if (Schema::hasColumn('rapat', 'lampiran_tambahan_path') && !empty($rapat->lampiran_tambahan_path)) {
+            $candidate = public_path($rapat->lampiran_tambahan_path);
+            if (is_file($candidate) && strtolower(pathinfo($candidate, PATHINFO_EXTENSION)) === 'pdf') {
+                $lampiranPdf = $candidate;
+            }
+        }
+        if ($lampiranPdf) {
+            $files[] = $lampiranPdf;
+        }
+
+        if (count($files) > 1) {
+            $merger = new Merger();
+            foreach ($files as $f) {
+                $merger->addFile($f);
+            }
+            $output = $merger->merge();
+        } else {
+            $output = @file_get_contents($tmpBase);
+        }
+
+        if (is_file($tmpBase)) {
+            @unlink($tmpBase);
+        }
 
         return response($output, 200)
             ->header('Content-Type', 'application/pdf')
