@@ -181,14 +181,6 @@
               </div>
               @error('peserta') <div class="alert alert-danger">{{ $message }}</div> @enderror
             </div>
-
-            {{-- No. HP (opsional) --}}
-            <div>
-              <label for="no_hp">No. HP (opsional)</label>
-              <input type="tel" id="no_hp" name="no_hp" class="ctl" placeholder="08xxxxxxxxxx" value="{{ old('no_hp') }}">
-              <div class="help">Jika diisi, Anda akan menerima notifikasi bahwa absensi sudah tercatat.</div>
-              @error('no_hp') <div class="alert alert-danger">{{ $message }}</div> @enderror
-            </div>
           </div>
 
           {{-- Tanda tangan --}}
@@ -270,12 +262,6 @@
     }
     function clearSig(){ if(sigPad) sigPad.clear(); }
 
-    function normalizePhone(p){
-      if(!p) return '';
-      p = p.replace(/[^0-9]/g,''); // hanya angka
-      return p;
-    }
-
     function handleSubmit(){
       if(!sigPad || sigPad.isEmpty()){
         alert('Mohon tanda tangani terlebih dahulu.');
@@ -283,17 +269,6 @@
       }
       // simpan TTD
       document.getElementById('ttdInput').value = sigPad.toDataURL('image/png');
-
-      // normalisasi no_hp (opsional)
-      const hp = document.getElementById('no_hp');
-      if(hp && hp.value){
-        hp.value = normalizePhone(hp.value);
-        // validasi sederhana: 10-14 digit, diawali 0
-        if(!/^0[0-9]{9,13}$/.test(hp.value)){
-          alert('Nomor HP tidak valid. Contoh: 081234567890');
-          return false;
-        }
-      }
 
       // UX: disable submit
       const btn = document.getElementById('btnSubmit');

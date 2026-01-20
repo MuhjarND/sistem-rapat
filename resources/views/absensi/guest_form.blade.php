@@ -116,11 +116,6 @@
             <label class="form-label">Jabatan</label>
             <input type="text" name="jabatan" class="form-control" maxlength="120" value="{{ old('jabatan') }}">
           </div>
-          <div class="form-group col-md-6">
-            <label class="form-label">No. HP (WhatsApp)</label>
-            <input type="tel" name="no_hp" class="form-control" maxlength="16" value="{{ old('no_hp') }}" placeholder="0812xxxxxxx">
-            <div class="help">Opsional. Jika diisi, sistem akan mengirim bukti via WhatsApp.</div>
-          </div>
         </div>
 
         <div class="form-row">
