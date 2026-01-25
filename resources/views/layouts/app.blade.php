@@ -44,6 +44,13 @@
             -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;position:relative;min-height:100vh;
             padding-top: var(--nav-h);
         }
+        body.sidebar-collapsed .sidebar{
+            transform: translateX(-100%);
+        }
+        body.sidebar-collapsed .content-area{
+            margin-left: 0;
+            width: 100%;
+        }
         body::before{
             content:"";position:fixed;inset:0;z-index:-1;
             background:
@@ -264,6 +271,9 @@
         <div class="d-flex align-items-center">
             <button class="btn btn-outline-light btn-sm d-inline-flex d-md-none btn-hamburger mr-2" id="btnSidebarToggle" type="button" aria-label="Buka menu">
                 <i class="fas fa-bars"></i>
+            </button>
+            <button class="btn btn-outline-light btn-sm d-none d-md-inline-flex btn-hamburger mr-2" id="btnSidebarCollapse" type="button" aria-label="Sembunyikan sidebar">
+                <i class="fas fa-columns"></i>
             </button>
 
             <a class="navbar-brand d-flex align-items-center mb-0" href="{{ url('/') }}">
@@ -504,6 +514,9 @@
                         <a class="nav-link {{ request()->is('absensi*') ? 'active' : '' }}" href="{{ route('absensi.index') }}">
                             <i class="fas fa-clipboard-list"></i> Absensi
                         </a>
+                        <a class="nav-link {{ request()->is('evoting*') ? 'active' : '' }}" href="{{ route('evoting.index') }}">
+                            <i class="fas fa-vote-yea"></i> E-Voting
+                        </a>
 
                         <a class="nav-link d-flex align-items-center" data-toggle="collapse" href="#menuNotulensiOp" role="button" aria-expanded="true" aria-controls="menuNotulensiOp">
                             <i class="fas fa-book-open"></i> Notulensi
@@ -687,13 +700,19 @@
     <script>
     (function(){
         var btn = document.getElementById('btnSidebarToggle');
+        var btnCollapse = document.getElementById('btnSidebarCollapse');
         var sidebar = document.getElementById('appSidebar');
         var backdrop = document.getElementById('sidebarBackdrop');
 
         function openSidebar(){ sidebar.classList.add('is-open'); backdrop.classList.add('show'); document.body.style.overflow='hidden'; }
         function closeSidebar(){ sidebar.classList.remove('is-open'); backdrop.classList.remove('show'); document.body.style.overflow=''; }
+        function toggleCollapse(){
+            document.body.classList.toggle('sidebar-collapsed');
+            closeSidebar();
+        }
 
         if(btn){ btn.addEventListener('click', function(e){ e.preventDefault(); sidebar.classList.contains('is-open') ? closeSidebar() : openSidebar(); }); }
+        if(btnCollapse){ btnCollapse.addEventListener('click', function(e){ e.preventDefault(); toggleCollapse(); }); }
         if(backdrop){ backdrop.addEventListener('click', closeSidebar); }
 
         Array.prototype.forEach.call(document.querySelectorAll('#appSidebar a.nav-link'), function(a){

@@ -59,6 +59,15 @@ Route::middleware(['auth', 'cekrole:admin'])->group(function () {
     Route::post('/bidang', 'BidangController@store')->name('bidang.store');
     Route::put('/bidang/{id}', 'BidangController@update')->name('bidang.update');
     Route::delete('/bidang/{id}', 'BidangController@destroy')->name('bidang.destroy');
+
+    // E-Voting (Admin)
+    Route::get('/evoting', 'EvotingController@index')->name('evoting.index');
+    Route::get('/evoting/create', 'EvotingController@create')->name('evoting.create');
+    Route::post('/evoting', 'EvotingController@store')->name('evoting.store');
+    Route::get('/evoting/{id}', 'EvotingController@show')->name('evoting.show');
+    Route::post('/evoting/{id}/send-links', 'EvotingController@sendLinks')->name('evoting.sendLinks');
+    Route::post('/evoting/{id}/status', 'EvotingController@updateStatus')->name('evoting.status');
+    Route::get('/evoting/{id}/results', 'EvotingController@results')->name('evoting.results');
 });
 
 // ADMIN
@@ -183,3 +192,7 @@ Route::post('/absensi/guest/{rapat}/{token}', 'AbsensiController@guestSubmit')
 Route::get('/absensi/publik/{token}',       'PublicAbsensiController@show')->name('absensi.publik.show');
 Route::get('/absensi/publik/{token}/cari',  'PublicAbsensiController@search')->name('absensi.publik.search');
 Route::post('/absensi/publik/{token}',      'PublicAbsensiController@store')->name('absensi.publik.store');
+
+// ================= E-Voting Publik (tanpa login) =================
+Route::get('/e-voting/{token}',  'EvotingPublicController@show')->name('evoting.public');
+Route::post('/e-voting/{token}', 'EvotingPublicController@submit')->name('evoting.public.submit');
