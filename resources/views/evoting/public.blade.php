@@ -90,8 +90,7 @@
                         <option value="">-- Pilih peserta --</option>
                         @foreach($voters as $voter)
                             <option value="{{ $voter->user_id }}" {{ $voter->voted_at ? 'disabled' : '' }}>
-                                {{ $voter->name }}{{ $voter->jabatan ? ' - '.$voter->jabatan : '' }}{{ $voter->unit ? ' ('.$voter->unit.')' : '' }}
-                                {{ $voter->voted_at ? ' [Sudah voting]' : '' }}
+                                {{ $voter->name }}{{ $voter->voted_at ? ' [Sudah voting]' : '' }}
                             </option>
                         @endforeach
                     </select>

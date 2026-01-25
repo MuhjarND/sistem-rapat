@@ -86,7 +86,7 @@
         $totalVotes = $itemCandidates->sum(function($c) use ($voteCounts){ return (int) ($voteCounts[$c->id] ?? 0); });
     @endphp
     <div class="col-lg-4 col-md-6 mb-3">
-        <div class="card h-100 evoting-chart-card">
+        <div class="card h-100 evoting-chart-card" data-item-card="{{ $item->id }}">
             <div class="card-header">
                 <strong>{{ $item->judul }}</strong>
             <span class="text-muted ml-2">Total suara: <span data-item-total="{{ $item->id }}">{{ $totalVotes }}/{{ $voters->count() }}</span></span>
@@ -163,24 +163,123 @@
         </div>
     </div>
 </div>
+
+<div id="evotingComplete" class="evoting-complete" aria-hidden="true">
+    <div class="evoting-complete-card">
+        <div class="evoting-complete-badge">&#10003;</div>
+        <div class="evoting-complete-title">Semua peserta sudah voting</div>
+        <div class="evoting-complete-sub">Terima kasih atas partisipasinya.</div>
+        <button type="button" class="btn btn-outline-light btn-sm mt-3" id="btnCloseComplete">Tutup</button>
+        <div class="evoting-confetti">
+            <span></span><span></span><span></span><span></span><span></span><span></span>
+            <span></span><span></span><span></span><span></span><span></span><span></span>
+        </div>
+    </div>
+</div>
 @endsection
 
 @push('style')
 <style>
   .evoting-link{ font-weight:700; color:#7aa2ff; word-break:break-all; }
   .evoting-qr img{ border-radius:12px; background:#fff; padding:8px; box-shadow: 0 10px 28px rgba(0,0,0,.25); }
+  .evoting-chart-card{
+    perspective: 1200px;
+    transform-style: preserve-3d;
+    transition: transform .45s cubic-bezier(.2,.8,.2,1), box-shadow .45s cubic-bezier(.2,.8,.2,1);
+    will-change: transform;
+  }
+  .evoting-chart-card:hover{
+    transform: translateY(-10px) rotateX(4deg) rotateY(-4deg);
+    box-shadow: 0 24px 60px rgba(10,18,38,.55);
+  }
   .evoting-chart-card .card-header{ background: rgba(255,255,255,.04); border-bottom:1px solid rgba(255,255,255,.08); }
-  .evoting-chart-card .card-body{ background: rgba(255,255,255,.02); }
+  .evoting-chart-card .card-body{ background: rgba(255,255,255,.02); transform-style: preserve-3d; }
   .evoting-chart{ min-height: 200px; }
   .winner-row{ background: rgba(34,197,94,.15); }
   .evoting-result-grid .card{ border:1px solid rgba(122,162,255,.25); }
   .evoting-result-grid .card-header{ font-size:.95rem; }
+  .evoting-chart canvas{
+    animation: floatChart 9s ease-in-out infinite;
+    filter: drop-shadow(0 10px 16px rgba(4,10,30,.35));
+  }
+  @keyframes floatChart{
+    0%,100%{ transform: translateY(0); }
+    50%{ transform: translateY(-10px); }
+  }
+  .evoting-chart-card table tbody tr{
+    transition: transform .35s cubic-bezier(.2,.8,.2,1), box-shadow .35s cubic-bezier(.2,.8,.2,1), background .35s ease;
+  }
+  .evoting-chart-card table tbody tr:hover{
+    transform: translateZ(12px) scale(1.02);
+    background: rgba(122,162,255,.16);
+    box-shadow: inset 0 0 0 1px rgba(122,162,255,.5);
+  }
   .pulse-update{
     animation: pulseUpdate 1s ease;
   }
   @keyframes pulseUpdate{
     0%{ background-color: rgba(254,231,21,.25); }
     100%{ background-color: transparent; }
+  }
+  .evoting-chart-card.update-glow{
+    animation: glowPulse 1.3s ease;
+    box-shadow: 0 0 0 1px rgba(254,231,21,.6), 0 0 38px rgba(254,231,21,.45);
+  }
+  @keyframes glowPulse{
+    0%{ box-shadow: 0 0 0 1px rgba(254,231,21,.9), 0 0 44px rgba(254,231,21,.65); }
+    100%{ box-shadow: 0 0 0 1px rgba(254,231,21,.2), 0 0 14px rgba(254,231,21,.25); }
+  }
+  .evoting-complete{
+    position: fixed; inset: 0; z-index: 2100;
+    display: none; align-items: center; justify-content: center;
+    background: rgba(8,12,28,.75);
+    backdrop-filter: blur(6px);
+  }
+  .evoting-complete.show{ display:flex; }
+  .evoting-complete-card{
+    position: relative;
+    background: linear-gradient(160deg, rgba(17,24,39,.96), rgba(15,23,42,.9));
+    border: 1px solid rgba(122,162,255,.35);
+    border-radius: 18px;
+    padding: 28px 26px;
+    text-align: center;
+    color: #fff;
+    box-shadow: 0 18px 50px rgba(0,0,0,.45);
+    animation: popIn .6s ease;
+    overflow: hidden;
+  }
+  .evoting-complete-badge{
+    width: 72px; height: 72px; border-radius: 50%;
+    display:flex; align-items:center; justify-content:center;
+    background: rgba(34,197,94,.2);
+    border: 2px solid rgba(34,197,94,.6);
+    color: #22c55e; font-size: 36px; margin: 0 auto 12px;
+    animation: badgePulse 1.2s ease infinite;
+  }
+  .evoting-complete-title{ font-weight:800; font-size:20px; }
+  .evoting-complete-sub{ color:#cbd5f5; margin-top:6px; }
+  .evoting-confetti span{
+    position:absolute; width:10px; height:10px; border-radius:2px;
+    background: #fbbf24;
+    animation: confetti 1.8s ease infinite;
+    opacity: .9;
+  }
+  .evoting-confetti span:nth-child(2){ background:#22c55e; left:12%; top:10%; animation-delay:.1s; }
+  .evoting-confetti span:nth-child(3){ background:#60a5fa; left:85%; top:15%; animation-delay:.2s; }
+  .evoting-confetti span:nth-child(4){ background:#f472b6; left:20%; top:70%; animation-delay:.3s; }
+  .evoting-confetti span:nth-child(5){ background:#a78bfa; left:78%; top:60%; animation-delay:.4s; }
+  .evoting-confetti span:nth-child(6){ background:#fbbf24; left:50%; top:8%; animation-delay:.5s; }
+  .evoting-confetti span:nth-child(7){ background:#22c55e; left:6%; top:40%; animation-delay:.6s; }
+  .evoting-confetti span:nth-child(8){ background:#60a5fa; left:92%; top:45%; animation-delay:.7s; }
+  .evoting-confetti span:nth-child(9){ background:#f472b6; left:30%; top:85%; animation-delay:.8s; }
+  .evoting-confetti span:nth-child(10){ background:#a78bfa; left:65%; top:78%; animation-delay:.9s; }
+  .evoting-confetti span:nth-child(11){ background:#fbbf24; left:40%; top:20%; animation-delay:1s; }
+  .evoting-confetti span:nth-child(12){ background:#22c55e; left:60%; top:25%; animation-delay:1.1s; }
+  @keyframes popIn{ 0%{ transform: scale(.9); opacity:0; } 100%{ transform: scale(1); opacity:1; } }
+  @keyframes badgePulse{ 0%,100%{ transform: scale(1); } 50%{ transform: scale(1.05); } }
+  @keyframes confetti{
+    0%{ transform: translateY(0) rotate(0deg); opacity:.9; }
+    100%{ transform: translateY(-30px) rotate(160deg); opacity:.2; }
   }
 </style>
 @endpush
@@ -191,6 +290,21 @@
   (function(){
     var resultUrl = @json(route('evoting.results', $evoting->id));
     var charts = {};
+    var completionShown = false;
+    var shadowPlugin = {
+      id: 'shadowBars',
+      beforeDatasetsDraw: function(chart){
+        var ctx = chart.ctx;
+        ctx.save();
+        ctx.shadowColor = 'rgba(10,18,38,.6)';
+        ctx.shadowBlur = 18;
+        ctx.shadowOffsetX = 6;
+        ctx.shadowOffsetY = 8;
+      },
+      afterDatasetsDraw: function(chart){
+        chart.ctx.restore();
+      }
+    };
 
     function buildChart(itemId, labels, values, colors){
       var ctx = document.getElementById('chart-item-' + itemId);
@@ -204,7 +318,9 @@
             data: values,
             backgroundColor: colors,
             borderColor: colors,
-            borderWidth: 1
+            borderWidth: 1,
+            borderRadius: 8,
+            barThickness: 16
           }]
         },
         options: {
@@ -229,7 +345,8 @@
             duration: 800,
             easing: 'easeOutQuart'
           }
-        }
+        },
+        plugins: [shadowPlugin]
       });
       charts[itemId] = chart;
     }
@@ -242,6 +359,7 @@
       var votedCount = Array.isArray(payload.voters) ? payload.voters.filter(function(v){ return v.voted; }).length : 0;
 
       payload.items.forEach(function(item){
+        var itemChanged = false;
         var labels = item.candidates.map(function(c){ return c.name; });
         var values = item.candidates.map(function(c){ return c.total; });
         var maxVal = 0;
@@ -273,6 +391,7 @@
             if (typeof prev === 'number' && prev !== c.total) {
               countEl.classList.add('pulse-update');
               setTimeout(function(){ countEl.classList.remove('pulse-update'); }, 1000);
+              itemChanged = true;
             }
           }
           var pctEl = document.querySelector('[data-candidate-percent="' + c.id + '"]');
@@ -293,6 +412,14 @@
           }
           prevCounts[c.id] = c.total;
         });
+
+        if (itemChanged) {
+          var cardEl = document.querySelector('[data-item-card="' + item.id + '"]');
+          if (cardEl) {
+            cardEl.classList.add('update-glow');
+            setTimeout(function(){ cardEl.classList.remove('update-glow'); }, 1000);
+          }
+        }
       });
 
       if (Array.isArray(payload.voters)) {
@@ -304,6 +431,15 @@
             : '<span class="badge badge-warning">Belum</span>';
         });
       }
+
+      if (totalVoters > 0 && votedCount === totalVoters && !completionShown) {
+        completionShown = true;
+        var popup = document.getElementById('evotingComplete');
+        if (popup) {
+          popup.classList.add('show');
+          popup.setAttribute('aria-hidden', 'false');
+        }
+      }
     }
 
     function fetchResults(){
@@ -311,6 +447,17 @@
         .then(function(res){ return res.json(); })
         .then(updateCharts)
         .catch(function(){});
+    }
+
+    var btnClose = document.getElementById('btnCloseComplete');
+    if (btnClose) {
+      btnClose.addEventListener('click', function(){
+        var popup = document.getElementById('evotingComplete');
+        if (popup) {
+          popup.classList.remove('show');
+          popup.setAttribute('aria-hidden', 'true');
+        }
+      });
     }
 
     fetchResults();

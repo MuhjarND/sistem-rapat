@@ -18,12 +18,6 @@
   $candidateUsers = [];
   foreach ($users as $u) {
       $label = e($u->name);
-      if (!empty($u->jabatan)) {
-          $label .= ' - ' . e($u->jabatan);
-      }
-      if (!empty($u->unit)) {
-          $label .= ' (' . e($u->unit) . ')';
-      }
       $candidateOptions .= '<option value="' . $u->id . '">' . $label . '</option>';
       $candidateUsers[] = ['id' => $u->id, 'label' => $label];
   }
@@ -46,7 +40,7 @@
                 <select name="peserta[]" class="form-control js-example-basic-multiple" multiple required>
                     @foreach($users as $user)
                         <option value="{{ $user->id }}" {{ collect(old('peserta', []))->contains($user->id) ? 'selected' : '' }}>
-                            {{ $user->name }}{{ $user->jabatan ? ' - '.$user->jabatan : '' }}{{ $user->unit ? ' ('.$user->unit.')' : '' }}
+                            {{ $user->name }}
                         </option>
                     @endforeach
                 </select>
