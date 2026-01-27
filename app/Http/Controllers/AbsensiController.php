@@ -825,8 +825,8 @@ public function exportPdf(Request $request, $id_rapat)
 
         $sendAll = $request->boolean('all'); // dari form hidden input name="all" value="1"
 
-        // URL absensi internal (peserta)
-        $absensiUrl = route('absensi.scan', $rapat->token_qr);
+        // URL absensi publik
+        $absensiUrl = route('absensi.publik.show', $rapat->public_code);
 
         // Target peserta internal (users yang diundang)
         $q = DB::table('undangan as u')

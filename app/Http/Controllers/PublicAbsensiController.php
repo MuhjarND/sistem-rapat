@@ -8,6 +8,7 @@ use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use App\Helpers\TimeHelper;
+use App\Helpers\NameHelper;
 
 class PublicAbsensiController extends Controller
 {
@@ -79,11 +80,6 @@ class PublicAbsensiController extends Controller
                     ->all();
             }
 
-            // ==== Flag kolom users ====
-            $hasJabatan = Schema::hasColumn('users', 'jabatan');
-            $hasUnit    = Schema::hasColumn('users', 'unit');
-            $hasBagian  = Schema::hasColumn('users', 'bagian');
-
             // ===== Peserta internal (SEMUA undangan yg belum hadir) =====
             $userQuery = DB::table('undangan as un')
                 ->join('users as u', 'u.id', '=', 'un.id_user')
@@ -91,16 +87,10 @@ class PublicAbsensiController extends Controller
                 ->when(!empty($sudahUser), fn($qq)=>$qq->whereNotIn('u.id', $sudahUser));
 
             $select = ['u.id', 'u.name', DB::raw('COALESCE(u.hirarki, 99999) as hirarki')];
-            if ($hasJabatan) $select[] = 'u.jabatan';
-            if ($hasUnit)    $select[] = 'u.unit';
-            elseif ($hasBagian) $select[] = DB::raw('u.bagian as unit');
 
             if ($q !== '') {
-                $userQuery->where(function ($s) use ($q, $hasJabatan, $hasUnit, $hasBagian) {
+                $userQuery->where(function ($s) use ($q) {
                     $s->where('u.name', 'like', "%{$q}%");
-                    if ($hasJabatan) $s->orWhere('u.jabatan', 'like', "%{$q}%");
-                    if ($hasUnit)    $s->orWhere('u.unit', 'like', "%{$q}%");
-                    if (!$hasUnit && $hasBagian) $s->orWhere('u.bagian', 'like', "%{$q}%");
                 });
             }
 
@@ -109,11 +99,9 @@ class PublicAbsensiController extends Controller
                 ->orderBy('u.name', 'asc')
                 ->get()
                 ->map(function ($r) {
-                    $jab = property_exists($r, 'jabatan') ? ($r->jabatan ?? '-') : '-';
-                    $sub = trim($jab . (($r->unit ?? '') ? ' · ' . $r->unit : ''));
                     return [
                         'id'   => 'user:' . $r->id,
-                        'text' => trim(($r->name ?? '—') . ' — ' . $sub),
+                        'text' => NameHelper::withoutTitles($r->name ?? '-'),
                         '_sort_hirarki' => (int)($r->hirarki ?? 99999),
                         '_sort_nama'    => (string)($r->name ?? ''),
                     ];
@@ -122,35 +110,23 @@ class PublicAbsensiController extends Controller
             // ===== Tamu rapat (opsional) — KECUALIKAN yang sudah hadir =====
             $tamu = collect();
             if (Schema::hasTable('tamu_rapat')) {
-                $hasJabTamu  = Schema::hasColumn('tamu_rapat', 'jabatan');
-                $hasInstansi = Schema::hasColumn('tamu_rapat', 'instansi');
-
                 $tamuQuery = DB::table('tamu_rapat as t')
                     ->where('t.id_rapat', $rapat->id)
                     ->when(!empty($sudahTamu), fn($qq)=>$qq->whereNotIn('t.id', $sudahTamu));
 
                 if ($q !== '') {
-                    $tamuQuery->where(function ($s) use ($q, $hasJabTamu, $hasInstansi) {
+                    $tamuQuery->where(function ($s) use ($q) {
                         $s->where('t.nama', 'like', "%{$q}%");
-                        if ($hasJabTamu)  $s->orWhere('t.jabatan',  'like', "%{$q}%");
-                        if ($hasInstansi) $s->orWhere('t.instansi', 'like', "%{$q}%");
                     });
                 }
 
-                $tamuSelect = ['t.id', 't.nama'];
-                if ($hasJabTamu)  $tamuSelect[] = 't.jabatan';
-                if ($hasInstansi) $tamuSelect[] = 't.instansi';
-
-                $tamu = $tamuQuery->select($tamuSelect)
+                $tamu = $tamuQuery->select(['t.id', 't.nama'])
                     ->orderBy('t.nama')
                     ->get()
-                    ->map(function ($r) use ($hasJabTamu, $hasInstansi) {
-                        $jab  = $hasJabTamu  ? ($r->jabatan  ?? '-') : '-';
-                        $inst = $hasInstansi ? ($r->instansi ?? null) : null;
-                        $sub  = trim($jab . ($inst ? ' · ' . $inst : ''));
+                    ->map(function ($r) {
                         return [
                             'id'   => 'tamu:' . $r->id,
-                            'text' => trim(($r->nama ?? '—') . ' — ' . $sub),
+                            'text' => trim(($r->nama ?? '-')),
                             '_sort_hirarki' => 999999, // taruh setelah internal
                             '_sort_nama'    => (string)($r->nama ?? ''),
                         ];
@@ -304,4 +280,6 @@ class PublicAbsensiController extends Controller
             ->with('success', 'Terima kasih! Kehadiran Anda sudah tercatat.');
     }
 }
+
+
 
