@@ -8,7 +8,6 @@ use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use App\Helpers\TimeHelper;
-use App\Helpers\NameHelper;
 
 class PublicAbsensiController extends Controller
 {
@@ -101,7 +100,7 @@ class PublicAbsensiController extends Controller
                 ->map(function ($r) {
                     return [
                         'id'   => 'user:' . $r->id,
-                        'text' => NameHelper::withoutTitles($r->name ?? '-'),
+                        'text' => trim(($r->name ?? '-')),
                         '_sort_hirarki' => (int)($r->hirarki ?? 99999),
                         '_sort_nama'    => (string)($r->name ?? ''),
                     ];
