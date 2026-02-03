@@ -53,11 +53,11 @@
         <img src="{{ $kop_path }}" style="width: 100%; height: auto;">
     </div>
 
-    <table style="margin-bottom: 16px;">
+    <table style="margin-bottom: 16px; border-collapse:collapse; width:100%;">
         <tr>
-            <td width="17%">Nomor</td>
-            <td width="3%">:</td>
-            <td>{{ $rapat->nomor_undangan }}</td>
+            <td width="14%">Nomor</td>
+            <td width="2%">:</td>
+            <td width="44%">{{ $rapat->nomor_undangan }}</td>
             <td style="text-align:right; font-size:11px;" width="40%">
                 Manokwari, {{ \Carbon\Carbon::parse($rapat->tanggal)->isoFormat('D MMMM Y') }}
             </td>
@@ -66,11 +66,13 @@
             <td>Lampiran</td>
             <td>:</td>
             <td>{{ $tampilkan_lampiran ? 'Satu Lembar' : '-' }}</td>
+            <td></td>
         </tr>
         <tr>
             <td>Hal</td>
             <td>:</td>
             <td>Undangan {{ $rapat->nama_kategori ?? '-' }}</td>
+            <td></td>
         </tr>
     </table>
 
