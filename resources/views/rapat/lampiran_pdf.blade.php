@@ -18,7 +18,14 @@
 <div style="margin-bottom: 5px; text-align:center; font-weight:bold;">DAFTAR PEJABAT/PEGAWAI YANG DIUNDANG</div><br>
 
 @php
+    $ttdUserId = $approval1->id ?? null;
+    $ttdNama   = trim((string)($approval1->name ?? ''));
     $jabatanUnik = collect($daftar_peserta ?? [])
+        ->filter(function($p) use ($ttdUserId, $ttdNama){
+            if ($ttdUserId && isset($p->id) && (int)$p->id === (int)$ttdUserId) return false;
+            if ($ttdNama !== '' && isset($p->name) && trim((string)$p->name) === $ttdNama) return false;
+            return true;
+        })
         ->map(function($p){ return trim((string)($p->jabatan ?? '')); })
         ->filter(function($v){ return $v !== '' && $v !== '-'; })
         ->unique(function($v){ return mb_strtolower($v); })

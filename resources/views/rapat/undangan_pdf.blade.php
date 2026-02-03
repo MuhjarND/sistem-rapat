@@ -58,7 +58,7 @@
             <td width="17%">Nomor</td>
             <td width="3%">:</td>
             <td>{{ $rapat->nomor_undangan }}</td>
-            <td style="text-align:right;" width="40%">
+            <td style="text-align:right; font-size:11px;" width="40%">
                 Manokwari, {{ \Carbon\Carbon::parse($rapat->tanggal)->isoFormat('D MMMM Y') }}
             </td>
         </tr>
