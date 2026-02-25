@@ -15,20 +15,9 @@
         .wrap{ max-width: 860px; margin: 36px auto; padding: 0 16px; }
         .card{ background: rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); border-radius:14px; }
         .card-header{ background: transparent; border-bottom:1px solid rgba(255,255,255,.08); }
-        .brand-top{
-            display:flex;
-            align-items:center;
-            gap:14px;
-        }
-        .brand-logo{
-            width:64px;
-            height:64px;
-            object-fit:contain;
-            border-radius:10px;
-            background:#ffffff;
-            padding:6px;
-            box-shadow: 0 8px 22px rgba(0,0,0,.28);
-            flex:0 0 auto;
+        .title-accent{
+            color:#FEE715;
+            font-weight:800;
         }
         .badge-soft{ background: rgba(34,197,94,.18); border:1px solid rgba(34,197,94,.4); color:#bbf7d0; }
         .muted{ color:#9fb0cd; }
@@ -57,11 +46,6 @@
         }
         @media (max-width: 576px){
             .wrap{ margin: 20px auto; }
-            .brand-logo{
-              width:52px;
-              height:52px;
-              padding:5px;
-            }
             .option{
               flex-direction: row;
               align-items:center;
@@ -83,13 +67,8 @@
 <div class="wrap">
     <div class="card mb-3">
         <div class="card-body">
-            <div class="brand-top mb-2">
-                <img src="{{ asset('logo_pta.png') }}" alt="Logo PTA Papua Barat" class="brand-logo">
-                <div>
-                    <h4 class="mb-1">{{ $evoting->judul }}</h4>
-                    <div class="muted">{!! nl2br(e($evoting->deskripsi ?: 'E-voting resmi.')) !!}</div>
-                </div>
-            </div>
+            <h4 class="mb-1 title-accent">{{ $evoting->judul }}</h4>
+            <div class="muted">{!! nl2br(e($evoting->deskripsi ?: 'E-voting resmi.')) !!}</div>
             <div class="mt-2">
                 <span class="badge badge-soft">Voting Resmi</span>
                 <a href="{{ route('evoting.public.results', $token) }}" class="btn btn-sm btn-outline-soft ml-2">
