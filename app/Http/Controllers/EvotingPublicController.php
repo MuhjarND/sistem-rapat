@@ -42,6 +42,26 @@ class EvotingPublicController extends Controller
         return view('evoting.public', compact('evoting', 'mode', 'items', 'candidates', 'token', 'voters'));
     }
 
+    public function results($token)
+    {
+        $evoting = DB::table('evotings')->where('public_token', $token)->first();
+        if (!$evoting) {
+            abort(404);
+        }
+
+        return view('evoting.public_results', compact('evoting', 'token'));
+    }
+
+    public function resultsData($token)
+    {
+        $evoting = DB::table('evotings')->where('public_token', $token)->first();
+        if (!$evoting) {
+            abort(404);
+        }
+
+        return response()->json($this->buildResultsPayload($evoting->id));
+    }
+
     public function submit(Request $request, $token)
     {
         $evoting = DB::table('evotings')->where('public_token', $token)->first();
@@ -126,5 +146,72 @@ class EvotingPublicController extends Controller
         }
 
         return redirect()->route('evoting.public', $token)->with('success', 'Terima kasih, suara Anda berhasil direkam.');
+    }
+
+    private function buildResultsPayload($evotingId)
+    {
+        $items = DB::table('evoting_items')
+            ->where('evoting_id', $evotingId)
+            ->orderBy('urut')
+            ->get();
+
+        $itemIds = $items->pluck('id')->all();
+        $candidates = DB::table('evoting_candidates')
+            ->whereIn('item_id', $itemIds ?: [0])
+            ->orderBy('urut')
+            ->get();
+
+        $counts = DB::table('evoting_votes')
+            ->select('candidate_id', DB::raw('count(*) as total'))
+            ->where('evoting_id', $evotingId)
+            ->groupBy('candidate_id')
+            ->pluck('total', 'candidate_id');
+
+        $candidatesByItem = $candidates->groupBy('item_id');
+        $payload = [];
+
+        foreach ($items as $item) {
+            $rows = [];
+            $total = 0;
+            foreach ($candidatesByItem->get($item->id, collect()) as $cand) {
+                $count = (int) ($counts[$cand->id] ?? 0);
+                $total += $count;
+                $rows[] = [
+                    'id' => $cand->id,
+                    'name' => $cand->nama,
+                    'total' => $count,
+                ];
+            }
+
+            $rows = array_map(function ($row) use ($total) {
+                $row['percent'] = $total > 0 ? round(($row['total'] / $total) * 100, 1) : 0;
+                return $row;
+            }, $rows);
+
+            $payload[] = [
+                'id' => $item->id,
+                'title' => $item->judul,
+                'total' => $total,
+                'candidates' => $rows,
+            ];
+        }
+
+        $voters = DB::table('evoting_voters')
+            ->select('id', 'voted_at')
+            ->where('evoting_id', $evotingId)
+            ->get()
+            ->map(function ($v) {
+                return [
+                    'id' => $v->id,
+                    'voted' => !empty($v->voted_at),
+                ];
+            });
+
+        return [
+            'evoting_id' => $evotingId,
+            'items' => $payload,
+            'voters' => $voters,
+            'generated_at' => now()->toDateTimeString(),
+        ];
     }
 }

@@ -196,3 +196,5 @@ Route::post('/absensi/publik/{token}',      'PublicAbsensiController@store')->na
 // ================= E-Voting Publik (tanpa login) =================
 Route::get('/e-voting/{token}',  'EvotingPublicController@show')->name('evoting.public');
 Route::post('/e-voting/{token}', 'EvotingPublicController@submit')->name('evoting.public.submit');
+Route::get('/e-voting/{token}/hasil', 'EvotingPublicController@results')->name('evoting.public.results');
+Route::get('/e-voting/{token}/hasil/data', 'EvotingPublicController@resultsData')->name('evoting.public.results.data');

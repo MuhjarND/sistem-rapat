@@ -6,7 +6,7 @@
 <div class="d-flex justify-content-between align-items-center mb-3">
     <div>
         <h3 class="mb-1">{{ $evoting->judul }}</h3>
-        <div class="text-muted">{{ $evoting->deskripsi ?: 'Tanpa deskripsi' }}</div>
+        <div class="text-muted">{!! nl2br(e($evoting->deskripsi ?: 'Tanpa deskripsi')) !!}</div>
     </div>
     <div class="d-flex align-items-center">
         <form action="{{ route('evoting.status', $evoting->id) }}" method="POST" class="mr-2">
@@ -47,7 +47,10 @@
             <a class="evoting-link" href="{{ route('evoting.public', $evoting->public_token) }}" target="_blank">
                 {{ route('evoting.public', $evoting->public_token) }}
             </a>
-            <div class="text-muted mt-2">Gunakan satu link ini untuk seluruh peserta.</div>
+            <div class="text-muted mt-2">
+                Gunakan satu link ini untuk seluruh peserta.
+                <a href="{{ route('evoting.public.results', $evoting->public_token) }}" target="_blank" class="ml-2">Lihat hasil publik</a>
+            </div>
         </div>
         <div class="evoting-qr text-center ml-md-auto">
             <div class="text-muted mb-2">Scan QR untuk voting</div>

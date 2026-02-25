@@ -20,6 +20,16 @@
         .option{ padding:10px 12px; border:1px solid rgba(255,255,255,.08); border-radius:10px; margin-bottom:10px; }
         .option:hover{ border-color: rgba(99,102,241,.5); }
         .btn-primary{ background: #4f46e5; border:none; }
+        .btn-outline-soft{
+            border:1px solid rgba(122,162,255,.45);
+            color:#dbe8ff;
+            background: rgba(122,162,255,.12);
+        }
+        .btn-outline-soft:hover{
+            color:#fff;
+            background: rgba(122,162,255,.2);
+            border-color: rgba(122,162,255,.7);
+        }
         .option input[type="radio"]{
             width:18px; height:18px;
             accent-color: #FEE715;
@@ -54,9 +64,12 @@
     <div class="card mb-3">
         <div class="card-body">
             <h4 class="mb-1">{{ $evoting->judul }}</h4>
-            <div class="muted">{{ $evoting->deskripsi ?: 'E-voting resmi.' }}</div>
+            <div class="muted">{!! nl2br(e($evoting->deskripsi ?: 'E-voting resmi.')) !!}</div>
             <div class="mt-2">
                 <span class="badge badge-soft">Voting Resmi</span>
+                <a href="{{ route('evoting.public.results', $token) }}" class="btn btn-sm btn-outline-soft ml-2">
+                    Lihat Hasil
+                </a>
             </div>
         </div>
     </div>
@@ -98,17 +111,31 @@
                 </div>
             </div>
             @foreach($items as $item)
+                @php $itemCandidates = ($candidates[$item->id] ?? collect()); @endphp
                 <div class="card mb-3">
                     <div class="card-header">
                         <strong>{{ $item->judul }}</strong>
                     </div>
                     <div class="card-body">
-                        @foreach(($candidates[$item->id] ?? collect()) as $cand)
-                            <label class="option d-flex align-items-center">
-                                <input type="radio" name="vote[{{ $item->id }}]" value="{{ $cand->id }}" class="mr-2" required>
-                                <span>{{ $cand->nama }}</span>
-                            </label>
-                        @endforeach
+                        @if($itemCandidates->count() > 5)
+                            <label for="vote_{{ $item->id }}" class="font-weight-bold">Pilih Kandidat</label>
+                            <select id="vote_{{ $item->id }}" name="vote[{{ $item->id }}]" class="form-control" required>
+                                <option value="">-- Pilih kandidat --</option>
+                                @foreach($itemCandidates as $cand)
+                                    <option value="{{ $cand->id }}" {{ old('vote.'.$item->id) == $cand->id ? 'selected' : '' }}>
+                                        {{ $cand->nama }}
+                                    </option>
+                                @endforeach
+                            </select>
+                            <div class="muted mt-2">Daftar kandidat lebih dari 5, gunakan dropdown untuk memilih.</div>
+                        @else
+                            @foreach($itemCandidates as $cand)
+                                <label class="option d-flex align-items-center">
+                                    <input type="radio" name="vote[{{ $item->id }}]" value="{{ $cand->id }}" class="mr-2" required {{ old('vote.'.$item->id) == $cand->id ? 'checked' : '' }}>
+                                    <span>{{ $cand->nama }}</span>
+                                </label>
+                            @endforeach
+                        @endif
                     </div>
                 </div>
             @endforeach

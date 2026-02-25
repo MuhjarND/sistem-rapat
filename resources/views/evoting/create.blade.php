@@ -33,7 +33,7 @@
             </div>
             <div class="form-group">
                 <label>Deskripsi (opsional)</label>
-                <textarea name="deskripsi" class="form-control" rows="3">{{ old('deskripsi') }}</textarea>
+                <textarea name="deskripsi" class="form-control" rows="4" placeholder="Tulis deskripsi e-voting. Gunakan Enter untuk baris baru.">{{ old('deskripsi') }}</textarea>
             </div>
             <div class="form-group">
                 <label>Peserta Voting</label>
