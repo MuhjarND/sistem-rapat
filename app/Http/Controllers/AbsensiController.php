@@ -863,7 +863,6 @@ public function exportPdf(Request $request, $id_rapat)
         $tgl  = \Carbon\Carbon::parse($rapat->tanggal)->isoFormat('dddd, D MMMM Y');
         $jam  = TimeHelper::short($rapat->waktu_mulai);
         $tempat = $rapat->tempat;
-        $sender = env('FONNTE_SENDER', 'Sistem Rapat');
 
         $sent = 0; $skipped = 0;
         foreach ($targets as $t) {
@@ -871,18 +870,15 @@ public function exportPdf(Request $request, $id_rapat)
             $msisdn = $this->normalizeMsisdn($t->no_hp ?? null);
             if (!$msisdn) { $skipped++; continue; }
 
-            // Pesan formal
+            // Pesan singkat & langsung ke tujuan (absensi)
             $msg =
-                "Assalamu'alaikum Wr. Wb.\n\n".
-                "Yth. Bapak/Ibu *{$t->name}*,\n".
-                "Dengan hormat, kami informasikan bahwa rapat berikut telah dimulai. Mohon kesediaannya untuk melakukan *absensi* melalui tautan di bawah ini:\n\n".
-                "*Rapat*   : {$rapat->judul}\n".
-                "*Tanggal* : {$tgl}\n".
-                "*Waktu*   : {$jam} WIT\n".
-                "*Tempat*  : {$tempat}\n\n".
-                "Tautan absensi:\n{$absensiUrl}\n\n".
-                "Atas perhatian dan kehadirannya, kami ucapkan terima kasih.\n".
-                "Wassalamu'alaikum Wr. Wb.";
+                "*ABSENSI RAPAT*\n\n".
+                "Yth. *{$t->name}*\n".
+                "Rapat: {$rapat->judul}\n".
+                "Jadwal: {$tgl}, {$jam} WIT\n".
+                "Tempat: {$tempat}\n\n".
+                "Isi absensi di link berikut:\n{$absensiUrl}\n\n".
+                "Mohon diisi segera. Terima kasih.";
 
 
             try {
