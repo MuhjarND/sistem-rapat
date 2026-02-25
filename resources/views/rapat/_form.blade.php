@@ -261,7 +261,7 @@
          class="form-control"
          placeholder="Contoh: Seragam PDH, Batik, Pakaian Dinas"
          value="{{ old('jenis_pakaian', $rapat->jenis_pakaian ?? '') }}">
-  <small class="form-text text-muted">Diisi untuk kategori Penandatanganan Pakta Integritas dan Komitmen Bersama atau Buka Bersama.</small>
+  <small class="form-text text-muted">Diisi untuk kategori Penandatanganan Pakta Integritas dan Komitmen Bersama atau Buka Puasa Bersama.</small>
 </div>
 
 <div class="form-row">
@@ -553,7 +553,7 @@
   (function(){
     var targets = [
       'penandatanganan pakta integritas dan komitmen bersama',
-      'buka bersama'
+      'buka puasa bersama'
     ];
     document.querySelectorAll('select.js-kategori-select').forEach(function(sel){
       var wrapId = sel.getAttribute('data-pakaian-wrap');
@@ -568,7 +568,7 @@
       }
       function sync(){
         var name = getSelectedName().trim().toLowerCase();
-        var show = (targets.indexOf(name) !== -1) || (name.indexOf('buka bersama') !== -1);
+        var show = (targets.indexOf(name) !== -1) || (name.indexOf('buka puasa bersama') !== -1);
         wrap.style.display = show ? '' : 'none';
         if (input) {
           if (show) input.setAttribute('required','required');

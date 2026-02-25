@@ -26,7 +26,7 @@ class RapatController extends Controller
             return true;
         }
 
-        return str_contains($name, 'buka bersama');
+        return str_contains($name, 'buka puasa bersama');
     }
 
     /**
