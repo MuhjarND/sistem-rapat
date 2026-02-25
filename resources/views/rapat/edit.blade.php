@@ -58,7 +58,7 @@
                     <input type="text" name="jenis_pakaian" class="form-control"
                            placeholder="Contoh: Seragam PDH, Batik, Pakaian Dinas"
                            value="{{ old('jenis_pakaian', $rapat->jenis_pakaian ?? '') }}">
-                    <small class="form-text text-muted">Diisi untuk kategori Penandatanganan Pakta Integritas dan Komitmen Bersama.</small>
+                    <small class="form-text text-muted">Diisi untuk kategori Penandatanganan Pakta Integritas dan Komitmen Bersama atau Buka Bersama.</small>
                 </div>
                 <div class="form-row">
                     <div class="form-group col-md-6">
@@ -109,7 +109,10 @@
 @push('scripts')
 <script>
 (function(){
-  var target = 'penandatanganan pakta integritas dan komitmen bersama';
+  var targets = [
+    'penandatanganan pakta integritas dan komitmen bersama',
+    'buka bersama'
+  ];
   document.querySelectorAll('select.js-kategori-select').forEach(function(sel){
     var wrapId = sel.getAttribute('data-pakaian-wrap');
     var wrap = wrapId ? document.getElementById(wrapId) : null;
@@ -122,7 +125,7 @@
     }
     function sync(){
       var name = getSelectedName().trim().toLowerCase();
-      var show = name === target;
+      var show = (targets.indexOf(name) !== -1) || (name.indexOf('buka bersama') !== -1);
       wrap.style.display = show ? '' : 'none';
       if (input) {
         if (show) input.setAttribute('required','required');

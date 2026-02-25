@@ -9,6 +9,8 @@
     }
     $kategoriNama = strtolower(trim((string) ($rapat->nama_kategori ?? $rapat->kategori_nama ?? $rapat->kategori ?? '')));
     $isPakta = $kategoriNama === strtolower('Penandatanganan Pakta Integritas dan Komitmen Bersama');
+    $isBukaBersama = str_contains($kategoriNama, 'buka bersama');
+    $showPakaian = $isPakta || $isBukaBersama;
     $isVirtual = !empty($rapat->is_virtual);
     $meetingId = trim((string) ($rapat->meeting_id ?? ''));
     $meetingPasscode = trim((string) ($rapat->meeting_passcode ?? ''));
@@ -141,7 +143,7 @@
             <td>:</td>
             <td>{{ $rapat->deskripsi ?? $rapat->judul }}</td>
         </tr>
-        @if($isPakta)
+        @if($showPakaian)
         <tr>
             <td>Pakaian</td>
             <td>:</td>

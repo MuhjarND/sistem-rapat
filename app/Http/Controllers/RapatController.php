@@ -15,6 +15,20 @@ use iio\libmergepdf\Merger;
 
 class RapatController extends Controller
 {
+    private function isJenisPakaianRequired(?string $kategoriNama): bool
+    {
+        $name = strtolower(trim((string) $kategoriNama));
+        if ($name === '') {
+            return false;
+        }
+
+        if ($name === strtolower('Penandatanganan Pakta Integritas dan Komitmen Bersama')) {
+            return true;
+        }
+
+        return str_contains($name, 'buka bersama');
+    }
+
     /**
      * Ambil daftar user yang bisa dipilih sebagai peserta (untuk create/edit):
      * - Sertakan semua user NON-admin/superadmin
@@ -390,7 +404,7 @@ class RapatController extends Controller
         $kategoriNama = $request->filled('id_kategori')
             ? DB::table('kategori_rapat')->where('id', $request->id_kategori)->value('nama')
             : null;
-        $isPakta = strtolower(trim((string) $kategoriNama)) === strtolower('Penandatanganan Pakta Integritas dan Komitmen Bersama');
+        $isPakaianRequired = $this->isJenisPakaianRequired($kategoriNama);
 
         $isVirtual = $request->boolean('is_virtual');
         $request->validate([
@@ -402,7 +416,7 @@ class RapatController extends Controller
             'tempat'            => 'required',
             'lampiran_tambahan' => 'nullable|in:0,1',
             'lampiran_tambahan_file' => 'required_if:lampiran_tambahan,1|file|mimes:pdf,doc,docx,xls,xlsx,ppt,pptx|max:20480',
-            'jenis_pakaian'     => [$isPakta ? 'required' : 'nullable', 'string', 'max:120'],
+            'jenis_pakaian'     => [$isPakaianRequired ? 'required' : 'nullable', 'string', 'max:120'],
             'is_virtual'        => 'nullable|boolean',
             'meeting_id'        => [$isVirtual ? 'required' : 'nullable', 'string', 'max:120'],
             'meeting_passcode'  => [$isVirtual ? 'required' : 'nullable', 'string', 'max:120'],
@@ -528,7 +542,7 @@ class RapatController extends Controller
         $kategoriNama = $request->filled('id_kategori')
             ? DB::table('kategori_rapat')->where('id', $request->id_kategori)->value('nama')
             : null;
-        $isPakta = strtolower(trim((string) $kategoriNama)) === strtolower('Penandatanganan Pakta Integritas dan Komitmen Bersama');
+        $isPakaianRequired = $this->isJenisPakaianRequired($kategoriNama);
 
         $isVirtual = $request->boolean('is_virtual');
         $request->validate([
@@ -540,7 +554,7 @@ class RapatController extends Controller
             'tempat'            => 'required',
             'lampiran_tambahan' => 'nullable|in:0,1',
             'lampiran_tambahan_file' => 'required_if:lampiran_tambahan,1|file|mimes:pdf,doc,docx,xls,xlsx,ppt,pptx|max:20480',
-            'jenis_pakaian'     => [$isPakta ? 'required' : 'nullable', 'string', 'max:120'],
+            'jenis_pakaian'     => [$isPakaianRequired ? 'required' : 'nullable', 'string', 'max:120'],
             'is_virtual'        => 'nullable|boolean',
             'meeting_id'        => [$isVirtual ? 'required' : 'nullable', 'string', 'max:120'],
             'meeting_passcode'  => [$isVirtual ? 'required' : 'nullable', 'string', 'max:120'],
@@ -845,7 +859,7 @@ class RapatController extends Controller
         $kategoriNama = $request->filled('id_kategori')
             ? DB::table('kategori_rapat')->where('id', $request->id_kategori)->value('nama')
             : null;
-        $isPakta = strtolower(trim((string) $kategoriNama)) === strtolower('Penandatanganan Pakta Integritas dan Komitmen Bersama');
+        $isPakaianRequired = $this->isJenisPakaianRequired($kategoriNama);
 
         $isVirtual = $request->boolean('is_virtual');
         $request->validate([
@@ -855,7 +869,7 @@ class RapatController extends Controller
             'tanggal'           => 'required|date',
             'waktu_mulai'       => 'required',
             'tempat'            => 'required',
-            'jenis_pakaian'     => [$isPakta ? 'required' : 'nullable', 'string', 'max:120'],
+            'jenis_pakaian'     => [$isPakaianRequired ? 'required' : 'nullable', 'string', 'max:120'],
             'is_virtual'        => 'nullable|boolean',
             'meeting_id'        => [$isVirtual ? 'required' : 'nullable', 'string', 'max:120'],
             'meeting_passcode'  => [$isVirtual ? 'required' : 'nullable', 'string', 'max:120'],
