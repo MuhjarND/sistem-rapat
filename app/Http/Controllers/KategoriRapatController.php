@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class KategoriRapatController extends Controller
 {
@@ -27,11 +28,16 @@ class KategoriRapatController extends Controller
             'nama' => 'required|string|max:100|unique:kategori_rapat,nama',
         ]);
 
-        DB::table('kategori_rapat')->insert([
+        $payload = [
             'nama' => $request->nama,
             'created_at' => now(),
             'updated_at' => now(),
-        ]);
+        ];
+        if (Schema::hasColumn('kategori_rapat', 'butuh_pakaian')) {
+            $payload['butuh_pakaian'] = $request->boolean('butuh_pakaian') ? 1 : 0;
+        }
+
+        DB::table('kategori_rapat')->insert($payload);
 
         return redirect()->route('kategori.index')->with('success', 'Kategori berhasil ditambah!');
     }
@@ -52,10 +58,15 @@ class KategoriRapatController extends Controller
             'nama' => 'required|string|max:100|unique:kategori_rapat,nama,'.$id,
         ]);
 
-        DB::table('kategori_rapat')->where('id', $id)->update([
+        $payload = [
             'nama' => $request->nama,
             'updated_at' => now(),
-        ]);
+        ];
+        if (Schema::hasColumn('kategori_rapat', 'butuh_pakaian')) {
+            $payload['butuh_pakaian'] = $request->boolean('butuh_pakaian') ? 1 : 0;
+        }
+
+        DB::table('kategori_rapat')->where('id', $id)->update($payload);
 
         return redirect()->route('kategori.index')->with('success', 'Kategori berhasil diupdate!');
     }
@@ -67,4 +78,3 @@ class KategoriRapatController extends Controller
         return redirect()->route('kategori.index')->with('success', 'Kategori berhasil dihapus!');
     }
 }
-

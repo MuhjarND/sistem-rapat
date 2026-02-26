@@ -15,18 +15,21 @@ use iio\libmergepdf\Merger;
 
 class RapatController extends Controller
 {
-    private function isJenisPakaianRequired(?string $kategoriNama): bool
+    private function isJenisPakaianRequired($kategoriId = null, ?string $kategoriNama = null): bool
     {
+        if (!empty($kategoriId) && Schema::hasColumn('kategori_rapat', 'butuh_pakaian')) {
+            $flag = DB::table('kategori_rapat')
+                ->where('id', $kategoriId)
+                ->value('butuh_pakaian');
+            return (int) $flag === 1;
+        }
+
+        // Fallback legacy berbasis nama jika kolom belum tersedia.
         $name = strtolower(trim((string) $kategoriNama));
-        if ($name === '') {
-            return false;
-        }
-
-        if ($name === strtolower('Penandatanganan Pakta Integritas dan Komitmen Bersama')) {
-            return true;
-        }
-
-        return str_contains($name, 'buka puasa bersama');
+        return in_array($name, [
+            strtolower('Penandatanganan Pakta Integritas dan Komitmen Bersama'),
+            strtolower('Buka Puasa Bersama'),
+        ], true);
     }
 
     /**
@@ -404,7 +407,7 @@ class RapatController extends Controller
         $kategoriNama = $request->filled('id_kategori')
             ? DB::table('kategori_rapat')->where('id', $request->id_kategori)->value('nama')
             : null;
-        $isPakaianRequired = $this->isJenisPakaianRequired($kategoriNama);
+        $isPakaianRequired = $this->isJenisPakaianRequired($request->id_kategori, $kategoriNama);
 
         $isVirtual = $request->boolean('is_virtual');
         $request->validate([
@@ -542,7 +545,7 @@ class RapatController extends Controller
         $kategoriNama = $request->filled('id_kategori')
             ? DB::table('kategori_rapat')->where('id', $request->id_kategori)->value('nama')
             : null;
-        $isPakaianRequired = $this->isJenisPakaianRequired($kategoriNama);
+        $isPakaianRequired = $this->isJenisPakaianRequired($request->id_kategori, $kategoriNama);
 
         $isVirtual = $request->boolean('is_virtual');
         $request->validate([
@@ -859,7 +862,7 @@ class RapatController extends Controller
         $kategoriNama = $request->filled('id_kategori')
             ? DB::table('kategori_rapat')->where('id', $request->id_kategori)->value('nama')
             : null;
-        $isPakaianRequired = $this->isJenisPakaianRequired($kategoriNama);
+        $isPakaianRequired = $this->isJenisPakaianRequired($request->id_kategori, $kategoriNama);
 
         $isVirtual = $request->boolean('is_virtual');
         $request->validate([
@@ -1101,11 +1104,14 @@ class RapatController extends Controller
     // Export undangan PDF (tidak diubah)
     public function undanganPdf($id)
     {
-        $rapat = DB::table('rapat')
+        $q = DB::table('rapat')
             ->leftJoin('kategori_rapat','kategori_rapat.id','=','rapat.id_kategori')
-            ->select('rapat.*','kategori_rapat.nama as nama_kategori')
-            ->where('rapat.id', $id)
-            ->first();
+            ->select('rapat.*','kategori_rapat.nama as nama_kategori');
+        if (Schema::hasColumn('kategori_rapat', 'butuh_pakaian')) {
+            $q->addSelect('kategori_rapat.butuh_pakaian as kategori_butuh_pakaian');
+        }
+
+        $rapat = $q->where('rapat.id', $id)->first();
         if (!$rapat) abort(404);
 
         $daftar_peserta = DB::table('undangan')

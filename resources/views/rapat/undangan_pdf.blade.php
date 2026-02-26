@@ -8,9 +8,14 @@
         $tampilkan_daftar_di_surat = !$tampilkan_lampiran;
     }
     $kategoriNama = strtolower(trim((string) ($rapat->nama_kategori ?? $rapat->kategori_nama ?? $rapat->kategori ?? '')));
-    $isPakta = $kategoriNama === strtolower('Penandatanganan Pakta Integritas dan Komitmen Bersama');
-    $isBukaPuasaBersama = str_contains($kategoriNama, 'buka puasa bersama');
-    $showPakaian = $isPakta || $isBukaPuasaBersama;
+    $showPakaian = (int)($rapat->kategori_butuh_pakaian ?? 0) === 1;
+    if (!$showPakaian) {
+        // Fallback data lama jika kolom kategori_butuh_pakaian belum tersedia.
+        $showPakaian = in_array($kategoriNama, [
+            strtolower('Penandatanganan Pakta Integritas dan Komitmen Bersama'),
+            strtolower('Buka Puasa Bersama'),
+        ], true);
+    }
     $isVirtual = !empty($rapat->is_virtual);
     $meetingId = trim((string) ($rapat->meeting_id ?? ''));
     $meetingPasscode = trim((string) ($rapat->meeting_passcode ?? ''));

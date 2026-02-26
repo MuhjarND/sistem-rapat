@@ -876,7 +876,8 @@ public function exportPdf(Request $request, $id_rapat)
                 "Yth. *{$t->name}*\n".
                 "Rapat: {$rapat->judul}\n".
                 "Jadwal: {$tgl}, {$jam} WIT\n".
-                "Tempat: {$tempat}\n\n".
+                "Tempat: {$tempat}\n".
+                "\n".
                 "Isi absensi di link berikut:\n{$absensiUrl}\n\n".
                 "Mohon diisi segera. Terima kasih.";
 

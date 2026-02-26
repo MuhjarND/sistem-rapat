@@ -1094,6 +1094,7 @@ public function signSubmit(Request $request, $token)
         $tanggal = $rapat->tanggal ? \Carbon\Carbon::parse($rapat->tanggal)->translatedFormat('l, d F Y') : '-';
         $waktu   = TimeHelper::short($rapat->waktu_mulai ?? null);
         $tempat  = $rapat->tempat ?? '-';
+        $pakaian = trim((string) ($rapat->jenis_pakaian ?? ''));
         $isVirtual = !empty($rapat->is_virtual);
         $meetingId = $isVirtual ? trim((string) ($rapat->meeting_id ?? '')) : '';
         $meetingPasscode = $isVirtual ? trim((string) ($rapat->meeting_passcode ?? '')) : '';
@@ -1128,6 +1129,7 @@ public function signSubmit(Request $request, $token)
           . "• Hari/Tanggal: *{$tanggal}*\n"
           . "• Waktu: *{$waktu} WIT*\n"
           . "• Tempat: *{$tempat}*\n"
+          . ($pakaian !== '' ? "• Pakaian: *{$pakaian}*\n" : "")
           . ($meetingId !== '' ? "- Meeting ID: {$meetingId}\n" : "")
           . ($meetingPasscode !== '' ? "- Passcode: {$meetingPasscode}\n" : "")
           . "\n"
