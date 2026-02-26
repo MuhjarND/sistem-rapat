@@ -24,16 +24,6 @@
         .option{ padding:10px 12px; border:1px solid rgba(255,255,255,.08); border-radius:10px; margin-bottom:10px; }
         .option:hover{ border-color: rgba(99,102,241,.5); }
         .btn-primary{ background: #4f46e5; border:none; }
-        .btn-outline-soft{
-            border:1px solid rgba(122,162,255,.45);
-            color:#dbe8ff;
-            background: rgba(122,162,255,.12);
-        }
-        .btn-outline-soft:hover{
-            color:#fff;
-            background: rgba(122,162,255,.2);
-            border-color: rgba(122,162,255,.7);
-        }
         .option input[type="radio"]{
             width:18px; height:18px;
             accent-color: #FEE715;
@@ -71,9 +61,6 @@
             <div class="muted">{!! nl2br(e($evoting->deskripsi ?: 'E-voting resmi.')) !!}</div>
             <div class="mt-2">
                 <span class="badge badge-soft">Voting Resmi</span>
-                <a href="{{ route('evoting.public.results', $token) }}" class="btn btn-sm btn-outline-soft ml-2">
-                    Lihat Hasil
-                </a>
             </div>
         </div>
     </div>
