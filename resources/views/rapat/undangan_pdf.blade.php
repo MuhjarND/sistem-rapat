@@ -19,6 +19,7 @@
     $isVirtual = !empty($rapat->is_virtual);
     $meetingId = trim((string) ($rapat->meeting_id ?? ''));
     $meetingPasscode = trim((string) ($rapat->meeting_passcode ?? ''));
+    $detailTambahan = trim((string) ($rapat->detail_tambahan ?? ''));
     $approval1Nama = \App\Helpers\NameHelper::withoutTitles($approval1->name ?? '-');
     $approval1Jabatan = data_get($rapat, 'approval1_jabatan_manual') ?: ($approval1->jabatan ?? 'Approval 1');
     $isKetua = stripos((string) $approval1Jabatan, 'ketua') !== false;
@@ -111,6 +112,11 @@
     </p>
 
    <p><i>Assalamu'alaikum Wr.Wb.</i></p>
+    @if($detailTambahan !== '')
+    <p style="text-indent:24px; margin-bottom:8px;">
+        {!! nl2br(e($detailTambahan)) !!}
+    </p>
+    @endif
     <p style="text-indent:24px;">
         Memohon kehadiran Bapak/Ibu/Saudara dalam <b>{{ $rapat->judul }}</b>, yang akan dilaksanakan pada:
     </p>

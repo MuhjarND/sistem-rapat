@@ -40,6 +40,10 @@
   $lampiranYesId  = $isEdit ? ('lampiran-ya-'.$rapat->id) : 'lampiran-ya-new';
   $lampiranNoId   = $isEdit ? ('lampiran-tidak-'.$rapat->id) : 'lampiran-tidak-new';
   $lampiranValue  = old('lampiran_tambahan', $isEdit && !empty($rapat->lampiran_tambahan_path) ? '1' : '0');
+  $detailWrapId = $isEdit ? ('detailTambahanWrap-'.$rapat->id) : 'detailTambahanWrap-new';
+  $detailYesId  = $isEdit ? ('detail-ya-'.$rapat->id) : 'detail-ya-new';
+  $detailNoId   = $isEdit ? ('detail-tidak-'.$rapat->id) : 'detail-tidak-new';
+  $detailValue  = old('pakai_detail_tambahan', $isEdit && !empty($rapat->detail_tambahan) ? '1' : '0');
 @endphp
 
 @push('styles')
@@ -137,6 +141,31 @@
 <div class="form-group">
   <label>Deskripsi</label>
   <textarea name="deskripsi" class="form-control">{{ old('deskripsi', $rapat->deskripsi ?? '') }}</textarea>
+</div>
+
+<div class="form-group">
+  <label>Detail Tambahan Surat</label>
+  <div class="d-flex flex-wrap">
+    <div class="form-check mr-3">
+      <input class="form-check-input js-detail-check" type="radio" name="pakai_detail_tambahan"
+             id="{{ $detailNoId }}" value="0" data-detail-wrap="{{ $detailWrapId }}"
+             {{ (string) $detailValue === '0' ? 'checked' : '' }}>
+      <label class="form-check-label" for="{{ $detailNoId }}">Tidak</label>
+    </div>
+    <div class="form-check">
+      <input class="form-check-input js-detail-check" type="radio" name="pakai_detail_tambahan"
+             id="{{ $detailYesId }}" value="1" data-detail-wrap="{{ $detailWrapId }}"
+             {{ (string) $detailValue === '1' ? 'checked' : '' }}>
+      <label class="form-check-label" for="{{ $detailYesId }}">Ya</label>
+    </div>
+  </div>
+</div>
+<div class="form-group" id="{{ $detailWrapId }}" style="display:none;">
+  <label>Isi Detail Tambahan</label>
+  <textarea name="detail_tambahan" class="form-control" rows="3"
+            placeholder="Contoh: Ketentuan khusus, informasi tambahan kegiatan, atau catatan penting lainnya.">{{ old('detail_tambahan', $rapat->detail_tambahan ?? '') }}</textarea>
+  <small class="form-text text-muted">Akan ditampilkan di undangan sebelum kalimat memohon kehadiran.</small>
+  @error('detail_tambahan') <div class="text-danger mt-1">{{ $message }}</div> @enderror
 </div>
 
 <div class="form-row">
@@ -550,6 +579,28 @@
   })();
   </script>
 @endif
+  <script>
+  (function(){
+    document.querySelectorAll('.js-detail-check').forEach(function(input){
+      var wrapId = input.getAttribute('data-detail-wrap');
+      var wrap = wrapId ? document.getElementById(wrapId) : null;
+      if (!wrap) return;
+      var form = input.closest('form');
+      var textArea = wrap.querySelector('textarea[name="detail_tambahan"]');
+      function sync(){
+        var checked = form ? form.querySelector('input[name="pakai_detail_tambahan"]:checked') : null;
+        var show = checked && checked.value === '1';
+        wrap.style.display = show ? '' : 'none';
+        if (textArea) {
+          if (show) textArea.setAttribute('required','required');
+          else textArea.removeAttribute('required');
+        }
+      }
+      input.addEventListener('change', sync);
+      sync();
+    });
+  })();
+  </script>
   <script>
   (function(){
     document.querySelectorAll('select.js-kategori-select').forEach(function(sel){

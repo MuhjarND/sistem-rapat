@@ -408,12 +408,15 @@ class RapatController extends Controller
             ? DB::table('kategori_rapat')->where('id', $request->id_kategori)->value('nama')
             : null;
         $isPakaianRequired = $this->isJenisPakaianRequired($request->id_kategori, $kategoriNama);
+        $useDetailTambahan = $request->boolean('pakai_detail_tambahan');
 
         $isVirtual = $request->boolean('is_virtual');
         $request->validate([
             'nomor_undangan'    => 'required|unique:rapat,nomor_undangan',
             'judul'             => 'required',
             'deskripsi'         => 'nullable',
+            'pakai_detail_tambahan' => 'nullable|boolean',
+            'detail_tambahan'   => [$useDetailTambahan ? 'required' : 'nullable', 'string', 'max:5000'],
             'tanggal'           => 'required|date',
             'waktu_mulai'       => 'required',
             'tempat'            => 'required',
@@ -474,7 +477,7 @@ class RapatController extends Controller
             }
         }
 
-        $id_rapat = DB::table('rapat')->insertGetId(array_merge([
+        $insertPayload = [
             'nomor_undangan'    => $request->nomor_undangan,
             'judul'             => $request->judul,
             'deskripsi'         => $request->deskripsi,
@@ -494,7 +497,14 @@ class RapatController extends Controller
             'public_code'       => Str::random(12),     // token publik (absensi publik, tanpa login)
             'created_at'        => now(),
             'updated_at'        => now(),
-        ], $lampiranMeta));
+        ];
+        if (Schema::hasColumn('rapat', 'detail_tambahan')) {
+            $insertPayload['detail_tambahan'] = $useDetailTambahan
+                ? trim((string) $request->detail_tambahan)
+                : null;
+        }
+
+        $id_rapat = DB::table('rapat')->insertGetId(array_merge($insertPayload, $lampiranMeta));
 
         if ($request->boolean('pilih_semua')) {
             $allowedIds = $this->getSelectableParticipants()->pluck('id')->all();
@@ -546,12 +556,15 @@ class RapatController extends Controller
             ? DB::table('kategori_rapat')->where('id', $request->id_kategori)->value('nama')
             : null;
         $isPakaianRequired = $this->isJenisPakaianRequired($request->id_kategori, $kategoriNama);
+        $useDetailTambahan = $request->boolean('pakai_detail_tambahan');
 
         $isVirtual = $request->boolean('is_virtual');
         $request->validate([
             'nomor_undangan'    => 'required|unique:rapat,nomor_undangan',
             'judul'             => 'required',
             'deskripsi'         => 'nullable',
+            'pakai_detail_tambahan' => 'nullable|boolean',
+            'detail_tambahan'   => [$useDetailTambahan ? 'required' : 'nullable', 'string', 'max:5000'],
             'tanggal'           => 'required|date',
             'waktu_mulai'       => 'required',
             'tempat'            => 'required',
@@ -614,7 +627,7 @@ class RapatController extends Controller
             }
         }
 
-        $id_rapat = DB::table('rapat')->insertGetId(array_merge([
+        $insertPayload = [
             'nomor_undangan'    => $request->nomor_undangan,
             'judul'             => $request->judul,
             'deskripsi'         => $request->deskripsi,
@@ -637,7 +650,14 @@ class RapatController extends Controller
             'approval_enqueued_at' => null,
             'created_at'        => now(),
             'updated_at'        => now(),
-        ], $lampiranMeta));
+        ];
+        if (Schema::hasColumn('rapat', 'detail_tambahan')) {
+            $insertPayload['detail_tambahan'] = $useDetailTambahan
+                ? trim((string) $request->detail_tambahan)
+                : null;
+        }
+
+        $id_rapat = DB::table('rapat')->insertGetId(array_merge($insertPayload, $lampiranMeta));
 
         if ($request->boolean('pilih_semua')) {
             $allowedIds = $this->getSelectableParticipants()->pluck('id')->all();
@@ -863,12 +883,15 @@ class RapatController extends Controller
             ? DB::table('kategori_rapat')->where('id', $request->id_kategori)->value('nama')
             : null;
         $isPakaianRequired = $this->isJenisPakaianRequired($request->id_kategori, $kategoriNama);
+        $useDetailTambahan = $request->boolean('pakai_detail_tambahan');
 
         $isVirtual = $request->boolean('is_virtual');
         $request->validate([
             'nomor_undangan'    => 'required|unique:rapat,nomor_undangan,' . $id,
             'judul'             => 'required',
             'deskripsi'         => 'nullable',
+            'pakai_detail_tambahan' => 'nullable|boolean',
+            'detail_tambahan'   => [$useDetailTambahan ? 'required' : 'nullable', 'string', 'max:5000'],
             'tanggal'           => 'required|date',
             'waktu_mulai'       => 'required',
             'tempat'            => 'required',
@@ -896,7 +919,7 @@ class RapatController extends Controller
 
         DB::beginTransaction();
         try {
-            DB::table('rapat')->where('id', $id)->update([
+            $updatePayload = [
                 'nomor_undangan'    => $request->nomor_undangan,
                 'judul'             => $request->judul,
                 'deskripsi'         => $request->deskripsi,
@@ -913,7 +936,14 @@ class RapatController extends Controller
                 'approval2_user_id' => $request->approval2_user_id,
                 'schedule_type'     => $rapat->schedule_type,
                 'updated_at'        => now(),
-            ]);
+            ];
+            if (Schema::hasColumn('rapat', 'detail_tambahan')) {
+                $updatePayload['detail_tambahan'] = $useDetailTambahan
+                    ? trim((string) $request->detail_tambahan)
+                    : null;
+            }
+
+            DB::table('rapat')->where('id', $id)->update($updatePayload);
 
             DB::table('undangan')->where('id_rapat', $id)->delete();
 
