@@ -68,6 +68,7 @@ Route::middleware(['auth', 'cekrole:admin'])->group(function () {
     Route::post('/evoting/{id}/send-links', 'EvotingController@sendLinks')->name('evoting.sendLinks');
     Route::post('/evoting/{id}/status', 'EvotingController@updateStatus')->name('evoting.status');
     Route::get('/evoting/{id}/results', 'EvotingController@results')->name('evoting.results');
+    Route::get('/evoting/{id}/export-pdf', 'EvotingController@exportPdf')->name('evoting.export.pdf');
 });
 
 // ADMIN

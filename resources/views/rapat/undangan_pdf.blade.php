@@ -7,7 +7,11 @@
     if (!isset($tampilkan_daftar_di_surat)) {
         $tampilkan_daftar_di_surat = !$tampilkan_lampiran;
     }
-    $kategoriNama = strtolower(trim((string) ($rapat->nama_kategori ?? $rapat->kategori_nama ?? $rapat->kategori ?? '')));
+    $kategoriNamaDisplay = trim((string) ($rapat->nama_kategori ?? $rapat->kategori_nama ?? $rapat->kategori ?? ''));
+    if ($kategoriNamaDisplay === '-') {
+        $kategoriNamaDisplay = '';
+    }
+    $kategoriNama = strtolower($kategoriNamaDisplay);
     $showPakaian = (int)($rapat->kategori_butuh_pakaian ?? 0) === 1;
     if (!$showPakaian) {
         // Fallback data lama jika kolom kategori_butuh_pakaian belum tersedia.
@@ -88,7 +92,7 @@
         <tr>
             <td>Hal</td>
             <td>:</td>
-            <td>Undangan {{ $rapat->nama_kategori ?? '-' }}</td>
+            <td>Undangan{{ $kategoriNamaDisplay !== '' ? ' '.$kategoriNamaDisplay : '' }}</td>
             <td></td>
         </tr>
     </table>

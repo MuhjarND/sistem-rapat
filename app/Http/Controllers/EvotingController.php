@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Helpers\FonnteWa;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -263,68 +264,67 @@ class EvotingController extends Controller
             abort(404);
         }
 
-        $items = DB::table('evoting_items')
-            ->where('evoting_id', $id)
-            ->orderBy('urut')
-            ->get();
-
-        $itemIds = $items->pluck('id')->all();
-        $candidates = DB::table('evoting_candidates')
-            ->whereIn('item_id', $itemIds ?: [0])
-            ->orderBy('urut')
-            ->get();
-
-        $counts = DB::table('evoting_votes')
-            ->select('candidate_id', DB::raw('count(*) as total'))
-            ->where('evoting_id', $id)
-            ->groupBy('candidate_id')
-            ->pluck('total', 'candidate_id');
-
-        $candidatesByItem = $candidates->groupBy('item_id');
-        $payload = [];
-
-        foreach ($items as $item) {
-            $rows = [];
-            $total = 0;
-            foreach ($candidatesByItem->get($item->id, collect()) as $cand) {
-                $count = (int) ($counts[$cand->id] ?? 0);
-                $total += $count;
-                $rows[] = [
-                    'id' => $cand->id,
-                    'name' => $cand->nama,
-                    'total' => $count,
-                ];
-            }
-            $rows = array_map(function ($row) use ($total) {
-                $row['percent'] = $total > 0 ? round(($row['total'] / $total) * 100, 1) : 0;
-                return $row;
-            }, $rows);
-
-            $payload[] = [
-                'id' => $item->id,
-                'title' => $item->judul,
-                'total' => $total,
-                'candidates' => $rows,
-            ];
-        }
-
-        $voters = DB::table('evoting_voters')
-            ->select('id', 'voted_at')
-            ->where('evoting_id', $id)
-            ->get()
-            ->map(function ($v) {
-                return [
-                    'id' => $v->id,
-                    'voted' => !empty($v->voted_at),
-                ];
-            });
+        $result = $this->buildResultsPayload($id);
 
         return response()->json([
             'evoting_id' => $evoting->id,
-            'items' => $payload,
-            'voters' => $voters,
+            'items' => $result['items'],
+            'voters' => $result['voters_simple'],
             'generated_at' => now()->toDateTimeString(),
         ]);
+    }
+
+    public function exportPdf($id)
+    {
+        $evoting = DB::table('evotings')->where('id', $id)->first();
+        if (!$evoting) {
+            abort(404);
+        }
+
+        if (empty($evoting->public_token)) {
+            $token = Str::random(40);
+            DB::table('evotings')->where('id', $id)->update([
+                'public_token' => $token,
+                'updated_at' => now(),
+            ]);
+            $evoting->public_token = $token;
+        }
+
+        $result = $this->buildResultsPayload($id);
+
+        $creator = null;
+        if (!empty($evoting->created_by)) {
+            $creator = DB::table('users')->where('id', $evoting->created_by)->value('name');
+        }
+
+        $kop = null;
+        $kopCandidates = [
+            public_path('Screenshot 2025-08-23 121254.jpeg'),
+            public_path('kop_laporan.jpg'),
+            public_path('kop_absen.jpg'),
+        ];
+        foreach ($kopCandidates as $path) {
+            if (is_file($path)) {
+                $kop = $path;
+                break;
+            }
+        }
+
+        $pdf = Pdf::loadView('evoting.laporan_pdf', [
+            'evoting' => $evoting,
+            'items' => $result['items'],
+            'voters' => $result['voters_detailed'],
+            'totalVoters' => $result['total_voters'],
+            'votedCount' => $result['voted_count'],
+            'creatorName' => $creator,
+            'kop' => $kop,
+            'publicLink' => route('evoting.public', $evoting->public_token),
+            'generatedAt' => now('Asia/Jayapura'),
+        ])->setPaper('A4', 'portrait');
+
+        $filename = 'Laporan-E-Voting-' . Str::slug($evoting->judul ?: ('evoting-' . $evoting->id)) . '.pdf';
+
+        return $pdf->download($filename);
     }
 
     private function sendVotingLinks($evotingId)
@@ -366,5 +366,87 @@ class EvotingController extends Controller
         }
 
         return $sent;
+    }
+
+    private function buildResultsPayload($evotingId): array
+    {
+        $items = DB::table('evoting_items')
+            ->where('evoting_id', $evotingId)
+            ->orderBy('urut')
+            ->get();
+
+        $itemIds = $items->pluck('id')->all();
+        $candidates = DB::table('evoting_candidates')
+            ->whereIn('item_id', $itemIds ?: [0])
+            ->orderBy('urut')
+            ->get();
+
+        $counts = DB::table('evoting_votes')
+            ->select('candidate_id', DB::raw('count(*) as total'))
+            ->where('evoting_id', $evotingId)
+            ->groupBy('candidate_id')
+            ->pluck('total', 'candidate_id');
+
+        $candidatesByItem = $candidates->groupBy('item_id');
+        $itemsPayload = [];
+        foreach ($items as $item) {
+            $rows = [];
+            $total = 0;
+            foreach ($candidatesByItem->get($item->id, collect()) as $cand) {
+                $count = (int) ($counts[$cand->id] ?? 0);
+                $total += $count;
+                $rows[] = [
+                    'id' => $cand->id,
+                    'name' => $cand->nama,
+                    'total' => $count,
+                ];
+            }
+
+            $rows = array_map(function ($row) use ($total) {
+                $row['percent'] = $total > 0 ? round(($row['total'] / $total) * 100, 1) : 0;
+                return $row;
+            }, $rows);
+
+            $itemsPayload[] = [
+                'id' => $item->id,
+                'title' => $item->judul,
+                'total' => $total,
+                'candidates' => $rows,
+            ];
+        }
+
+        $voters = DB::table('evoting_voters as v')
+            ->leftJoin('users as u', 'u.id', '=', 'v.user_id')
+            ->where('v.evoting_id', $evotingId)
+            ->select('v.id', 'v.voted_at', 'u.name', 'u.hirarki')
+            ->orderByRaw('COALESCE(u.hirarki, 9999) ASC')
+            ->orderBy('u.name')
+            ->get();
+
+        $votersSimple = $voters->map(function ($v) {
+            return [
+                'id' => $v->id,
+                'voted' => !empty($v->voted_at),
+            ];
+        })->values();
+
+        $votersDetailed = $voters->map(function ($v) {
+            return [
+                'id' => $v->id,
+                'name' => trim((string) ($v->name ?? '')) !== '' ? $v->name : ('Peserta #' . $v->id),
+                'voted' => !empty($v->voted_at),
+                'voted_at' => $v->voted_at,
+            ];
+        })->values();
+
+        $votedCount = $votersSimple->where('voted', true)->count();
+
+        return [
+            'items' => $itemsPayload,
+            'voters_simple' => $votersSimple,
+            'voters_detailed' => $votersDetailed,
+            'total_voters' => $votersSimple->count(),
+            'voted_count' => $votedCount,
+        ];
     }
 }

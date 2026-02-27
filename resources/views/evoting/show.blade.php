@@ -9,6 +9,9 @@
         <div class="text-muted">{!! nl2br(e($evoting->deskripsi ?: 'Tanpa deskripsi')) !!}</div>
     </div>
     <div class="d-flex align-items-center">
+        <a href="{{ route('evoting.export.pdf', $evoting->id) }}" class="btn btn-warning btn-sm mr-2">
+            <i class="fas fa-file-pdf mr-1"></i> Unduh PDF
+        </a>
         <form action="{{ route('evoting.status', $evoting->id) }}" method="POST" class="mr-2">
             @csrf
             <input type="hidden" name="status" value="{{ $evoting->status === 'open' ? 'closed' : 'open' }}">
