@@ -243,10 +243,10 @@
 
 <div class="form-group">
   <label>Kategori</label>
-  <select name="id_kategori" class="form-control js-kategori-select" required
+  <select name="id_kategori" class="form-control js-kategori-select"
           data-pakaian-wrap="{{ $pakaianWrapId }}"
           @isset($dropdownParentId) data-dropdown-parent="{{ $dropdownParentId }}" @endisset>
-    <option value="">-- Pilih Kategori --</option>
+    <option value="">-- Tanpa Kategori --</option>
     @foreach($daftar_kategori as $kategori)
       <option value="{{ $kategori->id }}"
               data-nama="{{ $kategori->nama }}"

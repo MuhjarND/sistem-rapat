@@ -441,7 +441,7 @@ class RapatController extends Controller
                     }
                 }),
             ],
-            'id_kategori'       => 'required|exists:kategori_rapat,id'
+            'id_kategori'       => 'nullable|exists:kategori_rapat,id'
         ]);
 
         $lampiranMeta = [];
@@ -489,7 +489,7 @@ class RapatController extends Controller
             'meeting_id'        => Schema::hasColumn('rapat', 'meeting_id') ? ($isVirtual ? ($request->meeting_id ?: null) : null) : null,
             'meeting_passcode'  => Schema::hasColumn('rapat', 'meeting_passcode') ? ($isVirtual ? ($request->meeting_passcode ?: null) : null) : null,
             'dibuat_oleh'       => Auth::id(),
-            'id_kategori'       => $request->id_kategori,
+            'id_kategori'       => $request->filled('id_kategori') ? $request->id_kategori : null,
             'approval1_user_id' => $request->approval1_user_id,
             'approval1_jabatan_manual' => $request->approval1_jabatan_manual ?: null,
             'approval2_user_id' => $request->approval2_user_id,
@@ -591,7 +591,7 @@ class RapatController extends Controller
                     }
                 }),
             ],
-            'id_kategori'       => 'required|exists:kategori_rapat,id'
+            'id_kategori'       => 'nullable|exists:kategori_rapat,id'
         ]);
 
         $lampiranMeta = [];
@@ -639,7 +639,7 @@ class RapatController extends Controller
             'meeting_id'        => Schema::hasColumn('rapat', 'meeting_id') ? ($isVirtual ? ($request->meeting_id ?: null) : null) : null,
             'meeting_passcode'  => Schema::hasColumn('rapat', 'meeting_passcode') ? ($isVirtual ? ($request->meeting_passcode ?: null) : null) : null,
             'dibuat_oleh'       => Auth::id(),
-            'id_kategori'       => $request->id_kategori,
+            'id_kategori'       => $request->filled('id_kategori') ? $request->id_kategori : null,
             'approval1_user_id' => $request->approval1_user_id,
             'approval1_jabatan_manual' => $request->approval1_jabatan_manual ?: null,
             'approval2_user_id' => $request->approval2_user_id,
@@ -914,7 +914,7 @@ class RapatController extends Controller
                     }
                 }),
             ],
-            'id_kategori'       => 'required|exists:kategori_rapat,id'
+            'id_kategori'       => 'nullable|exists:kategori_rapat,id'
         ]);
 
         DB::beginTransaction();
@@ -930,7 +930,7 @@ class RapatController extends Controller
                 'is_virtual'        => Schema::hasColumn('rapat', 'is_virtual') ? ($isVirtual ? 1 : 0) : null,
                 'meeting_id'        => Schema::hasColumn('rapat', 'meeting_id') ? ($isVirtual ? ($request->meeting_id ?: null) : null) : null,
                 'meeting_passcode'  => Schema::hasColumn('rapat', 'meeting_passcode') ? ($isVirtual ? ($request->meeting_passcode ?: null) : null) : null,
-                'id_kategori'       => $request->id_kategori,
+                'id_kategori'       => $request->filled('id_kategori') ? $request->id_kategori : null,
                 'approval1_user_id' => $request->approval1_user_id,
                 'approval1_jabatan_manual' => $request->approval1_jabatan_manual ?: null,
                 'approval2_user_id' => $request->approval2_user_id,
@@ -1319,5 +1319,8 @@ class RapatController extends Controller
         }
     }
 }
+
+
+
 
 

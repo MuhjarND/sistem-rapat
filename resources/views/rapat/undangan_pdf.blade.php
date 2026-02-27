@@ -20,6 +20,14 @@
     $meetingId = trim((string) ($rapat->meeting_id ?? ''));
     $meetingPasscode = trim((string) ($rapat->meeting_passcode ?? ''));
     $detailTambahan = trim((string) ($rapat->detail_tambahan ?? ''));
+    $jumlahUndangan = isset($daftar_peserta)
+        ? (method_exists($daftar_peserta, 'count') ? (int) $daftar_peserta->count() : count((array) $daftar_peserta))
+        : 0;
+    $penerimaTunggalNama = null;
+    if ($jumlahUndangan === 1 && isset($daftar_peserta)) {
+        $first = method_exists($daftar_peserta, 'first') ? $daftar_peserta->first() : (is_array($daftar_peserta) ? ($daftar_peserta[0] ?? null) : null);
+        $penerimaTunggalNama = \App\Helpers\NameHelper::withoutTitles($first->name ?? '');
+    }
     $approval1Nama = \App\Helpers\NameHelper::withoutTitles($approval1->name ?? '-');
     $approval1Jabatan = data_get($rapat, 'approval1_jabatan_manual') ?: ($approval1->jabatan ?? 'Approval 1');
     $isKetua = stripos((string) $approval1Jabatan, 'ketua') !== false;
@@ -85,9 +93,13 @@
     </table>
 
     {{-- Kepada Yth + daftar peserta (jika <= 5) --}}
-    <p style="margin-bottom: 6px;">Kepada Yth. Para Pejabat dan Pegawai (terlampir)</p>
+    @if($jumlahUndangan === 1 && !empty($penerimaTunggalNama))
+        <p style="margin-bottom: 6px;">Kepada Yth. Bapak/Ibu {{ $penerimaTunggalNama }}</p>
+    @else
+        <p style="margin-bottom: 6px;">Kepada Yth. Para Pejabat dan Pegawai (terlampir)</p>
+    @endif
 
-    @if($tampilkan_daftar_di_surat)
+    @if($tampilkan_daftar_di_surat && $jumlahUndangan > 1)
         @php
             $jabatanList = collect($daftar_peserta ?? [])
                 ->map(function($p){ return trim($p->jabatan ?? ''); })
@@ -113,13 +125,14 @@
 
    <p><i>Assalamu'alaikum Wr.Wb.</i></p>
     @if($detailTambahan !== '')
-    <p style="text-indent:24px; margin-bottom:8px;">
-        {!! nl2br(e($detailTambahan)) !!}
-    </p>
+        <p style="text-indent:24px; margin-bottom:8px;">
+            {!! nl2br(e($detailTambahan)) !!}
+        </p>
+    @else
+        <p style="text-indent:24px;">
+            Memohon kehadiran Bapak/Ibu/Saudara dalam <b>{{ $rapat->judul }}</b>, yang akan dilaksanakan pada:
+        </p>
     @endif
-    <p style="text-indent:24px;">
-        Memohon kehadiran Bapak/Ibu/Saudara dalam <b>{{ $rapat->judul }}</b>, yang akan dilaksanakan pada:
-    </p>
 
     <table style="margin-left:30px; margin-bottom:10px;">
         <tr>

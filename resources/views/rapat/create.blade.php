@@ -44,8 +44,8 @@
                 </div>
                 <div class="form-group">
                     <label>Kategori Rapat</label>
-                    <select name="id_kategori" class="form-control js-kategori-select" data-pakaian-wrap="jenisPakaianWrap-create" required>
-                        <option value="">-- Pilih Kategori --</option>
+                    <select name="id_kategori" class="form-control js-kategori-select" data-pakaian-wrap="jenisPakaianWrap-create">
+                        <option value="">-- Tanpa Kategori --</option>
                         @foreach($daftar_kategori as $kategori)
                             <option value="{{ $kategori->id }}"
                                 data-nama="{{ $kategori->nama }}"
