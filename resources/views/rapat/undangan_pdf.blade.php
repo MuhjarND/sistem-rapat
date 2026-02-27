@@ -20,6 +20,7 @@
     $meetingId = trim((string) ($rapat->meeting_id ?? ''));
     $meetingPasscode = trim((string) ($rapat->meeting_passcode ?? ''));
     $detailTambahan = trim((string) ($rapat->detail_tambahan ?? ''));
+    $detailTambahanInline = trim((string) preg_replace('/\s+/', ' ', $detailTambahan));
     $jumlahUndangan = isset($daftar_peserta)
         ? (method_exists($daftar_peserta, 'count') ? (int) $daftar_peserta->count() : count((array) $daftar_peserta))
         : 0;
@@ -125,11 +126,10 @@
     </p>
 
    <p><i>Assalamu'alaikum Wr.Wb.</i></p>
-    @if($detailTambahan !== '')
-        <p style="text-indent:24px; margin-bottom:8px;">
-            {!! nl2br(e($detailTambahan)) !!}
+    @if($detailTambahanInline !== '')
+        <p style="text-indent:24px;">
+            {{ $detailTambahanInline }} Bapak/Ibu/Saudara dalam <b>{{ $rapat->judul }}</b>, yang akan dilaksanakan pada:
         </p>
-        <p style="text-indent:24px;">Memohon kehadiran</p>
     @else
         <p style="text-indent:24px;">
             Memohon kehadiran Bapak/Ibu/Saudara dalam <b>{{ $rapat->judul }}</b>, yang akan dilaksanakan pada:
