@@ -25,6 +25,11 @@
     $meetingPasscode = trim((string) ($rapat->meeting_passcode ?? ''));
     $detailTambahan = trim((string) ($rapat->detail_tambahan ?? ''));
     $detailTambahanInline = trim((string) preg_replace('/\s+/', ' ', $detailTambahan));
+    if ($detailTambahanInline !== '') {
+        // Rapikan tanda baca agar alur kalimat undangan tidak patah/berantakan.
+        $detailTambahanInline = preg_replace('/\s+:\s*/', ': ', $detailTambahanInline);
+        $detailTambahanInline = preg_replace('/\s*,\s*/', ', ', $detailTambahanInline);
+    }
     $jumlahUndangan = isset($daftar_peserta)
         ? (method_exists($daftar_peserta, 'count') ? (int) $daftar_peserta->count() : count((array) $daftar_peserta))
         : 0;
@@ -66,6 +71,13 @@
         .qr-caption { font-size: 10pt; color:#333; }
         .qr-placeholder { height: 90px; }
         .waiting-note { font-size:10pt; color:#666; margin-top:4px; display:inline-block; }
+        .isi-undangan {
+            margin: 0 12px 10px 30px;
+            text-align: justify;
+            text-justify: inter-word;
+            line-height: 1.45;
+            text-indent: 24px;
+        }
     </style>
 </head>
 <body>
@@ -131,11 +143,11 @@
 
    <p><i>Assalamu'alaikum Wr.Wb.</i></p>
     @if($detailTambahanInline !== '')
-        <p style="text-indent:24px;">
+        <p class="isi-undangan">
             {{ $detailTambahanInline }} Bapak/Ibu/Saudara dalam <b>{{ $rapat->judul }}</b>, yang akan dilaksanakan pada:
         </p>
     @else
-        <p style="text-indent:24px;">
+        <p class="isi-undangan">
             Memohon kehadiran Bapak/Ibu/Saudara dalam <b>{{ $rapat->judul }}</b>, yang akan dilaksanakan pada:
         </p>
     @endif
