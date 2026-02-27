@@ -94,7 +94,8 @@
 
     {{-- Kepada Yth + daftar peserta (jika <= 5) --}}
     @if($jumlahUndangan === 1 && !empty($penerimaTunggalNama))
-        <p style="margin-bottom: 6px;">Kepada Yth. Bapak/Ibu {{ $penerimaTunggalNama }}</p>
+        <p style="margin-bottom: 2px;">Kepada Yth.</p>
+        <p style="margin: 0 0 6px 22px;">1. {{ $penerimaTunggalNama }}</p>
     @else
         <p style="margin-bottom: 6px;">Kepada Yth. Para Pejabat dan Pegawai (terlampir)</p>
     @endif
@@ -128,6 +129,7 @@
         <p style="text-indent:24px; margin-bottom:8px;">
             {!! nl2br(e($detailTambahan)) !!}
         </p>
+        <p style="text-indent:24px;">Memohon kehadiran</p>
     @else
         <p style="text-indent:24px;">
             Memohon kehadiran Bapak/Ibu/Saudara dalam <b>{{ $rapat->judul }}</b>, yang akan dilaksanakan pada:
