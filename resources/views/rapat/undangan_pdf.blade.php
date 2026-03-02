@@ -72,11 +72,16 @@
         .qr-placeholder { height: 90px; }
         .waiting-note { font-size:10pt; color:#666; margin-top:4px; display:inline-block; }
         .isi-undangan {
-            margin: 0 12px 10px 30px;
+            margin: 0 0 10px 0;
             text-align: justify;
             text-justify: inter-word;
             line-height: 1.45;
-            text-indent: 24px;
+        }
+        .penutup-undangan {
+            margin: 0;
+            text-align: justify;
+            text-justify: inter-word;
+            line-height: 1.45;
         }
     </style>
 </head>
@@ -194,8 +199,8 @@
         @endif
     </table>
 
-    <p style="text-indent:24px;">
-        Demikian, atas perhatiannya diucapkan terima kasih.<br>
+    <p class="penutup-undangan">
+        Demikian, atas perhatiannya diucapkan terima kasih.<br><br>
         <i>Wassalamu'alaikum Wr.Wb.</i>
     </p>
     <br><br>
