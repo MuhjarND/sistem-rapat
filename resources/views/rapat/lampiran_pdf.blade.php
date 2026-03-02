@@ -35,7 +35,11 @@
 @if($jabatanUnik->isNotEmpty())
     <ol>
         @foreach($jabatanUnik as $jab)
-            <li>{{ $jab }}</li>
+            @php
+                $jabEscaped = e($jab);
+                $jabFormatted = preg_replace('/(Ketua Pengadilan Agama)\s+/iu', '$1<br>', $jabEscaped, 1);
+            @endphp
+            <li>{!! $jabFormatted !!}</li>
         @endforeach
     </ol>
 @else

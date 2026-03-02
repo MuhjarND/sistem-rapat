@@ -76,12 +76,14 @@
             text-align: justify;
             text-justify: inter-word;
             line-height: 1.45;
+            text-indent: 32px;
         }
         .penutup-undangan {
             margin: 0;
             text-align: justify;
             text-justify: inter-word;
             line-height: 1.45;
+            text-indent: 32px;
         }
     </style>
 </head>
@@ -117,7 +119,7 @@
     {{-- Kepada Yth + daftar peserta (jika <= 5) --}}
     @if($jumlahUndangan === 1 && !empty($penerimaTunggalNama))
         <p style="margin-bottom: 2px;">Kepada Yth.</p>
-        <p style="margin: 0 0 6px 22px;">1. {{ $penerimaTunggalNama }}</p>
+        <p style="margin: 0 0 6px 22px;">{{ $penerimaTunggalNama }}</p>
     @else
         <p style="margin-bottom: 6px;">Kepada Yth. Para Pejabat dan Pegawai (terlampir)</p>
     @endif
@@ -133,7 +135,11 @@
         @if($jabatanList->count())
             <ol>
                 @foreach($jabatanList as $jab)
-                    <li>{{ $jab }}</li>
+                    @php
+                        $jabEscaped = e($jab);
+                        $jabFormatted = preg_replace('/(Ketua Pengadilan Agama)\s+/iu', '$1<br>', $jabEscaped, 1);
+                    @endphp
+                    <li>{!! $jabFormatted !!}</li>
                 @endforeach
             </ol>
         @else
@@ -149,7 +155,7 @@
    <p><i>Assalamu'alaikum Wr.Wb.</i></p>
     @if($detailTambahanInline !== '')
         <p class="isi-undangan">
-            {{ $detailTambahanInline }} Bapak/Ibu/Saudara dalam <b>{{ $rapat->judul }}</b>, yang akan dilaksanakan pada:
+            {{ $detailTambahanInline }} <b>{{ $rapat->judul }}</b>, yang akan dilaksanakan pada:
         </p>
     @else
         <p class="isi-undangan">
