@@ -118,8 +118,12 @@
 
     {{-- Kepada Yth + daftar peserta (jika <= 5) --}}
     @if($jumlahUndangan === 1 && !empty($penerimaTunggalNama))
+        @php
+            $singlePenerimaEscaped = e($penerimaTunggalNama);
+            $singlePenerimaFormatted = preg_replace('/(Ketua Pengadilan Agama)\s+/iu', '$1<br>', $singlePenerimaEscaped, 1);
+        @endphp
         <p style="margin-bottom: 2px;">Kepada Yth.</p>
-        <p style="margin: 0 0 6px 22px;">{{ $penerimaTunggalNama }}</p>
+        <p style="margin: 0 0 6px 22px;">{!! $singlePenerimaFormatted !!}</p>
     @else
         <p style="margin-bottom: 6px;">Kepada Yth. Para Pejabat dan Pegawai (terlampir)</p>
     @endif
@@ -149,7 +153,7 @@
 
     <p style="margin-top: 0;">
         di<br>
-        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Tempat
+        Tempat
     </p>
 
    <p><i>Assalamu'alaikum Wr.Wb.</i></p>
