@@ -123,7 +123,7 @@
             $singlePenerimaFormatted = preg_replace('/(Ketua Pengadilan Agama)\s+/iu', '$1<br>', $singlePenerimaEscaped, 1);
         @endphp
         <p style="margin-bottom: 2px;">Kepada Yth.</p>
-        <p style="margin: 0 0 6px 22px;">{!! $singlePenerimaFormatted !!}</p>
+        <p style="margin: 0 0 6px 0;">{!! $singlePenerimaFormatted !!}</p>
     @else
         <p style="margin-bottom: 6px;">Kepada Yth. Para Pejabat dan Pegawai (terlampir)</p>
     @endif
