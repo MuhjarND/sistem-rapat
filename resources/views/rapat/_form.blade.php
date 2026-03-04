@@ -40,6 +40,9 @@
   $lampiranYesId  = $isEdit ? ('lampiran-ya-'.$rapat->id) : 'lampiran-ya-new';
   $lampiranNoId   = $isEdit ? ('lampiran-tidak-'.$rapat->id) : 'lampiran-tidak-new';
   $lampiranValue  = old('lampiran_tambahan', $isEdit && !empty($rapat->lampiran_tambahan_path) ? '1' : '0');
+  $hasExistingLampiran = $isEdit && !empty($rapat->lampiran_tambahan_path ?? null);
+  $lampiranNama = old('lampiran_tambahan_nama', data_get($rapat, 'lampiran_tambahan_nama') ?? basename((string) data_get($rapat, 'lampiran_tambahan_path', '')));
+  $lampiranPath = data_get($rapat, 'lampiran_tambahan_path');
   $detailWrapId = $isEdit ? ('detailTambahanWrap-'.$rapat->id) : 'detailTambahanWrap-new';
   $detailYesId  = $isEdit ? ('detail-ya-'.$rapat->id) : 'detail-ya-new';
   $detailNoId   = $isEdit ? ('detail-tidak-'.$rapat->id) : 'detail-tidak-new';
@@ -189,7 +192,6 @@
   </div>
 </div>
 
-@if(!$isEdit)
 <div class="form-group">
   <label>Lampiran Tambahan</label>
   <div class="d-flex flex-wrap">
@@ -209,11 +211,23 @@
 </div>
 <div class="form-group" id="{{ $lampiranWrapId }}" style="display:none;">
   <label>Upload Dokumen Tambahan</label>
-  <input type="file" name="lampiran_tambahan_file" class="form-control" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx">
+  @if($hasExistingLampiran && $lampiranPath)
+    <div class="mb-2">
+      <small class="form-text text-muted">
+        Lampiran saat ini:
+        <a href="{{ asset($lampiranPath) }}" target="_blank" rel="noopener">{{ $lampiranNama ?: 'Lihat lampiran' }}</a>
+      </small>
+      <small class="form-text text-muted">Kosongkan upload jika tidak ingin mengganti file lampiran.</small>
+    </div>
+  @endif
+  <input type="file"
+         name="lampiran_tambahan_file"
+         class="form-control"
+         accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
+         data-has-existing-lampiran="{{ $hasExistingLampiran ? '1' : '0' }}">
   <small class="form-text text-muted">Maks 20MB. Format: PDF/DOC/DOCX/XLS/XLSX/PPT/PPTX.</small>
   @error('lampiran_tambahan_file') <div class="text-danger mt-1">{{ $message }}</div> @enderror
 </div>
-@endif
 
 @if(!empty($show_schedule))
 <div class="form-group">
@@ -661,11 +675,12 @@
       var form = input.closest('form');
       var fileInput = wrap.querySelector('input[name="lampiran_tambahan_file"]');
       function sync(){
-        var checked = form ? form.querySelector('input[name="lampiran_tambahan"]:checked') : null;
-        var show = checked && checked.value === '1';
-        wrap.style.display = show ? '' : 'none';
-        if (fileInput) {
-          if (show) fileInput.setAttribute('required','required');
+      var checked = form ? form.querySelector('input[name="lampiran_tambahan"]:checked') : null;
+      var show = checked && checked.value === '1';
+      wrap.style.display = show ? '' : 'none';
+      if (fileInput) {
+          var hasExisting = (fileInput.getAttribute('data-has-existing-lampiran') || '0') === '1';
+          if (show && !hasExisting) fileInput.setAttribute('required','required');
           else fileInput.removeAttribute('required');
         }
       }

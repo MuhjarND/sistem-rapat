@@ -760,7 +760,7 @@
         <h5 class="modal-title" id="editRapatLabel-{{ $rapat->id }}">Edit Rapat: {{ $rapat->judul }}</h5>
         <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
       </div>
-      <form action="{{ route('rapat.update', $rapat->id) }}" method="POST" autocomplete="off">
+      <form action="{{ route('rapat.update', $rapat->id) }}" method="POST" autocomplete="off" enctype="multipart/form-data">
         @csrf
         @method('PUT')
         <div class="modal-body">

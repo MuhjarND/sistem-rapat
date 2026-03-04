@@ -5,7 +5,7 @@
     <h3>Edit Rapat</h3>
     <div class="card">
         <div class="card-body">
-            <form action="{{ route('rapat.update', $rapat->id) }}" method="POST">
+            <form action="{{ route('rapat.update', $rapat->id) }}" method="POST" enctype="multipart/form-data">
                 @csrf
                 @method('PUT')
                 <div class="form-group">
@@ -97,6 +97,39 @@
                 <div class="form-group">
                     <label>Tempat</label>
                     <input type="text" name="tempat" class="form-control" required value="{{ old('tempat', $rapat->tempat) }}">
+                </div>
+                @php
+                    $lampiranValue = old('lampiran_tambahan', !empty($rapat->lampiran_tambahan_path) ? '1' : '0');
+                    $hasExistingLampiran = !empty($rapat->lampiran_tambahan_path);
+                    $lampiranNama = old('lampiran_tambahan_nama', $rapat->lampiran_tambahan_nama ?? basename((string)($rapat->lampiran_tambahan_path ?? '')));
+                @endphp
+                <div class="form-group">
+                    <label>Lampiran Tambahan</label>
+                    <div class="d-flex flex-wrap">
+                        <div class="form-check mr-3">
+                            <input class="form-check-input js-lampiran-check" type="radio" name="lampiran_tambahan" id="lampiran-tidak-edit" value="0"
+                                   data-lampiran-wrap="lampiranTambahanWrap-edit" {{ (string) $lampiranValue === '0' ? 'checked' : '' }}>
+                            <label class="form-check-label" for="lampiran-tidak-edit">Tidak</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input js-lampiran-check" type="radio" name="lampiran_tambahan" id="lampiran-ya-edit" value="1"
+                                   data-lampiran-wrap="lampiranTambahanWrap-edit" {{ (string) $lampiranValue === '1' ? 'checked' : '' }}>
+                            <label class="form-check-label" for="lampiran-ya-edit">Ya</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group" id="lampiranTambahanWrap-edit" style="display:none;">
+                    <label>Upload Dokumen Tambahan</label>
+                    @if($hasExistingLampiran && !empty($rapat->lampiran_tambahan_path))
+                        <small class="form-text text-muted mb-2">
+                            Lampiran saat ini:
+                            <a href="{{ asset($rapat->lampiran_tambahan_path) }}" target="_blank" rel="noopener">{{ $lampiranNama ?: 'Lihat lampiran' }}</a>
+                        </small>
+                    @endif
+                    <input type="file" name="lampiran_tambahan_file" class="form-control" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
+                           data-has-existing-lampiran="{{ $hasExistingLampiran ? '1' : '0' }}">
+                    <small class="form-text text-muted">Maks 20MB. Format: PDF/DOC/DOCX/XLS/XLSX/PPT/PPTX.</small>
+                    @error('lampiran_tambahan_file') <div class="text-danger mt-1">{{ $message }}</div> @enderror
                 </div>
                 <div class="form-group">
                     <label>Pimpinan Rapat</label>
@@ -198,6 +231,29 @@
       }
     }
     cb.addEventListener('change', sync);
+    sync();
+  });
+})();
+</script>
+<script>
+(function(){
+  document.querySelectorAll('.js-lampiran-check').forEach(function(input){
+    var wrapId = input.getAttribute('data-lampiran-wrap');
+    var wrap = wrapId ? document.getElementById(wrapId) : null;
+    if (!wrap) return;
+    var form = input.closest('form');
+    var fileInput = wrap.querySelector('input[name="lampiran_tambahan_file"]');
+    function sync(){
+      var checked = form ? form.querySelector('input[name="lampiran_tambahan"]:checked') : null;
+      var show = checked && checked.value === '1';
+      wrap.style.display = show ? '' : 'none';
+      if (fileInput) {
+        var hasExisting = (fileInput.getAttribute('data-has-existing-lampiran') || '0') === '1';
+        if (show && !hasExisting) fileInput.setAttribute('required','required');
+        else fileInput.removeAttribute('required');
+      }
+    }
+    input.addEventListener('change', sync);
     sync();
   });
 })();

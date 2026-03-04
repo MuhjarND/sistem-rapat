@@ -878,6 +878,8 @@ class RapatController extends Controller
         $rapat = DB::table('rapat')->where('id', $id)->first();
         if (!$rapat) abort(404);
         $isEnqueued = !empty($rapat->approval_enqueued_at);
+        $hasLampiranPathCol = Schema::hasColumn('rapat', 'lampiran_tambahan_path');
+        $hasExistingLampiran = $hasLampiranPathCol && !empty($rapat->lampiran_tambahan_path);
 
         $kategoriNama = $request->filled('id_kategori')
             ? DB::table('kategori_rapat')->where('id', $request->id_kategori)->value('nama')
@@ -895,6 +897,16 @@ class RapatController extends Controller
             'tanggal'           => 'required|date',
             'waktu_mulai'       => 'required',
             'tempat'            => 'required',
+            'lampiran_tambahan' => 'nullable|in:0,1',
+            'lampiran_tambahan_file' => [
+                Rule::requiredIf(function () use ($request, $hasExistingLampiran) {
+                    return $request->input('lampiran_tambahan') === '1' && !$hasExistingLampiran;
+                }),
+                'nullable',
+                'file',
+                'mimes:pdf,doc,docx,xls,xlsx,ppt,pptx',
+                'max:20480',
+            ],
             'jenis_pakaian'     => [$isPakaianRequired ? 'required' : 'nullable', 'string', 'max:120'],
             'is_virtual'        => 'nullable|boolean',
             'meeting_id'        => [$isVirtual ? 'required' : 'nullable', 'string', 'max:120'],
@@ -919,6 +931,68 @@ class RapatController extends Controller
 
         DB::beginTransaction();
         try {
+            $lampiranMeta = [];
+            if ($request->input('lampiran_tambahan') === '1') {
+                if ($request->hasFile('lampiran_tambahan_file')) {
+                    $file = $request->file('lampiran_tambahan_file');
+                    if ($file && $file->isValid()) {
+                        $originalName = $file->getClientOriginalName();
+                        $mimeType = $file->getClientMimeType();
+                        $fileSize = $file->getSize();
+
+                        $dest = public_path('uploads/rapat_lampiran');
+                        if (!is_dir($dest)) {
+                            @mkdir($dest, 0775, true);
+                        }
+
+                        $ext = strtolower($file->getClientOriginalExtension());
+                        $name = 'lampiran-rapat-'.Str::random(12).'.'.$ext;
+                        $file->move($dest, $name);
+                        $relPath = 'uploads/rapat_lampiran/'.$name;
+
+                        if (Schema::hasColumn('rapat', 'lampiran_tambahan_path')) {
+                            $lampiranMeta['lampiran_tambahan_path'] = $relPath;
+                        }
+                        if (Schema::hasColumn('rapat', 'lampiran_tambahan_nama')) {
+                            $lampiranMeta['lampiran_tambahan_nama'] = $originalName;
+                        }
+                        if (Schema::hasColumn('rapat', 'lampiran_tambahan_mime')) {
+                            $lampiranMeta['lampiran_tambahan_mime'] = $mimeType;
+                        }
+                        if (Schema::hasColumn('rapat', 'lampiran_tambahan_size')) {
+                            $lampiranMeta['lampiran_tambahan_size'] = $fileSize;
+                        }
+
+                        if ($hasExistingLampiran) {
+                            $oldPath = public_path((string) $rapat->lampiran_tambahan_path);
+                            if (is_file($oldPath)) {
+                                @unlink($oldPath);
+                            }
+                        }
+                    }
+                }
+            } else {
+                // Opsi "Tidak": hapus referensi lampiran lama.
+                if ($hasExistingLampiran) {
+                    $oldPath = public_path((string) $rapat->lampiran_tambahan_path);
+                    if (is_file($oldPath)) {
+                        @unlink($oldPath);
+                    }
+                }
+                if (Schema::hasColumn('rapat', 'lampiran_tambahan_path')) {
+                    $lampiranMeta['lampiran_tambahan_path'] = null;
+                }
+                if (Schema::hasColumn('rapat', 'lampiran_tambahan_nama')) {
+                    $lampiranMeta['lampiran_tambahan_nama'] = null;
+                }
+                if (Schema::hasColumn('rapat', 'lampiran_tambahan_mime')) {
+                    $lampiranMeta['lampiran_tambahan_mime'] = null;
+                }
+                if (Schema::hasColumn('rapat', 'lampiran_tambahan_size')) {
+                    $lampiranMeta['lampiran_tambahan_size'] = null;
+                }
+            }
+
             $updatePayload = [
                 'nomor_undangan'    => $request->nomor_undangan,
                 'judul'             => $request->judul,
@@ -942,6 +1016,7 @@ class RapatController extends Controller
                     ? trim((string) $request->detail_tambahan)
                     : null;
             }
+            $updatePayload = array_merge($updatePayload, $lampiranMeta);
 
             DB::table('rapat')->where('id', $id)->update($updatePayload);
 
