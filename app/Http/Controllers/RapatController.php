@@ -1254,9 +1254,11 @@ class RapatController extends Controller
 
         $tampilkan_lampiran        = $daftar_peserta->count() > 1;
         $tampilkan_daftar_di_surat = !$tampilkan_lampiran;
+        $hasTujuanSurat = Schema::hasColumn('rapat', 'tujuan_surat')
+            && trim((string) ($rapat->tujuan_surat ?? '')) !== '';
         $hasLampiranTambahan = Schema::hasColumn('rapat', 'lampiran_tambahan_path')
             && !empty($rapat->lampiran_tambahan_path);
-        if ($hasLampiranTambahan) {
+        if ($hasLampiranTambahan || $hasTujuanSurat) {
             $tampilkan_lampiran = false;
             $tampilkan_daftar_di_surat = false;
         }

@@ -34,6 +34,8 @@
     if ($tujuanSurat !== '') {
         $tujuanSurat = preg_replace('/\r\n|\r/', "\n", $tujuanSurat);
         $tujuanSurat = preg_replace('/(Ketua Pengadilan Agama)\s+/iu', "$1\n", $tujuanSurat, 1);
+        $tampilkan_lampiran = false;
+        $tampilkan_daftar_di_surat = false;
     }
     $jumlahUndangan = isset($daftar_peserta)
         ? (method_exists($daftar_peserta, 'count') ? (int) $daftar_peserta->count() : count((array) $daftar_peserta))

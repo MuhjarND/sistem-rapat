@@ -597,9 +597,11 @@ class LaporanController extends Controller
 
         $tampilkan_lampiran        = $daftar_peserta->count() > 5;
         $tampilkan_daftar_di_surat = !$tampilkan_lampiran;
+        $hasTujuanSurat = property_exists($rapat, 'tujuan_surat')
+            && trim((string) ($rapat->tujuan_surat ?? '')) !== '';
         $hasLampiranTambahan = property_exists($rapat, 'lampiran_tambahan_path')
             && !empty($rapat->lampiran_tambahan_path);
-        if ($hasLampiranTambahan) {
+        if ($hasLampiranTambahan || $hasTujuanSurat) {
             $tampilkan_lampiran = false;
             $tampilkan_daftar_di_surat = false;
         }
