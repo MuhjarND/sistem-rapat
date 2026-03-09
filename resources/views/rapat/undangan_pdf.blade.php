@@ -52,6 +52,9 @@
     $isWakilKetua = stripos($approval1JabatanLower, 'wakil ketua') !== false;
     $isKetua = !$isWakilKetua && stripos($approval1JabatanLower, 'ketua') !== false;
     $showTembusan = $hasManualJabatan || (!$isKetua && !$isWakilKetua);
+    $tanggalSurat = !empty($rapat->created_at)
+        ? \Carbon\Carbon::parse($rapat->created_at)
+        : \Carbon\Carbon::parse($rapat->tanggal);
 @endphp
 
 <!DOCTYPE html>
@@ -110,7 +113,7 @@
             <td width="2%">:</td>
             <td width="44%">{{ $rapat->nomor_undangan }}</td>
             <td style="text-align:right; font-size:11px;" width="40%">
-                Manokwari, {{ \Carbon\Carbon::parse($rapat->tanggal)->isoFormat('D MMMM Y') }}
+                Manokwari, {{ $tanggalSurat->isoFormat('D MMMM Y') }}
             </td>
         </tr>
         <tr>
