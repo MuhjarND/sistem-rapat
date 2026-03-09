@@ -47,7 +47,10 @@
     }
     $approval1Nama = \App\Helpers\NameHelper::withoutTitles($approval1->name ?? '-');
     $approval1Jabatan = data_get($rapat, 'approval1_jabatan_manual') ?: ($approval1->jabatan ?? 'Approval 1');
-    $isKetua = stripos((string) $approval1Jabatan, 'ketua') !== false;
+    $approval1JabatanLower = strtolower(trim((string) $approval1Jabatan));
+    $isWakilKetua = stripos($approval1JabatanLower, 'wakil ketua') !== false;
+    $isKetua = !$isWakilKetua && stripos($approval1JabatanLower, 'ketua') !== false;
+    $showTembusan = !$isKetua && !$isWakilKetua;
 @endphp
 
 <!DOCTYPE html>
@@ -250,7 +253,7 @@
         </div>
     </div>
 
-    @if(!$isKetua)
+    @if($showTembusan)
         <div style="margin-top:16px;">
             <b>Tembusan:</b><br> Yth. Ketua Pengadilan Tinggi Agama Papua Barat (sebagai laporan)
         </div>
