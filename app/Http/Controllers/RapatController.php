@@ -417,6 +417,7 @@ class RapatController extends Controller
             'deskripsi'         => 'nullable',
             'pakai_detail_tambahan' => 'nullable|boolean',
             'detail_tambahan'   => [$useDetailTambahan ? 'required' : 'nullable', 'string', 'max:5000'],
+            'tujuan_surat'      => 'nullable|string|max:5000',
             'tanggal'           => 'required|date',
             'waktu_mulai'       => 'required',
             'tempat'            => 'required',
@@ -503,6 +504,11 @@ class RapatController extends Controller
                 ? trim((string) $request->detail_tambahan)
                 : null;
         }
+        if (Schema::hasColumn('rapat', 'tujuan_surat')) {
+            $insertPayload['tujuan_surat'] = trim((string) $request->tujuan_surat) !== ''
+                ? trim((string) $request->tujuan_surat)
+                : null;
+        }
 
         $id_rapat = DB::table('rapat')->insertGetId(array_merge($insertPayload, $lampiranMeta));
 
@@ -565,6 +571,7 @@ class RapatController extends Controller
             'deskripsi'         => 'nullable',
             'pakai_detail_tambahan' => 'nullable|boolean',
             'detail_tambahan'   => [$useDetailTambahan ? 'required' : 'nullable', 'string', 'max:5000'],
+            'tujuan_surat'      => 'nullable|string|max:5000',
             'tanggal'           => 'required|date',
             'waktu_mulai'       => 'required',
             'tempat'            => 'required',
@@ -654,6 +661,11 @@ class RapatController extends Controller
         if (Schema::hasColumn('rapat', 'detail_tambahan')) {
             $insertPayload['detail_tambahan'] = $useDetailTambahan
                 ? trim((string) $request->detail_tambahan)
+                : null;
+        }
+        if (Schema::hasColumn('rapat', 'tujuan_surat')) {
+            $insertPayload['tujuan_surat'] = trim((string) $request->tujuan_surat) !== ''
+                ? trim((string) $request->tujuan_surat)
                 : null;
         }
 
@@ -894,6 +906,7 @@ class RapatController extends Controller
             'deskripsi'         => 'nullable',
             'pakai_detail_tambahan' => 'nullable|boolean',
             'detail_tambahan'   => [$useDetailTambahan ? 'required' : 'nullable', 'string', 'max:5000'],
+            'tujuan_surat'      => 'nullable|string|max:5000',
             'tanggal'           => 'required|date',
             'waktu_mulai'       => 'required',
             'tempat'            => 'required',
@@ -1014,6 +1027,11 @@ class RapatController extends Controller
             if (Schema::hasColumn('rapat', 'detail_tambahan')) {
                 $updatePayload['detail_tambahan'] = $useDetailTambahan
                     ? trim((string) $request->detail_tambahan)
+                    : null;
+            }
+            if (Schema::hasColumn('rapat', 'tujuan_surat')) {
+                $updatePayload['tujuan_surat'] = trim((string) $request->tujuan_surat) !== ''
+                    ? trim((string) $request->tujuan_surat)
                     : null;
             }
             $updatePayload = array_merge($updatePayload, $lampiranMeta);

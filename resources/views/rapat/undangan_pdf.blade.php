@@ -30,6 +30,11 @@
         $detailTambahanInline = preg_replace('/\s+:\s*/', ': ', $detailTambahanInline);
         $detailTambahanInline = preg_replace('/\s*,\s*/', ', ', $detailTambahanInline);
     }
+    $tujuanSurat = trim((string) ($rapat->tujuan_surat ?? ''));
+    if ($tujuanSurat !== '') {
+        $tujuanSurat = preg_replace('/\r\n|\r/', "\n", $tujuanSurat);
+        $tujuanSurat = preg_replace('/(Ketua Pengadilan Agama)\s+/iu', "$1\n", $tujuanSurat, 1);
+    }
     $jumlahUndangan = isset($daftar_peserta)
         ? (method_exists($daftar_peserta, 'count') ? (int) $daftar_peserta->count() : count((array) $daftar_peserta))
         : 0;
@@ -117,7 +122,10 @@
     </table>
 
     {{-- Kepada Yth + daftar peserta (jika <= 5) --}}
-    @if($jumlahUndangan === 1 && !empty($penerimaTunggalNama))
+    @if($tujuanSurat !== '')
+        <p style="margin-bottom: 2px;">Kepada Yth.</p>
+        <p style="margin: 0 0 6px 0;">{!! nl2br(e($tujuanSurat)) !!}</p>
+    @elseif($jumlahUndangan === 1 && !empty($penerimaTunggalNama))
         @php
             $singlePenerimaEscaped = e($penerimaTunggalNama);
             $singlePenerimaFormatted = preg_replace('/(Ketua Pengadilan Agama)\s+/iu', '$1<br>', $singlePenerimaEscaped, 1);

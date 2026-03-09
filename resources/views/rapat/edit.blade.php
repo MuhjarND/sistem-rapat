@@ -20,6 +20,12 @@
                     <label>Deskripsi</label>
                     <textarea name="deskripsi" class="form-control">{{ old('deskripsi', $rapat->deskripsi) }}</textarea>
                 </div>
+                <div class="form-group">
+                    <label>Tujuan Surat</label>
+                    <textarea name="tujuan_surat" class="form-control" rows="3"
+                              placeholder="Opsional. Contoh: Ketua Pengadilan Agama Se-Wilayah Hukum PTA Papua Barat">{{ old('tujuan_surat', $rapat->tujuan_surat ?? '') }}</textarea>
+                    @error('tujuan_surat') <div class="text-danger mt-1">{{ $message }}</div> @enderror
+                </div>
                 @php $detailValue = old('pakai_detail_tambahan', !empty($rapat->detail_tambahan) ? '1' : '0'); @endphp
                 <div class="form-group">
                     <label>Detail Tambahan Surat</label>

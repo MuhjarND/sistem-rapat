@@ -147,6 +147,16 @@
 </div>
 
 <div class="form-group">
+  <label>Tujuan Surat</label>
+  <textarea name="tujuan_surat"
+            class="form-control"
+            rows="3"
+            placeholder="Opsional. Contoh: Ketua Pengadilan Agama Se-Wilayah Hukum PTA Papua Barat">{{ old('tujuan_surat', $rapat->tujuan_surat ?? '') }}</textarea>
+  <small class="form-text text-muted">Jika diisi, bagian tujuan surat pada undangan PDF akan memakai isi ini.</small>
+  @error('tujuan_surat') <div class="text-danger mt-1">{{ $message }}</div> @enderror
+</div>
+
+<div class="form-group">
   <label>Detail Tambahan Surat</label>
   <div class="d-flex flex-wrap">
     <div class="form-check mr-3">
