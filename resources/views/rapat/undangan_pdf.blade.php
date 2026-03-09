@@ -47,10 +47,11 @@
     }
     $approval1Nama = \App\Helpers\NameHelper::withoutTitles($approval1->name ?? '-');
     $approval1Jabatan = data_get($rapat, 'approval1_jabatan_manual') ?: ($approval1->jabatan ?? 'Approval 1');
+    $hasManualJabatan = trim((string) data_get($rapat, 'approval1_jabatan_manual')) !== '';
     $approval1JabatanLower = strtolower(trim((string) $approval1Jabatan));
     $isWakilKetua = stripos($approval1JabatanLower, 'wakil ketua') !== false;
     $isKetua = !$isWakilKetua && stripos($approval1JabatanLower, 'ketua') !== false;
-    $showTembusan = !$isKetua && !$isWakilKetua;
+    $showTembusan = $hasManualJabatan || (!$isKetua && !$isWakilKetua);
 @endphp
 
 <!DOCTYPE html>
