@@ -112,7 +112,7 @@
             <td width="14%">Nomor</td>
             <td width="2%">:</td>
             <td width="44%">{{ $rapat->nomor_undangan }}</td>
-            <td style="text-align:right; font-size:11px;" width="40%">
+            <td style="text-align:right;" width="40%">
                 Manokwari, {{ $tanggalSurat->isoFormat('D MMMM Y') }}
             </td>
         </tr>
