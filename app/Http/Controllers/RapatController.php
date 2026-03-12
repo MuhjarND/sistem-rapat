@@ -1174,10 +1174,7 @@ class RapatController extends Controller
             DB::commit();
 
             if ($isEnqueued) {
-                app(\App\Http\Controllers\ApprovalController::class)
-                    ->notifyFirstPendingApproverOnResubmission((int)$id, 'undangan');
-
-                return redirect()->route('rapat.index')->with('success', 'Undangan berhasil diperbarui & dikirim ulang ke antrean approval (status: sudah diperbaiki).');
+                return redirect()->route('rapat.index')->with('success', 'Undangan berhasil diperbarui. Status approval diperbarui tanpa mengirim ulang notifikasi WA.');
             }
 
             return redirect()->route('rapat.index')->with('success', 'Rapat berhasil diperbarui (belum dikirim ke approval).');

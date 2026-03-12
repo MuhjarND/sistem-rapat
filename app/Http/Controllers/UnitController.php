@@ -97,13 +97,34 @@ class UnitController extends Controller
             'singkatan.unique' => 'Singkatan sudah digunakan.',
         ]);
 
-        DB::table('units')->where('id', $id)->update([
-            'nama'       => $request->nama,
-            'singkatan'  => $request->singkatan ?: null,
-            'keterangan' => $request->keterangan ?: null,
-            'is_active'  => $request->boolean('is_active') ? 1 : 0,
-            'updated_at' => now(),
-        ]);
+        DB::beginTransaction();
+        try {
+            $namaBaru = trim((string) $request->nama);
+            $namaLama = trim((string) $unit->nama);
+
+            DB::table('units')->where('id', $id)->update([
+                'nama'       => $namaBaru,
+                'singkatan'  => $request->singkatan ?: null,
+                'keterangan' => $request->keterangan ?: null,
+                'is_active'  => $request->boolean('is_active') ? 1 : 0,
+                'updated_at' => now(),
+            ]);
+
+            // Sinkronkan nama unit yang menempel di user saat unit di-rename.
+            if ($namaLama !== '' && $namaLama !== $namaBaru) {
+                DB::table('users')
+                    ->where('unit', $namaLama)
+                    ->update([
+                        'unit' => $namaBaru,
+                    ]);
+            }
+
+            DB::commit();
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            report($e);
+            return redirect()->route('units.index')->with('error', 'Gagal memperbarui unit.');
+        }
 
         // Opsi: kalau klik "Simpan & Tetapkan"
         if ($request->boolean('go_assign')) {
