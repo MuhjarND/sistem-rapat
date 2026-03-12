@@ -139,46 +139,6 @@
               </td>
             </tr>
 
-            {{-- Modal Edit --}}
-            <div class="modal fade" id="modalEdit-{{ $u->id }}" tabindex="-1" aria-hidden="true">
-              <div class="modal-dialog">
-                <form class="modal-content modal-solid" action="{{ route('units.update', $u->id) }}" method="POST">
-                  @csrf
-                  @method('PUT')
-                  <div class="modal-header">
-                    <h5 class="modal-title">Edit Unit</h5>
-                    <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
-                  </div>
-                  <div class="modal-body">
-                    <div class="form-group">
-                      <label>Nama</label>
-                      <input type="text" name="nama" class="form-control" value="{{ $u->nama }}" required>
-                    </div>
-                    <div class="form-group">
-                      <label>Singkatan <span class="text-muted">(opsional)</span></label>
-                      <input type="text" name="singkatan" class="form-control" value="{{ $u->singkatan }}">
-                    </div>
-                    <div class="form-group">
-                      <label>Keterangan <span class="text-muted">(opsional)</span></label>
-                      <textarea name="keterangan" class="form-control" rows="3">{{ $u->keterangan }}</textarea>
-                    </div>
-                    <div class="form-group">
-                      <div class="custom-control custom-switch">
-                        <input type="checkbox" class="custom-control-input" id="sw-{{ $u->id }}" name="is_active" value="1" {{ $u->is_active ? 'checked' : '' }}>
-                        <label class="custom-control-label" for="sw-{{ $u->id }}">Aktifkan</label>
-                      </div>
-                    </div>
-                  </div>
-                  <div class="modal-footer">
-                    {{-- Opsional: simpan & langsung tetapkan --}}
-                    <button class="btn btn-outline-light" name="go_assign" value="0">Simpan</button>
-                    <button class="btn btn-primary" name="go_assign" value="1">
-                      Simpan & Tetapkan ke Pengguna
-                    </button>
-                  </div>
-                </form>
-              </div>
-            </div>
           @empty
             <tr><td colspan="7" class="text-center text-muted p-4">Belum ada unit.</td></tr>
           @endforelse
@@ -193,6 +153,45 @@
     {{ $units->links('pagination::bootstrap-4') }}
   </div>
 </div>
+
+@foreach($units as $u)
+<div class="modal fade" id="modalEdit-{{ $u->id }}" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <form class="modal-content modal-solid" action="{{ route('units.update', $u->id) }}" method="POST">
+      @csrf
+      @method('PUT')
+      <div class="modal-header">
+        <h5 class="modal-title">Edit Unit</h5>
+        <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Nama</label>
+          <input type="text" name="nama" class="form-control" value="{{ $u->nama }}" required>
+        </div>
+        <div class="form-group">
+          <label>Singkatan <span class="text-muted">(opsional)</span></label>
+          <input type="text" name="singkatan" class="form-control" value="{{ $u->singkatan }}">
+        </div>
+        <div class="form-group">
+          <label>Keterangan <span class="text-muted">(opsional)</span></label>
+          <textarea name="keterangan" class="form-control" rows="3">{{ $u->keterangan }}</textarea>
+        </div>
+        <div class="form-group">
+          <div class="custom-control custom-switch">
+            <input type="checkbox" class="custom-control-input" id="sw-{{ $u->id }}" name="is_active" value="1" {{ $u->is_active ? 'checked' : '' }}>
+            <label class="custom-control-label" for="sw-{{ $u->id }}">Aktifkan</label>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline-light" name="go_assign" value="0">Simpan</button>
+        <button class="btn btn-primary" name="go_assign" value="1">Simpan & Tetapkan ke Pengguna</button>
+      </div>
+    </form>
+  </div>
+</div>
+@endforeach
 
 {{-- Modal Tambah --}}
 <div class="modal fade" id="modalTambah" tabindex="-1" aria-hidden="true">
