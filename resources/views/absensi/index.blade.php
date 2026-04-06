@@ -72,7 +72,10 @@
 <div class="container">
 
   <div class="d-flex justify-content-between align-items-center mb-3">
-    <h3 class="mb-0">Daftar Absensi Rapat</h3>
+    <div>
+      <h3 class="mb-0">Daftar Absensi Rapat</h3>
+      <small class="text-muted">Kelola absensi rapat yang sudah ada atau buat sesi absensi mandiri langsung dari halaman ini.</small>
+    </div>
     <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#modalBuatAbsensi">
       <i class="fas fa-plus mr-1"></i> Buat Absensi
     </button>
