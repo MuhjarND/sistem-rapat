@@ -14,6 +14,48 @@ use App\Helpers\TimeHelper;
 
 class AbsensiController extends Controller
 {
+    private function getSelectableParticipants()
+    {
+        $q = DB::table('users')->select('id', 'name');
+
+        if (Schema::hasColumn('users', 'hirarki')) {
+            $q->addSelect('hirarki');
+        }
+        if (Schema::hasColumn('users', 'role')) {
+            $q->addSelect('role')->whereNotIn('role', ['admin', 'superadmin']);
+        }
+        if (Schema::hasColumn('users', 'jabatan')) {
+            $q->addSelect('jabatan');
+        }
+        if (Schema::hasColumn('users', 'unit')) {
+            $q->addSelect('unit');
+        }
+
+        if (Schema::hasColumn('users', 'is_active')) {
+            $q->where('is_active', 1);
+        } elseif (Schema::hasColumn('users', 'active')) {
+            $q->where('active', 1);
+        } elseif (Schema::hasColumn('users', 'status')) {
+            $q->where('status', 'aktif');
+        }
+
+        if (Schema::hasColumn('users', 'hirarki')) {
+            $q->orderByRaw('COALESCE(hirarki, 9999) ASC');
+        }
+
+        return $q->orderBy('name', 'asc')->get();
+    }
+
+    private function generateStandaloneNomor(): string
+    {
+        do {
+            $candidate = 'ABS/' . now()->format('Ymd') . '/' . strtoupper(Str::random(6));
+            $exists = DB::table('rapat')->where('nomor_undangan', $candidate)->exists();
+        } while ($exists);
+
+        return $candidate;
+    }
+
     /**
      * Durasi jendela absensi (jam).
      * Bisa diubah via ENV: ABSENSI_DURATION_HOURS=3
@@ -99,13 +141,15 @@ class AbsensiController extends Controller
             $r->jumlah_peserta = $peserta_map[$r->id] ?? 0;
         }
 
+        $daftar_peserta = $this->getSelectableParticipants();
+
         $filter = [
             'kategori' => $request->kategori,
             'tanggal'  => $request->tanggal,
             'keyword'  => $request->keyword,
         ];
 
-        return view('absensi.index', compact('daftar_rapat', 'daftar_kategori', 'filter'));
+        return view('absensi.index', compact('daftar_rapat', 'daftar_kategori', 'filter', 'daftar_peserta'));
     }
 
     public function create()
@@ -142,6 +186,101 @@ class AbsensiController extends Controller
         ]);
 
         return redirect()->route('absensi.index')->with('success', 'Absensi berhasil ditambahkan!');
+    }
+
+    public function storeStandalone(Request $request)
+    {
+        $request->validate([
+            '_form'       => 'nullable|string',
+            'judul'       => 'required|string|max:255',
+            'deskripsi'   => 'nullable|string',
+            'id_kategori' => 'nullable|exists:kategori_rapat,id',
+            'tanggal'     => 'required|date',
+            'waktu_mulai' => 'required|date_format:H:i',
+            'tempat'      => 'required|string|max:255',
+            'peserta'     => 'required|array|min:1',
+            'peserta.*'   => 'required|exists:users,id',
+        ], [
+            'peserta.required' => 'Pilih minimal satu peserta untuk absensi.',
+            'peserta.min'      => 'Pilih minimal satu peserta untuk absensi.',
+        ]);
+
+        $participantIds = collect($request->peserta)
+            ->map(function ($id) {
+                return (int) $id;
+            })
+            ->unique()
+            ->values()
+            ->all();
+
+        DB::beginTransaction();
+        try {
+            $rapatData = [
+                'nomor_undangan' => $this->generateStandaloneNomor(),
+                'judul'          => trim((string) $request->judul),
+                'deskripsi'      => $request->filled('deskripsi')
+                    ? trim((string) $request->deskripsi)
+                    : 'Absensi mandiri dibuat melalui halaman absensi.',
+                'tanggal'        => $request->tanggal,
+                'waktu_mulai'    => $request->waktu_mulai,
+                'tempat'         => trim((string) $request->tempat),
+                'dibuat_oleh'    => Auth::id(),
+                'created_at'     => now(),
+                'updated_at'     => now(),
+            ];
+
+            if (Schema::hasColumn('rapat', 'id_kategori')) {
+                $rapatData['id_kategori'] = $request->filled('id_kategori') ? $request->id_kategori : null;
+            }
+            if (Schema::hasColumn('rapat', 'status')) {
+                $rapatData['status'] = 'akan_datang';
+            }
+            if (Schema::hasColumn('rapat', 'id_pimpinan')) {
+                $rapatData['id_pimpinan'] = null;
+            }
+            if (Schema::hasColumn('rapat', 'token_qr')) {
+                $rapatData['token_qr'] = Str::random(32);
+            }
+            if (Schema::hasColumn('rapat', 'public_code')) {
+                $rapatData['public_code'] = Str::random(12);
+            }
+            if (Schema::hasColumn('rapat', 'guest_token')) {
+                $rapatData['guest_token'] = Str::random(32);
+            }
+            if (Schema::hasColumn('rapat', 'is_virtual')) {
+                $rapatData['is_virtual'] = 0;
+            }
+
+            $rapatId = DB::table('rapat')->insertGetId($rapatData);
+
+            $undanganRows = [];
+            foreach ($participantIds as $userId) {
+                $undanganRows[] = [
+                    'id_rapat'    => $rapatId,
+                    'id_user'     => $userId,
+                    'status'      => 'terkirim',
+                    'created_at'  => now(),
+                    'updated_at'  => now(),
+                ];
+            }
+            DB::table('undangan')->insert($undanganRows);
+
+            DB::commit();
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error('Gagal membuat absensi mandiri', [
+                'message' => $e->getMessage(),
+                'file'    => $e->getFile(),
+                'line'    => $e->getLine(),
+            ]);
+
+            return redirect()->route('absensi.index')
+                ->withInput()
+                ->with('error', 'Gagal membuat absensi mandiri.');
+        }
+
+        return redirect()->route('absensi.index')
+            ->with('success', 'Absensi mandiri berhasil dibuat dan siap digunakan.');
     }
 
     public function edit($id)

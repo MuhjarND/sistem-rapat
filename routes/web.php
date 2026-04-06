@@ -82,6 +82,7 @@ Route::middleware(['auth', 'cekrole:admin,operator'])->group(function () {
     //RAPAT
     Route::resource('rapat', 'RapatController');
     //ABSENSI
+    Route::post('/absensi/buat-sesi', 'AbsensiController@storeStandalone')->name('absensi.standalone.store');
     Route::resource('absensi', 'AbsensiController');
     Route::post('/absensi/{id}/wa-start', 'AbsensiController@notifyStart')->name('absensi.notify.start');
     //LAPORAN
