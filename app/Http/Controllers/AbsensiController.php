@@ -198,9 +198,11 @@ class AbsensiController extends Controller
             'tanggal'     => 'required|date',
             'waktu_mulai' => 'required|date_format:H:i',
             'tempat'      => 'required|string|max:255',
+            'penanggung_jawab_user_id' => 'required|exists:users,id',
             'peserta'     => 'required|array|min:1',
             'peserta.*'   => 'required|exists:users,id',
         ], [
+            'penanggung_jawab_user_id.required' => 'Pilih penanggung jawab absensi.',
             'peserta.required' => 'Pilih minimal satu peserta untuk absensi.',
             'peserta.min'      => 'Pilih minimal satu peserta untuk absensi.',
         ]);
@@ -234,6 +236,9 @@ class AbsensiController extends Controller
             }
             if (Schema::hasColumn('rapat', 'status')) {
                 $rapatData['status'] = 'akan_datang';
+            }
+            if (Schema::hasColumn('rapat', 'approval1_user_id')) {
+                $rapatData['approval1_user_id'] = (int) $request->penanggung_jawab_user_id;
             }
             if (Schema::hasColumn('rapat', 'id_pimpinan')) {
                 $rapatData['id_pimpinan'] = null;
@@ -529,8 +534,9 @@ class AbsensiController extends Controller
     }
 
     /**
-     * Jika semua approval undangan sudah approved, buat 1 QR ABSENSI (unik & beda).
-     * QR disimpan ke public/qr dan di-embed logo (PNG transparan) di tengah tanpa package.
+     * Buat QR absensi final.
+     * Untuk rapat biasa: mengikuti approval undangan yang sudah selesai.
+     * Untuk absensi mandiri (nomor ABS/...): langsung memakai penanggung jawab yang dipilih.
      */
     public function ensureAbsensiQrMirrorsUndangan(int $rapatId): void
     {
@@ -544,10 +550,22 @@ class AbsensiController extends Controller
             ->orderBy('order_index')
             ->get();
 
-        if ($steps->isEmpty()) return;
+        $isManualStandalone = Str::startsWith((string) ($rapat->nomor_undangan ?? ''), 'ABS/');
+        $derivedFrom = 'undangan';
+        $chainSig = null;
 
-        $allApproved = $steps->every(function($s){ return $s->status === 'approved'; });
-        if (!$allApproved) return;
+        if ($steps->isEmpty()) {
+            if (!$isManualStandalone) {
+                return;
+            }
+
+            $derivedFrom = 'manual_absensi';
+        } else {
+            $allApproved = $steps->every(function($s){ return $s->status === 'approved'; });
+            if (!$allApproved) return;
+
+            $chainSig = hash('sha256', collect($steps)->pluck('signature_payload')->filter()->join('|'));
+        }
 
         // 2) cek apakah QR absensi sudah ada
         $absensiRow = DB::table('approval_requests')
@@ -562,7 +580,6 @@ class AbsensiController extends Controller
 
         // 3) payload unik absensi
         $approver = DB::table('users')->where('id', $rapat->approval1_user_id)->first();
-        $chainSig = hash('sha256', collect($steps)->pluck('signature_payload')->filter()->join('|'));
 
         $payload = [
             'v'        => 1,
@@ -572,7 +589,7 @@ class AbsensiController extends Controller
             'judul'    => $rapat->judul,
             'tanggal'  => $rapat->tanggal,
             'derived'  => [
-                'from'      => 'undangan',
+                'from'      => $derivedFrom,
                 'chain_sig' => $chainSig,
             ],
             'approver' => [

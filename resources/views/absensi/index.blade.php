@@ -371,6 +371,20 @@
           </div>
 
           <div class="form-group">
+            <label>Penanggung Jawab / Pejabat TTD</label>
+            <select name="penanggung_jawab_user_id" class="form-control js-select2" required data-dropdown-parent="#modalBuatAbsensi" data-placeholder="Pilih penanggung jawab">
+              <option value="">Pilih penanggung jawab</option>
+              @foreach($daftar_peserta as $peserta)
+                <option value="{{ $peserta->id }}" {{ (string) old('penanggung_jawab_user_id') === (string) $peserta->id ? 'selected' : '' }}>
+                  {{ $peserta->name }}
+                </option>
+              @endforeach
+            </select>
+            <small class="form-text text-muted">Nama ini akan digunakan sebagai penanggung jawab dan TTD/QR pejabat pada PDF absensi.</small>
+            @error('penanggung_jawab_user_id') <div class="text-danger mt-1">{{ $message }}</div> @enderror
+          </div>
+
+          <div class="form-group">
             <label>Peserta Absensi</label>
             <select name="peserta[]" class="form-control js-select2" multiple required data-dropdown-parent="#modalBuatAbsensi" data-placeholder="Pilih peserta">
               @foreach($daftar_peserta as $peserta)
