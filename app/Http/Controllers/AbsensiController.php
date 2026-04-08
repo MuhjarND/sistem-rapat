@@ -199,6 +199,7 @@ class AbsensiController extends Controller
             'waktu_mulai' => 'required|date_format:H:i',
             'tempat'      => 'required|string|max:255',
             'penanggung_jawab_user_id' => 'required|exists:users,id',
+            'approval1_jabatan_manual' => 'nullable|string|max:255',
             'peserta'     => 'required|array|min:1',
             'peserta.*'   => 'required|exists:users,id',
         ], [
@@ -239,6 +240,11 @@ class AbsensiController extends Controller
             }
             if (Schema::hasColumn('rapat', 'approval1_user_id')) {
                 $rapatData['approval1_user_id'] = (int) $request->penanggung_jawab_user_id;
+            }
+            if (Schema::hasColumn('rapat', 'approval1_jabatan_manual')) {
+                $rapatData['approval1_jabatan_manual'] = $request->filled('approval1_jabatan_manual')
+                    ? trim((string) $request->approval1_jabatan_manual)
+                    : null;
             }
             if (Schema::hasColumn('rapat', 'id_pimpinan')) {
                 $rapatData['id_pimpinan'] = null;

@@ -385,6 +385,13 @@
           </div>
 
           <div class="form-group">
+            <label>Keterangan Jabatan Penanggung Jawab <small class="text-muted">(opsional)</small></label>
+            <input type="text" name="approval1_jabatan_manual" class="form-control" value="{{ old('approval1_jabatan_manual') }}" placeholder="Contoh: Ketua Tim Pelaksana Kegiatan">
+            <small class="form-text text-muted">Jika diisi, keterangan ini akan menggantikan jabatan asli pada bagian TTD PDF absensi.</small>
+            @error('approval1_jabatan_manual') <div class="text-danger mt-1">{{ $message }}</div> @enderror
+          </div>
+
+          <div class="form-group">
             <label>Peserta Absensi</label>
             <select name="peserta[]" class="form-control js-select2" multiple required data-dropdown-parent="#modalBuatAbsensi" data-placeholder="Pilih peserta">
               @foreach($daftar_peserta as $peserta)
