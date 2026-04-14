@@ -78,6 +78,8 @@
     label{ display:block; margin:0 0 6px; font-weight:700; }
     .form-row{ display:grid; gap:14px; grid-template-columns: 1fr; }
     @media(min-width:720px){ .form-row-2{ grid-template-columns: 1fr 1fr; } }
+    .sig-disabled{ opacity:.45; pointer-events:none; }
+    .help-warning{ color:#ffd58a; font-size:.85rem; margin-top:6px; display:none; }
 
     .ctl{
       width:100%; height:44px; border-radius:12px; border:1px solid var(--border);
@@ -181,19 +183,33 @@
               </div>
               @error('peserta') <div class="alert alert-danger">{{ $message }}</div> @enderror
             </div>
+
+            <div>
+              <label for="izin_keterangan">Keterangan Izin</label>
+              <select id="izin_keterangan" name="izin_keterangan" class="ctl">
+                <option value="">Hadir / tidak izin</option>
+                <option value="sakit" {{ old('izin_keterangan') === 'sakit' ? 'selected' : '' }}>Sakit</option>
+                <option value="dinas_luar" {{ old('izin_keterangan') === 'dinas_luar' ? 'selected' : '' }}>Dinas Luar</option>
+              </select>
+              <div class="help">
+                Jika memilih salah satu opsi izin, tanda tangan akan dinonaktifkan.
+              </div>
+              @error('izin_keterangan') <div class="alert alert-danger">{{ $message }}</div> @enderror
+            </div>
           </div>
 
           {{-- Tanda tangan --}}
           <div class="form-row" style="margin-top:14px;">
             <div>
               <label>Tanda Tangan</label>
-              <div class="sig-wrap">
+              <div class="sig-wrap" id="sigWrap">
                 <canvas id="sigPad"></canvas>
               </div>
               <div style="margin-top:10px; display:flex; gap:8px;">
-                <button type="button" class="btn btn-soft" onclick="clearSig()">Bersihkan</button>
-                <button type="button" class="btn btn-soft" onclick="resizeCanvas()">Sesuaikan Kanvas</button>
+                <button type="button" class="btn btn-soft" id="btnClearSig" onclick="clearSig()">Bersihkan</button>
+                <button type="button" class="btn btn-soft" id="btnResizeSig" onclick="resizeCanvas()">Sesuaikan Kanvas</button>
               </div>
+              <div class="help-warning" id="izinHelp">Tanda tangan dinonaktifkan karena Anda memilih keterangan izin.</div>
               <input type="hidden" name="ttd" id="ttdInput" required>
               @error('ttd') <div class="alert alert-danger" style="margin-top:10px">{{ $message }}</div> @enderror
             </div>
@@ -251,6 +267,7 @@
 
     // ===== Signature Pad =====
     let sigPad, canvas;
+    let isIzinMode = false;
     function resizeCanvas(){
       if(!canvas) return;
       const ratio = Math.max(window.devicePixelRatio || 1, 1);
@@ -262,13 +279,44 @@
     }
     function clearSig(){ if(sigPad) sigPad.clear(); }
 
-    function handleSubmit(){
-      if(!sigPad || sigPad.isEmpty()){
-        alert('Mohon tanda tangani terlebih dahulu.');
-        return false;
+    function syncIzinState(){
+      const izinSelect = document.getElementById('izin_keterangan');
+      const sigWrap = document.getElementById('sigWrap');
+      const help = document.getElementById('izinHelp');
+      const ttdInput = document.getElementById('ttdInput');
+      const btnClear = document.getElementById('btnClearSig');
+      const btnResize = document.getElementById('btnResizeSig');
+
+      isIzinMode = !!(izinSelect && izinSelect.value);
+      if (isIzinMode) {
+        clearSig();
+        if (sigWrap) sigWrap.classList.add('sig-disabled');
+        if (help) help.style.display = 'block';
+        if (ttdInput) {
+          ttdInput.value = '';
+          ttdInput.removeAttribute('required');
+        }
+        if (btnClear) btnClear.disabled = true;
+        if (btnResize) btnResize.disabled = true;
+      } else {
+        if (sigWrap) sigWrap.classList.remove('sig-disabled');
+        if (help) help.style.display = 'none';
+        if (ttdInput) ttdInput.setAttribute('required', 'required');
+        if (btnClear) btnClear.disabled = false;
+        if (btnResize) btnResize.disabled = false;
       }
-      // simpan TTD
-      document.getElementById('ttdInput').value = sigPad.toDataURL('image/png');
+    }
+
+    function handleSubmit(){
+      if (!isIzinMode) {
+        if(!sigPad || sigPad.isEmpty()){
+          alert('Mohon tanda tangani terlebih dahulu.');
+          return false;
+        }
+        document.getElementById('ttdInput').value = sigPad.toDataURL('image/png');
+      } else {
+        document.getElementById('ttdInput').value = '';
+      }
 
       // UX: disable submit
       const btn = document.getElementById('btnSubmit');
@@ -282,6 +330,8 @@
       // set tinggi default yang nyaman pada mobile
       canvas.style.height = '240px';
       resizeCanvas();
+      document.getElementById('izin_keterangan').addEventListener('change', syncIzinState);
+      syncIzinState();
     });
     window.addEventListener('resize', resizeCanvas);
   </script>

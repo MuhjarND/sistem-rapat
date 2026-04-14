@@ -38,7 +38,7 @@ class PublicAbsensiController extends Controller
      * Pencarian peserta (Select2):
      * - Urut hirarki ASC lalu nama ASC
      * - Gabung undangan (users) + tamu
-     * - KECUALIKAN yang sudah hadir
+     * - KECUALIKAN yang sudah mengirim absensi
      * - Kembalikan array datar: [{id,text}, ...]
      */
     public function search($token, Request $req)
@@ -51,7 +51,7 @@ class PublicAbsensiController extends Controller
 
             $q = trim($req->get('q', ''));
 
-            // ==== Deteksi kolom dinamis absensi untuk ambil daftar yang SUDAH hadir ====
+            // ==== Deteksi kolom dinamis absensi untuk ambil daftar yang SUDAH mengirim absensi ====
             $colUserAbs = Schema::hasColumn('absensi', 'user_id') ? 'user_id'
                         : (Schema::hasColumn('absensi', 'id_user') ? 'id_user' : null);
             $colTamuAbs = Schema::hasColumn('absensi', 'tamu_id') ? 'tamu_id'
@@ -63,7 +63,6 @@ class PublicAbsensiController extends Controller
             if ($colUserAbs) {
                 $sudahUser = DB::table('absensi')
                     ->where('id_rapat', $rapat->id)
-                    ->where('status', 'hadir')
                     ->whereNotNull($colUserAbs)
                     ->pluck($colUserAbs)
                     ->map(fn($v)=>(int)$v)
@@ -72,7 +71,6 @@ class PublicAbsensiController extends Controller
             if ($colTamuAbs) {
                 $sudahTamu = DB::table('absensi')
                     ->where('id_rapat', $rapat->id)
-                    ->where('status', 'hadir')
                     ->whereNotNull($colTamuAbs)
                     ->pluck($colTamuAbs)
                     ->map(fn($v)=>(int)$v)
@@ -165,13 +163,15 @@ class PublicAbsensiController extends Controller
         if (!$rapat) return back()->with('error', 'Rapat tidak ditemukan.');
 
         $req->validate([
-            'peserta' => 'required|string',
-            'ttd'     => 'required|string',
-            'no_hp'   => ['nullable','regex:/^0[0-9]{9,13}$/'],
+            'peserta'         => 'required|string',
+            'ttd'             => 'required_without:izin_keterangan|nullable|string',
+            'izin_keterangan' => 'nullable|in:sakit,dinas_luar',
+            'no_hp'           => ['nullable','regex:/^0[0-9]{9,13}$/'],
         ],[
-            'peserta.required' => 'Silakan pilih nama pada daftar.',
-            'ttd.required'     => 'Tanda tangan belum diisi.',
-            'no_hp.regex'      => 'Nomor HP tidak valid. Contoh: 081234567890',
+            'peserta.required'     => 'Silakan pilih nama pada daftar.',
+            'ttd.required_without' => 'Tanda tangan wajib diisi jika tidak memilih keterangan izin.',
+            'izin_keterangan.in'   => 'Pilihan keterangan izin tidak valid.',
+            'no_hp.regex'          => 'Nomor HP tidak valid. Contoh: 081234567890',
         ]);
 
         $pesertaRaw = $req->input('peserta');
@@ -223,43 +223,50 @@ class PublicAbsensiController extends Controller
         }
 
         // Cegah dobel absensi
-        $exists = DB::table('absensi')
-            ->where('id_rapat', $rapat->id)
-            ->where('status', 'hadir');
+        $exists = DB::table('absensi')->where('id_rapat', $rapat->id);
         if ($userId && $colUser) $exists->where($colUser, $userId);
         if ($tamuId && $colTamu) $exists->where($colTamu, $tamuId);
         if ($exists->exists()) {
-            return back()->with('error', 'Anda sudah tercatat hadir untuk rapat ini.');
+            return back()->with('error', 'Anda sudah mengirim absensi untuk rapat ini.');
         }
 
-        // Simpan TTD ke PUBLIC/ttd
-        $dataUrl = $req->input('ttd');
-        if (strpos($dataUrl, 'data:image/png;base64,') !== 0) {
-            return back()->with('error', 'Format tanda tangan tidak valid.');
+        $izinKeterangan = $req->input('izin_keterangan');
+        $statusAbsensi = $izinKeterangan ? 'izin' : 'hadir';
+        $relPath = null;
+
+        if (!$izinKeterangan) {
+            // Simpan TTD ke PUBLIC/ttd
+            $dataUrl = $req->input('ttd');
+            if (strpos($dataUrl, 'data:image/png;base64,') !== 0) {
+                return back()->with('error', 'Format tanda tangan tidak valid.');
+            }
+            $base64 = substr($dataUrl, strlen('data:image/png;base64,'));
+            $bin    = base64_decode($base64);
+            if ($bin === false) return back()->with('error', 'Gagal memproses tanda tangan.');
+
+            $publicDir = public_path('ttd');
+            if (!is_dir($publicDir)) {
+                @mkdir($publicDir, 0775, true);
+            }
+
+            $fname    = 'rapat'.$rapat->id.'-'.$type.$pid.'-'.date('Ymd_His').'-'.Str::random(6).'.png';
+            $relPath  = 'ttd/'.$fname;
+            $absolute = $publicDir.DIRECTORY_SEPARATOR.$fname;
+
+            file_put_contents($absolute, $bin);
         }
-        $base64 = substr($dataUrl, strlen('data:image/png;base64,'));
-        $bin    = base64_decode($base64);
-        if ($bin === false) return back()->with('error', 'Gagal memproses tanda tangan.');
-
-        $publicDir = public_path('ttd');
-        if (!is_dir($publicDir)) {
-            @mkdir($publicDir, 0775, true);
-        }
-
-        $fname    = 'rapat'.$rapat->id.'-'.$type.$pid.'-'.date('Ymd_His').'-'.Str::random(6).'.png';
-        $relPath  = 'ttd/'.$fname;
-        $absolute = $publicDir.DIRECTORY_SEPARATOR.$fname;
-
-        file_put_contents($absolute, $bin);
 
         $now = now();
         $payload = [
             'id_rapat'   => $rapat->id,
-            'status'     => 'hadir',
+            'status'     => $statusAbsensi,
             'ttd_path'   => $relPath,
             'created_at' => $now,
             'updated_at' => $now,
         ];
+        if (Schema::hasColumn('absensi', 'izin_keterangan')) {
+            $payload['izin_keterangan'] = $izinKeterangan ?: null;
+        }
         if ($colNama)    $payload[$colNama]    = $identitas['nama'];
         if ($colJabatan) $payload[$colJabatan] = $identitas['jabatan'];
         if ($colUnit)    $payload[$colUnit]    = $identitas['unit'];
@@ -276,7 +283,9 @@ class PublicAbsensiController extends Controller
         DB::table('absensi')->insert($payload);
 
         return redirect()->route('absensi.publik.show', $token)
-            ->with('success', 'Terima kasih! Kehadiran Anda sudah tercatat.');
+            ->with('success', $izinKeterangan
+                ? 'Terima kasih. Status izin Anda sudah tercatat.'
+                : 'Terima kasih! Kehadiran Anda sudah tercatat.');
     }
 }
 

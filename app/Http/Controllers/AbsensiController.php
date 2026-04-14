@@ -756,6 +756,12 @@ public function exportPdf(Request $request, $id_rapat)
             DB::raw('COALESCE(users.hirarki, 9999) as hirarki')
         );
 
+    if (Schema::hasColumn('absensi', 'izin_keterangan')) {
+        $pesertaUser->addSelect('absensi.izin_keterangan');
+    } else {
+        $pesertaUser->addSelect(DB::raw('NULL as izin_keterangan'));
+    }
+
     // ====== Peserta tamu (guest) dari absensi_guest
     $pesertaGuest = DB::table('absensi_guest')
         ->where('id_rapat',$id_rapat)
@@ -771,6 +777,7 @@ public function exportPdf(Request $request, $id_rapat)
             'created_at as abs_created_at',
             'ttd_path',
             'ttd_hash',
+            DB::raw('NULL as izin_keterangan'),
             DB::raw('99999 as hirarki')
         );
 
@@ -838,6 +845,7 @@ public function exportPdf(Request $request, $id_rapat)
             'jabatan'     => (string) ($row->jabatan ?? ''),
             'unit'        => (string) ($row->unit ?? ''),    // <-- penting untuk kolom Unit/Instansi
             'status'      => (string) ($row->status ?? ''),
+            'izin_keterangan' => (string) ($row->izin_keterangan ?? ''),
             'waktu_absen' => $waktuAbsStr,                  // dipakai Blade jadi "TTD: ... WIT"
             'ttd_data'    => $ttdData,                      // aman untuk DomPDF
             // 'ttd_path'  => $row->ttd_path,                // tidak perlu, kita sudah embed base64

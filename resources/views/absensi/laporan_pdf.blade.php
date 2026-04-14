@@ -43,8 +43,9 @@
         }
         .muted { color:#666; font-size: 9pt; margin-top:1px; text-align:center; }
 
-        .ttd { float:right; width:260px; text-align:left; }
-        .qr-note { font-size: 10pt; color:#444; line-height:1.35; }
+        .ttd-section { margin-top: 10px; page-break-inside: avoid; }
+        .ttd { float:right; width:220px; text-align:left; }
+        .qr-note { font-size: 8.5pt; color:#444; line-height:1.2; }
         .clearfix::after { content:""; display:table; clear:both; }
     </style>
 </head>
@@ -120,6 +121,7 @@
                   $jab   = $get($p,'jabatan','-');
                   $unit  = $get($p,'unit','-');
                   $stat  = strtoupper($get($p,'status','-'));
+                  $izinKet = $get($p,'izin_keterangan','');
                   $ttd   = $get($p,'ttd_data');
                 //   $wabs  = $get($p,'waktu_absen');
                 @endphp
@@ -130,7 +132,9 @@
                     <td class="instansi-col">{{ $unit ?: '-' }}</td>
                     <td class="ttd-col">
                         <div class="ttd-box">
-                            @if(!empty($ttd))
+                            @if($izinKet)
+                                -
+                            @elseif(!empty($ttd))
                                 <img class="ttd-img" src="{{ $ttd }}" alt="TTD {{ $nm }}">
                             @else
                                 <div class="ttd-empty"></div>
@@ -140,14 +144,14 @@
                             <div class="muted">{{ $wabs }} WIT</div>
                         @endif --}}
                     </td>
-                    <td class="center">{{ $stat ?: '-' }}</td>
+                    <td class="center">{{ $izinKet ? ucwords(str_replace('_',' ',$izinKet)) : ($stat ?: '-') }}</td>
                 </tr>
             @empty
                 <tr><td colspan="6" class="center">Tidak ada data peserta.</td></tr>
             @endforelse
         </tbody>
     </table>
-    <br><br>
+    <div class="ttd-section"></div>
 
     {{-- ===== Blok TTD / QR ===== --}}
     <div class="clearfix">
@@ -161,10 +165,10 @@
                     <br>
 
                     @if(!empty($qrSrc))
-                        <img src="{{ $qrSrc }}" style="width:130px; height:auto; margin:8px 0;">
+                        <img src="{{ $qrSrc }}" style="width:100px; height:auto; margin:6px 0;">
                         <div class="qr-note">Terverifikasi digital (Melalui SMART)</div>
                     @else
-                        <div class="qr-note" style="margin:8px 0;">
+                        <div class="qr-note" style="margin:6px 0;">
                             <i>MENUNGGU APPROVAL ABSENSI</i><br>
                         </div>
                     @endif
