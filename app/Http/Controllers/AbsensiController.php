@@ -777,8 +777,8 @@ public function exportPdf(Request $request, $id_rapat)
             'created_at as abs_created_at',
             'ttd_path',
             'ttd_hash',
-            DB::raw('NULL as izin_keterangan'),
-            DB::raw('99999 as hirarki')
+            DB::raw('99999 as hirarki'),
+            DB::raw('NULL as izin_keterangan')
         );
 
     // ====== UNION dan ambil semua baris
