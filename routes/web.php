@@ -9,6 +9,8 @@ use App\Http\Controllers\UserLookupController;
 Route::redirect('/', '/login');
 
 Auth::routes(['register' => false]);
+Route::get('/autologin', 'AutoLoginController@show')->name('autologin');
+Route::post('/autologin', 'AutoLoginController@login')->name('autologin.login');
 
 Route::get('/home', 'HomeController@index')->name('home');
 
