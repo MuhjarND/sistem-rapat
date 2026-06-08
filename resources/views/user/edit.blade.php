@@ -114,6 +114,17 @@
           @error('role') <div class="invalid-feedback">{{ $message }}</div> @enderror
         </div>
 
+        {{-- Status Pegawai --}}
+        <div class="form-group mb-3">
+          <label>Status Pegawai</label>
+          @php $selectedStatus = (string) old('is_active', isset($user->is_active) ? (int) $user->is_active : 1); @endphp
+          <select name="is_active" class="form-control @error('is_active') is-invalid @enderror" required>
+            <option value="1" {{ $selectedStatus === '1' ? 'selected' : '' }}>Aktif</option>
+            <option value="0" {{ $selectedStatus === '0' ? 'selected' : '' }}>Nonaktif</option>
+          </select>
+          @error('is_active') <div class="invalid-feedback">{{ $message }}</div> @enderror
+        </div>
+
         <hr>
 
         {{-- Password --}}

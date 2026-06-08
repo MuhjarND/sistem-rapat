@@ -237,6 +237,7 @@
               <th style="width:240px;">Unit & Bidang</th>
               <th style="width:100px;">Tingkatan</th>
               <th style="width:120px;">Role</th>
+              <th style="width:110px;">Status</th>
               <th style="width:80px;">Hirarki</th>
               <th style="width:140px;">Aksi</th>
             </tr>
@@ -273,6 +274,14 @@
 
                 <td class="text-center" data-label="Role">{{ ucfirst($user->role) }}</td>
 
+                <td class="text-center" data-label="Status">
+                  @if((int)($user->is_active ?? 1) === 1)
+                    <span class="badge-chip text-success">Aktif</span>
+                  @else
+                    <span class="badge-chip text-danger">Nonaktif</span>
+                  @endif
+                </td>
+
                 <td class="text-center" data-label="Hirarki">{{ $user->hirarki ?? '-' }}</td>
 
                 <td class="text-center" data-label="Aksi">
@@ -297,7 +306,7 @@
               </tr>
             @empty
               <tr>
-                <td colspan="9" class="text-center text-muted p-4">Belum ada user.</td>
+                <td colspan="10" class="text-center text-muted p-4">Belum ada user.</td>
               </tr>
             @endforelse
           </tbody>

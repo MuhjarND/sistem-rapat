@@ -56,7 +56,7 @@ class UserController extends Controller
             ->select(
                 'u.id','u.name','u.jabatan','u.jabatan_id',
                 DB::raw('COALESCE(u.jabatan_keterangan, j.keterangan) as jabatan_keterangan'),
-                'u.email','u.no_hp','u.unit','u.bidang','u.tingkatan','u.role','u.hirarki','u.created_at',
+                'u.email','u.no_hp','u.unit','u.bidang','u.tingkatan','u.role','u.hirarki','u.is_active','u.created_at',
                 'j.nama as jabatan_ref'
             );
 
@@ -171,6 +171,7 @@ class UserController extends Controller
             ],
             'tingkatan' => ['nullable', Rule::in([1,2])],
             'role'      => ['required', Rule::in(['admin','operator','notulis','peserta','protokoler'])],
+            'is_active' => ['required', Rule::in(['0', '1'])],
             'password'  => 'required|min:6|confirmed',
             'hirarki'   => 'nullable|integer|min:0|max:65535',
         ],[
@@ -206,6 +207,7 @@ class UserController extends Controller
             'tingkatan'  => $tingkatan, // 1/2/null
             'role'       => $role,
             'hirarki'    => $request->filled('hirarki') ? (int)$request->hirarki : null,
+            'is_active'  => (int) $request->is_active,
             'password'   => Hash::make($request->password),
             'created_at' => now(),
             'updated_at' => now(),
@@ -273,6 +275,7 @@ class UserController extends Controller
             ],
             'tingkatan' => ['nullable', Rule::in([1,2])],
             'role'      => ['required', Rule::in(['admin','operator','notulis','peserta','protokoler'])],
+            'is_active' => ['required', Rule::in(['0', '1'])],
             'password'  => 'nullable|min:6|confirmed',
             'hirarki'   => 'nullable|integer|min:0|max:65535',
         ],[
@@ -307,6 +310,7 @@ class UserController extends Controller
             'tingkatan'  => $tingkatan,
             'role'       => $role,
             'hirarki'    => $request->filled('hirarki') ? (int)$request->hirarki : null,
+            'is_active'  => (int) $request->is_active,
             'updated_at' => now(),
         ];
         if ($request->filled('password')) {
