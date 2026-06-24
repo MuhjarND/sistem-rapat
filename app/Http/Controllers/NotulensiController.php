@@ -16,6 +16,7 @@ use Illuminate\Support\Str;
 // Helper Fonnte
 use App\Helpers\FonnteWa;
 use App\Helpers\TimeHelper;
+use App\Services\MagicLoginLinkService;
 
 class NotulensiController extends Controller
 {
@@ -1193,6 +1194,7 @@ public function update(Request $request, $id)
             ->whereNotNull('t.user_id')
             ->select(
                 'u.id as uid','u.name',
+                't.id as task_id',
                 't.tgl_penyelesaian'
             )->get();
 
@@ -1205,9 +1207,6 @@ public function update(Request $request, $id)
             ->whereIn('id', $userIds)
             ->select('id','name', DB::raw("{$phoneExpr} as phone"))
             ->get()->keyBy('id');
-
-        // URL tugas peserta
-        $urlTugas = URL::route('peserta.tugas.index');
 
         $tglRapat = $rapat->tanggal ? Carbon::parse($rapat->tanggal)->isoFormat('D MMM Y') : '-';
 
@@ -1223,6 +1222,10 @@ public function update(Request $request, $id)
             }
 
             $tglSelesai = $r->tgl_penyelesaian ? Carbon::parse($r->tgl_penyelesaian)->isoFormat('D MMM Y') : '-';
+            $urlTugas = app(MagicLoginLinkService::class)->create(
+                (int) $r->uid,
+                route('peserta.tugas.index', [], false) . '?task=' . (int) $r->task_id
+            );
 
             // pesan (boleh disesuaikan ke versi formal bila diinginkan)
             $msg = $this->buildTaskAssignedMessage(

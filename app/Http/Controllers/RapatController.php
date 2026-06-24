@@ -12,6 +12,7 @@ use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 use iio\libmergepdf\Merger;
+use App\Services\MagicLoginLinkService;
 
 class RapatController extends Controller
 {
@@ -1396,7 +1397,8 @@ class RapatController extends Controller
             $approver = DB::table('users')->where('id', $firstReq->approver_user_id)->first();
             if ($approver && $approver->no_hp) {
                 $wa      = preg_replace('/^0/', '62', $approver->no_hp);
-                $signUrl = url('/approval/sign/' . $firstReq->sign_token);
+                $signUrl = app(MagicLoginLinkService::class)
+                    ->create((int) $approver->id, '/approval/sign/' . $firstReq->sign_token);
                 \App\Helpers\FonnteWa::send(
                     $wa,
                     "Assalamu'alaikum Wr. Wb.\n\n" .

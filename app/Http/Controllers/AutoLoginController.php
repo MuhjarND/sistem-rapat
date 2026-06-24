@@ -6,6 +6,7 @@ use App\Services\ChatbotGatewayService;
 use App\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
@@ -20,10 +21,6 @@ class AutoLoginController extends Controller
             return $this->errorResponse();
         }
 
-        if (Auth::guard(config('auth.defaults.guard', 'web'))->check()) {
-            return redirect($redirect ?: $this->redirectPathFor(Auth::user()));
-        }
-
         return response()
             ->view('auth.autologin-continue', compact('token', 'redirect'))
             ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
@@ -36,6 +33,29 @@ class AutoLoginController extends Controller
 
         if ($token === '') {
             return $this->errorResponse();
+        }
+
+        $localValidation = $this->validateInternalToken($token);
+        if (!empty($localValidation['valid']) && !empty($localValidation['app_user_id'])) {
+            $user = $this->findUser((string) $localValidation['app_user_id']);
+
+            if (!$user) {
+                return $this->errorResponse();
+            }
+
+            $guard = config('auth.defaults.guard', 'web');
+            Auth::guard($guard)->login($user);
+            $request->session()->regenerate();
+
+            $tokenRedirect = $this->safeRedirectPath((string) ($localValidation['redirect_path'] ?? ''));
+
+            Log::info('Internal magic login user matched', [
+                'user_id' => $user->id,
+                'role' => $user->role ?? null,
+                'guard' => $guard,
+            ]);
+
+            return redirect($redirect ?: $tokenRedirect ?: $this->redirectPathFor($user));
         }
 
         $validation = $gateway->validateMagicToken($token);
@@ -90,7 +110,40 @@ class AutoLoginController extends Controller
             $query->orWhere('email', $appUserId);
         }
 
-        return $query->first();
+        $user = $query->first();
+
+        if ($user && Schema::hasColumn('users', 'is_active') && isset($user->is_active) && (int) $user->is_active !== 1) {
+            return null;
+        }
+
+        return $user;
+    }
+
+    private function validateInternalToken(string $token): array
+    {
+        if (!Schema::hasTable('magic_login_tokens')) {
+            return ['valid' => false, 'reason' => 'table_missing'];
+        }
+
+        $row = DB::table('magic_login_tokens')
+            ->where('token_hash', hash('sha256', $token))
+            ->where('expires_at', '>=', now())
+            ->first();
+
+        if (!$row) {
+            return ['valid' => false, 'reason' => 'not_found_or_expired'];
+        }
+
+        DB::table('magic_login_tokens')->where('id', $row->id)->update([
+            'last_used_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return [
+            'valid' => true,
+            'app_user_id' => (string) $row->user_id,
+            'redirect_path' => (string) ($row->redirect_path ?? ''),
+        ];
     }
 
     private function redirectPathFor($user): string
@@ -136,6 +189,7 @@ class AutoLoginController extends Controller
             '/agenda-pimpinan',
             '/undangan-saya',
             '/absensi-saya',
+            '/absensi',
             '/rapat',
             '/laporan',
             '/home',

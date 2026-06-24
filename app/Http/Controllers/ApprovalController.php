@@ -12,6 +12,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use iio\libmergepdf\Merger;
 use App\Helpers\FonnteWa;
 use App\Helpers\TimeHelper;
+use App\Services\MagicLoginLinkService;
 
 class ApprovalController extends Controller
 {
@@ -456,13 +457,14 @@ public function signSubmit(Request $request, $token)
         ->orderBy('order_index')
         ->first();
 
-    if ($next) {
-        // Kirim WA ke approver berikutnya (tetap)
-        $nextApprover = DB::table('users')->where('id', $next->approver_user_id)->first();
-        if ($nextApprover && $nextApprover->no_hp) {
-            $wa = preg_replace('/^0/', '62', $nextApprover->no_hp);
-            $signUrl = url('/approval/sign/'.$next->sign_token);
-            \App\Helpers\FonnteWa::send($wa,
+        if ($next) {
+            // Kirim WA ke approver berikutnya (tetap)
+            $nextApprover = DB::table('users')->where('id', $next->approver_user_id)->first();
+            if ($nextApprover && $nextApprover->no_hp) {
+                $wa = preg_replace('/^0/', '62', $nextApprover->no_hp);
+                $signUrl = app(MagicLoginLinkService::class)
+                    ->create((int) $nextApprover->id, '/approval/sign/'.$next->sign_token);
+                \App\Helpers\FonnteWa::send($wa,
                 "Assalamu’alaikum Wr. Wb.\n\n".
                 "Dengan Hormat,\n".
                 "Mohon kesediaan untuk memberikan *Approval* pada dokumen *{$req->doc_type}* rapat berikut:\n\n".
@@ -757,13 +759,18 @@ public function signSubmit(Request $request, $token)
         $tglRapat = $task->tanggal ? \Carbon\Carbon::parse($task->tanggal)->isoFormat('D MMM Y') : '-';
 
         $cleanUraian = trim(strip_tags($task->hasil_pembahasan));
+        $taskUrl = app(MagicLoginLinkService::class)->create(
+            (int) $task->user_id,
+            route('peserta.tugas.index', [], false) . '?task=' . (int) $task->id
+        );
         $message =
             "*Pengingat Tugas Notulensi*\n\n".
             "Yth. *{$task->peserta_nama}*,\n".
             "Anda memiliki tugas notulensi dari rapat *{$task->judul}* ({$tglRapat} · {$task->tempat}).\n\n".
             "Uraian: {$cleanUraian}\n".
             "Target selesai: *{$deadline}*\n\n".
-            "Mohon segera menindaklanjuti dan mengunggah eviden bila sudah dikerjakan. Terima kasih.";
+            "Mohon segera menindaklanjuti dan mengunggah eviden melalui tautan berikut:\n{$taskUrl}\n\n".
+            "Terima kasih.";
 
         try {
             $response = FonnteWa::send($phone, $message);
@@ -991,7 +998,7 @@ public function signSubmit(Request $request, $token)
         $judul = $rapat->judul ?? '-';
         $jenis = ucfirst($docType);
         $catat = $note ? "\nCatatan: ".$note : '';
-        $link  = $editUrl ?: url('/');
+        $link  = app(MagicLoginLinkService::class)->create((int) $creatorId, $editUrl ?: '/');
 
         $approverName = $reqRow->approver_user_id
             ? (DB::table('users')->where('id', $reqRow->approver_user_id)->value('name') ?: 'Approver')
@@ -1066,7 +1073,7 @@ public function signSubmit(Request $request, $token)
             $peserta = DB::table('undangan as u')
                 ->leftJoin('users as usr', 'usr.id', '=', "u.$joinCol")
                 ->where('u.id_rapat', $rapat->id)
-                ->select('usr.name', 'usr.no_hp')
+                ->select('usr.id as user_id', 'usr.name', 'usr.no_hp')
                 ->get();
         }
 
@@ -1148,7 +1155,14 @@ public function signSubmit(Request $request, $token)
             $phone = \App\Helpers\FonnteWa::normalizeNumber($row->no_hp);
             if (!$phone || isset($sentTo[$phone])) continue;
 
-            \App\Helpers\FonnteWa::send($phone, $pesan);
+            $pesanKirim = $pesan;
+            if (!empty($row->user_id) && $previewLink) {
+                $personalPreviewLink = app(MagicLoginLinkService::class)
+                    ->create((int) $row->user_id, $previewLink);
+                $pesanKirim = str_replace($previewLink, $personalPreviewLink, $pesanKirim);
+            }
+
+            \App\Helpers\FonnteWa::send($phone, $pesanKirim);
             $sentTo[$phone] = true;
             $sent++;
         }
@@ -1228,7 +1242,8 @@ public function notifyNextApproverDocReady(int $rapatId, string $docType = 'notu
         // $isResub = true/false;
     }
 
-    $signUrl = url('/approval/sign/'.$firstPending->sign_token);
+    $signUrl = app(MagicLoginLinkService::class)
+        ->create((int) $approver->id, '/approval/sign/'.$firstPending->sign_token);
     $tgl     = $rapat->tanggal ? \Carbon\Carbon::parse($rapat->tanggal)->isoFormat('D MMM Y') : '-';
 
     $msg = "Assalamu’alaikum Wr. Wb.\n\n"
@@ -1282,7 +1297,8 @@ public function notifyFirstPendingApprover(int $rapatId, string $docType): void
 
     $wa = preg_replace('/\D+/', '', (string)$approver->no_hp);      // keep digits
     $wa = preg_replace('/^0/', '62', $wa);                          // 08xx -> 62xx
-    $signUrl = url('/approval/sign/'.$req->sign_token);
+    $signUrl = app(MagicLoginLinkService::class)
+        ->create((int) $approver->id, '/approval/sign/'.$req->sign_token);
     $docTitle = strtoupper($docType);
 
     $msg = "Assalamu’alaikum Wr. Wb.\n\nDengan hormat,\nMohon kesediaan Bapak/Ibu untuk memberikan *Approval* pada dokumen *{$docTitle}* rapat:\n\n📄 *{$judul}*\n\nSilakan tinjau & setujui melalui tautan berikut:\n{$signUrl}\n\nTerima kasih.\nWassalamu’alaikum Wr. Wb.";
@@ -1361,7 +1377,8 @@ public function notifyFirstPendingApproverOnResubmission(int $rapatId, string $d
 
     // 4) Siapkan pesan “Sudah diperbaiki”
     $tgl  = $rapat->tanggal ? \Carbon\Carbon::parse($rapat->tanggal)->isoFormat('D MMM Y') : '-';
-    $sign = url('/approval/sign/'.$firstPending->sign_token);
+    $sign = app(MagicLoginLinkService::class)
+        ->create((int) $approver->id, '/approval/sign/'.$firstPending->sign_token);
 
     // Label dokumen
     $label = strtoupper($docType); // UNDANGAN / NOTULENSI / ABSENSI
