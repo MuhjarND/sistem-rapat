@@ -18,6 +18,7 @@ Route::get('/home', 'HomeController@index')->name('home');
 
 //PUBLIK
 Route::get('/qr/verify', 'VerificationController@verify')->name('qr.verify');
+Route::get('/undangan/publik/{code}/pdf', 'RapatController@publicUndanganPdf')->name('rapat.undangan.public.pdf');
 
 //HARUS LOGIN
 Route::get('/users/search', function(\Illuminate\Http\Request $r){

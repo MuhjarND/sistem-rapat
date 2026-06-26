@@ -254,7 +254,9 @@ class PesertaController extends Controller
 
         // URL PDF undangan untuk inline preview (fallback beberapa nama route)
         $undangan_pdf_url = null;
-        if (Route::has('rapat.undangan.pdf')) {
+        if (!empty($rapat->public_code) && Route::has('rapat.undangan.public.pdf')) {
+            $undangan_pdf_url = route('rapat.undangan.public.pdf', $rapat->public_code);
+        } elseif (Route::has('rapat.undangan.pdf')) {
             $undangan_pdf_url = route('rapat.undangan.pdf', $id);
         } elseif (Route::has('undangan.pdf')) {
             $undangan_pdf_url = route('undangan.pdf', $id);

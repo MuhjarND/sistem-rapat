@@ -15,7 +15,7 @@
         <a href="{{ route('absensi.export.pdf', $rapat->id) }}" class="btn btn-primary btn-sm">
           <i class="fas fa-file-pdf mr-1"></i> Laporan Absensi
         </a>
-        <a href="{{ route('rapat.undangan.pdf', $rapat->id) }}" class="btn btn-primary btn-sm">
+        <a href="{{ $previewUndanganUrl ?? route('rapat.undangan.pdf', $rapat->id) }}" class="btn btn-primary btn-sm">
           <i class="fas fa-envelope-open-text mr-1"></i> Undangan
         </a>
       </div>

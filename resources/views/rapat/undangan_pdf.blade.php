@@ -55,6 +55,14 @@
     $tanggalSurat = !empty($rapat->created_at)
         ? \Carbon\Carbon::parse($rapat->created_at)
         : \Carbon\Carbon::parse($rapat->tanggal);
+    $tanggalMulaiKegiatan = \Carbon\Carbon::parse($rapat->tanggal);
+    $tanggalSelesaiKegiatan = !empty($rapat->tanggal_selesai)
+        ? \Carbon\Carbon::parse($rapat->tanggal_selesai)
+        : null;
+    $tanggalKegiatanDisplay = $tanggalMulaiKegiatan->isoFormat('dddd, D MMMM Y');
+    if ($tanggalSelesaiKegiatan && !$tanggalSelesaiKegiatan->isSameDay($tanggalMulaiKegiatan)) {
+        $tanggalKegiatanDisplay .= ' s/d ' . $tanggalSelesaiKegiatan->isoFormat('dddd, D MMMM Y');
+    }
 @endphp
 
 <!DOCTYPE html>
@@ -188,7 +196,7 @@
         <tr>
             <td width="120">Hari, Tanggal</td>
             <td>:</td>
-            <td>{{ \Carbon\Carbon::parse($rapat->tanggal)->isoFormat('dddd, D MMMM Y') }}</td>
+            <td>{{ $tanggalKegiatanDisplay }}</td>
         </tr>
         <tr>
             <td>Waktu</td>

@@ -420,6 +420,8 @@ class RapatController extends Controller
             'detail_tambahan'   => [$useDetailTambahan ? 'required' : 'nullable', 'string', 'max:5000'],
             'tujuan_surat'      => 'nullable|string|max:5000',
             'tanggal'           => 'required|date',
+            'pakai_rentang_tanggal' => 'nullable|boolean',
+            'tanggal_selesai'   => [$request->boolean('pakai_rentang_tanggal') ? 'required' : 'nullable', 'date', 'after_or_equal:tanggal'],
             'waktu_mulai'       => 'required',
             'tempat'            => 'required',
             'lampiran_tambahan' => 'nullable|in:0,1',
@@ -510,6 +512,11 @@ class RapatController extends Controller
                 ? trim((string) $request->tujuan_surat)
                 : null;
         }
+        if (Schema::hasColumn('rapat', 'tanggal_selesai')) {
+            $insertPayload['tanggal_selesai'] = $request->boolean('pakai_rentang_tanggal')
+                ? $request->tanggal_selesai
+                : null;
+        }
 
         $id_rapat = DB::table('rapat')->insertGetId(array_merge($insertPayload, $lampiranMeta));
 
@@ -574,6 +581,8 @@ class RapatController extends Controller
             'detail_tambahan'   => [$useDetailTambahan ? 'required' : 'nullable', 'string', 'max:5000'],
             'tujuan_surat'      => 'nullable|string|max:5000',
             'tanggal'           => 'required|date',
+            'pakai_rentang_tanggal' => 'nullable|boolean',
+            'tanggal_selesai'   => [$request->boolean('pakai_rentang_tanggal') ? 'required' : 'nullable', 'date', 'after_or_equal:tanggal'],
             'waktu_mulai'       => 'required',
             'tempat'            => 'required',
             'lampiran_tambahan' => 'nullable|in:0,1',
@@ -667,6 +676,11 @@ class RapatController extends Controller
         if (Schema::hasColumn('rapat', 'tujuan_surat')) {
             $insertPayload['tujuan_surat'] = trim((string) $request->tujuan_surat) !== ''
                 ? trim((string) $request->tujuan_surat)
+                : null;
+        }
+        if (Schema::hasColumn('rapat', 'tanggal_selesai')) {
+            $insertPayload['tanggal_selesai'] = $request->boolean('pakai_rentang_tanggal')
+                ? $request->tanggal_selesai
                 : null;
         }
 
@@ -788,9 +802,13 @@ class RapatController extends Controller
             ? route('absensi.export.pdf', ['id_rapat' => $id, 'preview' => 1])
             : url("/absensi/laporan/{$id}?preview=1");
 
-        $previewUndanganUrl = \Illuminate\Support\Facades\Route::has('rapat.undangan.pdf')
-            ? route('rapat.undangan.pdf', $id)
-            : url("/rapat/{$id}/undangan");
+        if (!empty($rapat->public_code) && \Illuminate\Support\Facades\Route::has('rapat.undangan.public.pdf')) {
+            $previewUndanganUrl = route('rapat.undangan.public.pdf', $rapat->public_code);
+        } else {
+            $previewUndanganUrl = \Illuminate\Support\Facades\Route::has('rapat.undangan.pdf')
+                ? route('rapat.undangan.pdf', $id)
+                : url("/rapat/{$id}/undangan");
+        }
 
         return view('rapat.show', compact(
             'rapat',
@@ -909,6 +927,8 @@ class RapatController extends Controller
             'detail_tambahan'   => [$useDetailTambahan ? 'required' : 'nullable', 'string', 'max:5000'],
             'tujuan_surat'      => 'nullable|string|max:5000',
             'tanggal'           => 'required|date',
+            'pakai_rentang_tanggal' => 'nullable|boolean',
+            'tanggal_selesai'   => [$request->boolean('pakai_rentang_tanggal') ? 'required' : 'nullable', 'date', 'after_or_equal:tanggal'],
             'waktu_mulai'       => 'required',
             'tempat'            => 'required',
             'lampiran_tambahan' => 'nullable|in:0,1',
@@ -1033,6 +1053,11 @@ class RapatController extends Controller
             if (Schema::hasColumn('rapat', 'tujuan_surat')) {
                 $updatePayload['tujuan_surat'] = trim((string) $request->tujuan_surat) !== ''
                     ? trim((string) $request->tujuan_surat)
+                    : null;
+            }
+            if (Schema::hasColumn('rapat', 'tanggal_selesai')) {
+                $updatePayload['tanggal_selesai'] = $request->boolean('pakai_rentang_tanggal')
+                    ? $request->tanggal_selesai
                     : null;
             }
             $updatePayload = array_merge($updatePayload, $lampiranMeta);
@@ -1222,8 +1247,25 @@ class RapatController extends Controller
         return redirect()->route('rapat.index')->with('success', 'Rapat berhasil dihapus!');
     }
 
-    // Export undangan PDF (tidak diubah)
+    // Export undangan PDF untuk user login.
     public function undanganPdf($id)
+    {
+        return $this->renderUndanganPdf((int) $id);
+    }
+
+    // Export undangan PDF publik via public_code.
+    public function publicUndanganPdf($code)
+    {
+        $id = DB::table('rapat')
+            ->where('public_code', $code)
+            ->value('id');
+
+        if (!$id) abort(404);
+
+        return $this->renderUndanganPdf((int) $id);
+    }
+
+    private function renderUndanganPdf(int $id)
     {
         $q = DB::table('rapat')
             ->leftJoin('kategori_rapat','kategori_rapat.id','=','rapat.id_kategori')

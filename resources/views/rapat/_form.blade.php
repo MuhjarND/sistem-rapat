@@ -47,6 +47,9 @@
   $detailYesId  = $isEdit ? ('detail-ya-'.$rapat->id) : 'detail-ya-new';
   $detailNoId   = $isEdit ? ('detail-tidak-'.$rapat->id) : 'detail-tidak-new';
   $detailValue  = old('pakai_detail_tambahan', $isEdit && !empty($rapat->detail_tambahan) ? '1' : '0');
+  $rentangTanggalId = $isEdit ? ('rentang-tanggal-'.$rapat->id) : 'rentang-tanggal-new';
+  $rentangTanggalWrapId = $isEdit ? ('rentangTanggalWrap-'.$rapat->id) : 'rentangTanggalWrap-new';
+  $rentangTanggalChecked = old('pakai_rentang_tanggal', $isEdit && !empty($rapat->tanggal_selesai) ? '1' : '0');
 @endphp
 
 @push('styles')
@@ -200,6 +203,27 @@
       <input type="text" name="tempat" value="{{ old('tempat', $rapat->tempat ?? '') }}" class="form-control" required>
     </div>
   </div>
+</div>
+<div class="form-group">
+  <div class="form-check">
+    <input class="form-check-input js-rentang-tanggal-check"
+           type="checkbox"
+           name="pakai_rentang_tanggal"
+           id="{{ $rentangTanggalId }}"
+           value="1"
+           data-rentang-wrap="{{ $rentangTanggalWrapId }}"
+           {{ (string) $rentangTanggalChecked === '1' ? 'checked' : '' }}>
+    <label class="form-check-label" for="{{ $rentangTanggalId }}">Gunakan rentang tanggal</label>
+  </div>
+</div>
+<div class="form-group" id="{{ $rentangTanggalWrapId }}" style="display:none;">
+  <label>Tanggal Selesai</label>
+  <input type="date"
+         name="tanggal_selesai"
+         value="{{ old('tanggal_selesai', $rapat->tanggal_selesai ?? '') }}"
+         class="form-control">
+  <small class="form-text text-muted">Isi jika kegiatan berlangsung lebih dari satu hari.</small>
+  @error('tanggal_selesai') <div class="text-danger mt-1">{{ $message }}</div> @enderror
 </div>
 
 <div class="form-group">
@@ -603,6 +627,26 @@
   })();
   </script>
 @endif
+  <script>
+  (function(){
+    document.querySelectorAll('.js-rentang-tanggal-check').forEach(function(cb){
+      var wrapId = cb.getAttribute('data-rentang-wrap');
+      var wrap = wrapId ? document.getElementById(wrapId) : null;
+      if (!wrap) return;
+      var input = wrap.querySelector('input[name="tanggal_selesai"]');
+      function sync(){
+        var show = cb.checked;
+        wrap.style.display = show ? '' : 'none';
+        if (input) {
+          if (show) input.setAttribute('required','required');
+          else input.removeAttribute('required');
+        }
+      }
+      cb.addEventListener('change', sync);
+      sync();
+    });
+  })();
+  </script>
   <script>
   (function(){
     document.querySelectorAll('.js-detail-check').forEach(function(input){

@@ -218,7 +218,10 @@ public function pending(Request $request)
                 $preview = route('notulensi.cetak', $nid);
             }
         } elseif ($r->doc_type === 'undangan') {
-            if (\Illuminate\Support\Facades\Route::has('rapat.undangan.pdf')) {
+            $publicCode = DB::table('rapat')->where('id', $r->rapat_id)->value('public_code');
+            if ($publicCode && \Illuminate\Support\Facades\Route::has('rapat.undangan.public.pdf')) {
+                $preview = route('rapat.undangan.public.pdf', $publicCode);
+            } elseif (\Illuminate\Support\Facades\Route::has('rapat.undangan.pdf')) {
                 $preview = route('rapat.undangan.pdf', $r->rapat_id);
             }
         } elseif ($r->doc_type === 'absensi') {
@@ -286,7 +289,10 @@ public function pending(Request $request)
                 $previewUrl = route('notulensi.cetak', $notulenId);
             }
         } elseif ($req->doc_type === 'undangan') {
-            if (RouteFacade::has('rapat.undangan.pdf')) {
+            $publicCode = DB::table('rapat')->where('id', $req->rapat_id)->value('public_code');
+            if ($publicCode && RouteFacade::has('rapat.undangan.public.pdf')) {
+                $previewUrl = route('rapat.undangan.public.pdf', $publicCode);
+            } elseif (RouteFacade::has('rapat.undangan.pdf')) {
                 $previewUrl = route('rapat.undangan.pdf', $req->rapat_id);
             }
         } elseif ($req->doc_type === 'absensi') {
@@ -1109,7 +1115,9 @@ public function signSubmit(Request $request, $token)
         // ===== Link PDF dan Preview Peserta =====
         $pdfLink = null;
         try {
-            if (\Illuminate\Support\Facades\Route::has('rapat.undangan.pdf')) {
+            if (!empty($rapat->public_code) && \Illuminate\Support\Facades\Route::has('rapat.undangan.public.pdf')) {
+                $pdfLink = route('rapat.undangan.public.pdf', $rapat->public_code);
+            } elseif (\Illuminate\Support\Facades\Route::has('rapat.undangan.pdf')) {
                 $pdfLink = route('rapat.undangan.pdf', $rapat->id);
             }
         } catch (\Throwable $e) {
@@ -1508,7 +1516,10 @@ public function notifyFirstPendingApproverOnResubmission(int $rapatId, string $d
                     $preview = route('notulensi.cetak', $nid);
                 }
             } elseif ($r->doc_type === 'undangan') {
-                if (\Illuminate\Support\Facades\Route::has('rapat.undangan.pdf')) {
+                $publicCode = DB::table('rapat')->where('id', $r->rapat_id)->value('public_code');
+                if ($publicCode && \Illuminate\Support\Facades\Route::has('rapat.undangan.public.pdf')) {
+                    $preview = route('rapat.undangan.public.pdf', $publicCode);
+                } elseif (\Illuminate\Support\Facades\Route::has('rapat.undangan.pdf')) {
                     $preview = route('rapat.undangan.pdf', $r->rapat_id);
                 }
             } elseif ($r->doc_type === 'absensi') {
