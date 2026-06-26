@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 use iio\libmergepdf\Merger;
 use App\Services\MagicLoginLinkService;
+use setasign\Fpdi\Fpdi;
 
 class RapatController extends Controller
 {
@@ -1298,6 +1299,21 @@ class RapatController extends Controller
             && trim((string) ($rapat->tujuan_surat ?? '')) !== '';
         $hasLampiranTambahan = Schema::hasColumn('rapat', 'lampiran_tambahan_path')
             && !empty($rapat->lampiran_tambahan_path);
+        $lampiranKeterangan = null;
+        $lampiranTambahanFile = $hasLampiranTambahan
+            ? public_path($rapat->lampiran_tambahan_path)
+            : null;
+        if ($lampiranTambahanFile && is_file($lampiranTambahanFile)) {
+            $ext = strtolower(pathinfo($lampiranTambahanFile, PATHINFO_EXTENSION));
+            if ($ext === 'pdf') {
+                $jumlahHalaman = $this->countPdfPages($lampiranTambahanFile);
+                $lampiranKeterangan = $jumlahHalaman > 0
+                    ? $this->formatLampiranCount($jumlahHalaman, 'Lembar')
+                    : '1 (satu) Berkas';
+            } else {
+                $lampiranKeterangan = '1 (satu) Berkas';
+            }
+        }
         if ($hasLampiranTambahan || $hasTujuanSurat) {
             $tampilkan_lampiran = false;
             $tampilkan_daftar_di_surat = false;
@@ -1330,6 +1346,7 @@ class RapatController extends Controller
             'kop_path'                   => $kop_path,
             'tampilkan_lampiran'         => $tampilkan_lampiran,
             'tampilkan_daftar_di_surat'  => $tampilkan_daftar_di_surat,
+            'lampiran_keterangan'        => $lampiranKeterangan,
             'qrA1'                       => $qrA1,
             'qrA2'                       => $qrA2,
         ])->setPaper('A4', 'portrait');
@@ -1372,6 +1389,56 @@ class RapatController extends Controller
             ->header('Content-Disposition', 'inline; filename="'.$filename.'"')
             ->header('X-Frame-Options', 'SAMEORIGIN')
             ->header('Cache-Control', 'private, max-age=0, must-revalidate');
+    }
+
+    private function countPdfPages(string $path): int
+    {
+        try {
+            $pdf = new Fpdi();
+            return (int) $pdf->setSourceFile($path);
+        } catch (\Throwable $e) {
+            Log::warning('Gagal menghitung halaman lampiran PDF', [
+                'path' => $path,
+                'error' => $e->getMessage(),
+            ]);
+            return 0;
+        }
+    }
+
+    private function formatLampiranCount(int $count, string $unit): string
+    {
+        return $count . ' (' . $this->numberToIndonesian($count) . ') ' . $unit;
+    }
+
+    private function numberToIndonesian(int $number): string
+    {
+        $number = abs($number);
+        $words = [
+            '', 'satu', 'dua', 'tiga', 'empat', 'lima',
+            'enam', 'tujuh', 'delapan', 'sembilan', 'sepuluh', 'sebelas',
+        ];
+
+        if ($number < 12) {
+            return $words[$number];
+        }
+        if ($number < 20) {
+            return $words[$number - 10] . ' belas';
+        }
+        if ($number < 100) {
+            $result = $words[intdiv($number, 10)] . ' puluh';
+            $rest = $number % 10;
+            return trim($result . ' ' . ($rest ? $words[$rest] : ''));
+        }
+        if ($number < 200) {
+            return trim('seratus ' . $this->numberToIndonesian($number - 100));
+        }
+        if ($number < 1000) {
+            $result = $words[intdiv($number, 100)] . ' ratus';
+            $rest = $number % 100;
+            return trim($result . ' ' . ($rest ? $this->numberToIndonesian($rest) : ''));
+        }
+
+        return (string) $number;
     }
 
     private function getStatusRapat($rapat)

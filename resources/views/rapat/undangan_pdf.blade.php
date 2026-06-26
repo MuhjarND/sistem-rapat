@@ -7,6 +7,7 @@
     if (!isset($tampilkan_daftar_di_surat)) {
         $tampilkan_daftar_di_surat = !$tampilkan_lampiran;
     }
+    $lampiranKeterangan = trim((string) ($lampiran_keterangan ?? ''));
     $kategoriNamaDisplay = trim((string) ($rapat->nama_kategori ?? $rapat->kategori_nama ?? $rapat->kategori ?? ''));
     if ($kategoriNamaDisplay === '-') {
         $kategoriNamaDisplay = '';
@@ -127,7 +128,7 @@
         <tr>
             <td>Lampiran</td>
             <td>:</td>
-            <td>{{ $tampilkan_lampiran ? 'Satu Lembar' : '-' }}</td>
+            <td>{{ $lampiranKeterangan !== '' ? $lampiranKeterangan : ($tampilkan_lampiran ? 'Satu Lembar' : '-') }}</td>
             <td></td>
         </tr>
         <tr>
